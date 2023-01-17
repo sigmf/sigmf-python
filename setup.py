@@ -20,7 +20,8 @@ setup(
     version=version,
     description=shortdesc,
     long_description=longdesc,
-    url='https://github.com/gnuradio/SigMF',
+    url='https://github.com/gnuradio/sigmf-python',
+
     classifiers=[
         'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
         'Operating System :: OS Independent',

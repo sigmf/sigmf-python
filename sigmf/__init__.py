@@ -1,10 +1,10 @@
 # Copyright: Multiple Authors
 #
-# This file is part of SigMF. https://github.com/gnuradio/SigMF
+# This file is part of SigMF. https://github.com/gnuradio/sigmf-python
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 
 from .archive import SigMFArchive
 from .sigmffile import SigMFFile, SigMFCollection
