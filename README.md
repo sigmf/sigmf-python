@@ -23,7 +23,7 @@ pip install sigmf
 To install the latest development version, build the package from source:
 
 ```bash
-git clone https://github.com/gnuradio/sigmf-python.git
+git clone https://github.com/sigmf/sigmf-python.git
 cd sigmf-python
 pip install .
 ```
