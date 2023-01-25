@@ -597,7 +597,7 @@ class SigMFFile(SigMFMetafile):
                 # only if data_file is `None` allows access to dynamically generated datsets
                 raise SigMFFileError("Cannot read samples from a metadata only distribution.")
             else:
-                raise SigMFFileError("No signal data file has bfeen associated with the metadata.")
+                raise SigMFFileError("No signal data file has been associated with the metadata.")
         first_byte = start_index * self.get_sample_size() * self.get_num_channels()
 
         if not self._is_conforming_dataset():
