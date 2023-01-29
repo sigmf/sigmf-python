@@ -88,10 +88,15 @@ def main():
     from . import sigmffile
     from . import error
 
-    parser = argparse.ArgumentParser(description='Validate SigMF Archive or file pair against JSON schema.')
+    from sigmf import __version__ as toolversion
+
+    parser = argparse.ArgumentParser(description='Validate SigMF Archive or file pair against JSON schema.',
+                                     prog='sigmf_validate')
     parser.add_argument('filename', help='SigMF path (extension optional).')
     parser.add_argument('--skip-checksum', action='store_true', help='Skip reading dataset to validate checksum.')
     parser.add_argument('-v', '--verbose', action='count', default=0)
+    parser.add_argument('--version', action='version', version=f'%(prog)s {toolversion}')
+
     args = parser.parse_args()
 
     level_lut = {
