@@ -113,7 +113,7 @@
                 "core:trailing_bytes": {
                     "$id": "#/properties/global/properties/core%3Atrailing_bytes",
                     "description": "The number of bytes to ignore at the end of a Non-Conforming Dataset file.",
-                    "type": "string"
+                    "type": "integer"
                 },
                 "core:version": {
                     "$id": "#/properties/global/properties/core%3Aversion",
