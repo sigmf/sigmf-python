@@ -382,10 +382,12 @@ def add_capture(capture_data_input, values, capture_selector_dict, file_data, fr
 
 def main():
     import argparse
+    from sigmf import __version__ as toolversion
 
     parser = argparse.ArgumentParser(description='Edit SigMF Archive.')
     parser.add_argument('-i', '--input', help='Input SigMF Archive Path.', default=None)
     parser.add_argument('-v', '--verbose', action='count', default=0)
+    parser.add_argument('--version', action='version', version=f'%(prog)s {toolversion}')
     args = parser.parse_args()
 
     level_lut = {
