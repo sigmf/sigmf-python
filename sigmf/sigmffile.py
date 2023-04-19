@@ -182,7 +182,7 @@ class SigMFFile(SigMFMetafile):
         if global_info is not None:
             self.set_global_info(global_info)
         if data_file is not None:
-            self.set_data_file(data_file, skip_checksum, map_readonly=map_readonly)
+            self.set_data_file(data_file, skip_checksum=skip_checksum, map_readonly=map_readonly)
 
     def __len__(self):
         return self._memmap.shape[0]
