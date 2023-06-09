@@ -26,18 +26,19 @@ from sigmf import SigMFFile
 
 from jsonschema.exceptions import ValidationError
 
-from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
+from .testdata import TEST_FLOAT32_DATA_1, TEST_METADATA_1
 
 
 def test_valid_data():
     '''assure the supplied metadata is OK'''
-    invalid_metadata = dict(TEST_METADATA)
-    SigMFFile(TEST_METADATA).validate()
+    invalid_metadata = dict(TEST_METADATA_1)
+    SigMFFile("test", TEST_METADATA_1).validate()
+
 
 class FailingCases(unittest.TestCase):
     '''Cases where the validator should throw an exception.'''
     def setUp(self):
-        self.metadata = dict(TEST_METADATA)
+        self.metadata = dict(TEST_METADATA_1)
 
     def test_extra_top_level_key(self):
         '''no extra keys allowed on the top level'''
@@ -45,7 +46,7 @@ class FailingCases(unittest.TestCase):
         with self.assertRaises(ValidationError):
             SigMFFile(self.metadata).validate()
 
-    def test_extra_top_level_key(self):
+    def test_invalid_label(self):
         '''label must be less than 20 chars'''
         self.metadata[SigMFFile.ANNOTATION_KEY][0][SigMFFile.LABEL_KEY] = 'a' * 21
         with self.assertRaises(ValidationError):
@@ -83,7 +84,7 @@ class FailingCases(unittest.TestCase):
 
     def test_invalid_hash(self):
         _, temp_path = tempfile.mkstemp()
-        TEST_FLOAT32_DATA.tofile(temp_path)
+        TEST_FLOAT32_DATA_1.tofile(temp_path)
         self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.HASH_KEY] = 'derp'
         with self.assertRaises(sigmf.error.SigMFFileError):
-            SigMFFile(metadata=self.metadata, data_file=temp_path)
+            SigMFFile(name="test", metadata=self.metadata, data_file=temp_path)

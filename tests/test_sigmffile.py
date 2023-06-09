@@ -26,7 +26,8 @@ import numpy as np
 import unittest
 
 from sigmf import sigmffile, utils
-from sigmf.sigmffile import SigMFFile
+from sigmf.sigmffile import SigMFFile, fromarchive
+from sigmf.archive import SigMFArchive
 
 from .testdata import *
 
@@ -35,8 +36,10 @@ class TestClassMethods(unittest.TestCase):
     def setUp(self):
         '''assure tests have a valid SigMF object to work with'''
         _, temp_path = tempfile.mkstemp()
-        TEST_FLOAT32_DATA.tofile(temp_path)
-        self.sigmf_object = SigMFFile(TEST_METADATA, data_file=temp_path)
+        TEST_FLOAT32_DATA_1.tofile(temp_path)
+        self.sigmf_object = SigMFFile("test",
+                                      TEST_METADATA_1,
+                                      data_file=temp_path)
 
     def test_iterator_basic(self):
         '''make sure default batch_size works'''
@@ -64,39 +67,88 @@ def simulate_capture(sigmf_md, n, capture_len):
 
 
 def test_default_constructor():
-    SigMFFile()
+    SigMFFile(name="test")
 
 
 def test_set_non_required_global_field():
-    sigf = SigMFFile()
+    sigf = SigMFFile(name="test")
     sigf.set_global_field('this_is:not_in_the_schema', None)
 
 
 def test_add_capture():
-    sigf = SigMFFile()
+    sigf = SigMFFile(name="test")
     sigf.add_capture(start_index=0, metadata={})
 
 
 def test_add_annotation():
-    sigf = SigMFFile()
+    sigf = SigMFFile(name="test")
     sigf.add_capture(start_index=0)
     meta = {"latitude": 40.0, "longitude": -105.0}
     sigf.add_annotation(start_index=0, length=128, metadata=meta)
+
+
+def test_add_annotation_with_duplicate_key():
+    f = SigMFFile(name="test")
+    f.add_capture(start_index=0)
+    m1 = {"latitude": 40.0, "longitude": -105.0}
+    f.add_annotation(start_index=0, length=128, metadata=m1)
+    m2 = {"latitude": 50.0, "longitude": -115.0}
+    f.add_annotation(start_index=0, length=128, metadata=m2)
+    assert len(f.get_annotations(64)) == 2
 
 
 def test_fromarchive(test_sigmffile):
     print("test_sigmffile is:\n", test_sigmffile)
     tf = tempfile.mkstemp()[1]
     td = tempfile.mkdtemp()
-    archive_path = test_sigmffile.archive(name=tf)
+    archive_path = test_sigmffile.archive(file_path=tf)
     result = sigmffile.fromarchive(archive_path=archive_path, dir=td)
-    assert result._metadata == test_sigmffile._metadata == TEST_METADATA
+    assert result == test_sigmffile
     os.remove(tf)
     shutil.rmtree(td)
 
 
+def test_fromarchive_multi_recording(test_sigmffile,
+                                     test_alternate_sigmffile,
+                                     test_alternate_sigmffile_2):
+    # single recording
+    with tempfile.NamedTemporaryFile(suffix=".sigmf") as t_file:
+        path = t_file.name
+        test_sigmffile.archive(fileobj=t_file)
+        single_sigmffile = fromarchive(path)
+        assert isinstance(single_sigmffile, SigMFFile)
+        assert single_sigmffile == test_sigmffile
+
+    # 2 recordings
+    with tempfile.NamedTemporaryFile(suffix=".sigmf") as t_file:
+        path = t_file.name
+        input_sigmffiles = [test_sigmffile, test_alternate_sigmffile]
+        SigMFArchive(input_sigmffiles, fileobj=t_file)
+        sigmffile_one, sigmffile_two = fromarchive(path)
+        assert isinstance(sigmffile_one, SigMFFile)
+        assert sigmffile_one == test_sigmffile
+        assert isinstance(sigmffile_two, SigMFFile)
+        assert sigmffile_two == test_alternate_sigmffile
+
+    # 3 recordings
+    with tempfile.NamedTemporaryFile(suffix=".sigmf") as t_file:
+        path = t_file.name
+        input_sigmffiles = [test_sigmffile,
+                            test_alternate_sigmffile,
+                            test_alternate_sigmffile_2]
+        SigMFArchive(input_sigmffiles, fileobj=t_file)
+        list_of_sigmffiles = fromarchive(path)
+        assert len(list_of_sigmffiles) == 3
+        assert isinstance(list_of_sigmffiles[0], SigMFFile)
+        assert list_of_sigmffiles[0] == test_sigmffile
+        assert isinstance(list_of_sigmffiles[1], SigMFFile)
+        assert list_of_sigmffiles[1] == test_alternate_sigmffile
+        assert isinstance(list_of_sigmffiles[2], SigMFFile)
+        assert list_of_sigmffiles[2] == test_alternate_sigmffile_2
+
+
 def test_add_multiple_captures_and_annotations():
-    sigf = SigMFFile()
+    sigf = SigMFFile(name="test")
     for idx in range(3):
         simulate_capture(sigf, idx, 1024)
 
@@ -124,6 +176,7 @@ def test_multichannel_types():
                 # for real or complex
                 check_count = raw_count * 1 # deepcopy
                 temp_signal = SigMFFile(
+                    name="test",
                     data_file=temp_path,
                     global_info={
                         SigMFFile.DATATYPE_KEY: f'{complex_prefix}{key}_le',
@@ -149,6 +202,7 @@ def test_multichannel_seek():
     # write some dummy data and read back
     np.arange(18, dtype=np.uint16).tofile(temp_path)
     temp_signal = SigMFFile(
+        name="test",
         data_file=temp_path,
         global_info={
             SigMFFile.DATATYPE_KEY: 'cu16_le',
@@ -163,7 +217,7 @@ def test_multichannel_seek():
 
 def test_key_validity():
     '''assure the keys in test metadata are valid'''
-    for top_key, top_val in TEST_METADATA.items():
+    for top_key, top_val in TEST_METADATA_1.items():
         if type(top_val) is dict:
             for core_key in top_val.keys():
                 assert core_key in vars(SigMFFile)[f'VALID_{top_key.upper()}_KEYS']
@@ -178,7 +232,7 @@ def test_key_validity():
 
 def test_ordered_metadata():
     '''check to make sure the metadata is sorted as expected'''
-    sigf = SigMFFile()
+    sigf = SigMFFile(name="test")
     top_sort_order = ['global', 'captures', 'annotations']
     for kdx, key in enumerate(sigf.ordered_metadata()):
         assert kdx == top_sort_order.index(key)
