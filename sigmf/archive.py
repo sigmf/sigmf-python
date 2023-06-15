@@ -59,7 +59,7 @@ class SigMFArchive():
                                    Iterable["sigmf.sigmffile.SigMFFile"]],
                  path: Union[str, os.PathLike] = None,
                  fileobj: BinaryIO = None,
-                 pretty=True):
+                 pretty: bool = True):
 
         if (not path) and (not fileobj):
             raise SigMFFileError("'path' or 'fileobj' required for creating "

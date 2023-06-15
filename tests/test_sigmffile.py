@@ -90,9 +90,9 @@ def test_add_annotation():
 def test_add_annotation_with_duplicate_key():
     f = SigMFFile(name="test")
     f.add_capture(start_index=0)
-    m1 = {"latitude": 40.0, "longitude": -105.0}
+    m1 = {"test_name_1": "test_value_1", "test_name_2": "test_value_2"}
     f.add_annotation(start_index=0, length=128, metadata=m1)
-    m2 = {"latitude": 50.0, "longitude": -115.0}
+    m2 = {"test_name_1": "test_value_3", "test_name_2": "test_value_4"}
     f.add_annotation(start_index=0, length=128, metadata=m2)
     assert len(f.get_annotations(64)) == 2
 
