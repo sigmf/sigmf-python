@@ -60,15 +60,15 @@ from sigmf.sigmffile import (fromarchive,
                              fromfile)
 
 # read multirecording archive using fromarchive
-sigmffiles = fromarchive("multi_recording_archive1.sigmf")
+sigmffiles = fromarchive("multi_recording_archive.sigmf")
 print(len(sigmffiles))  
 
 # read multirecording archive using fromfile
-sigmffiles = fromfile("multi_recording_archive1.sigmf")
+sigmffiles = fromfile("multi_recording_archive.sigmf")
 print(len(sigmffiles))
 
 # # read multirecording archive using SigMFArchiveReader
-reader = SigMFArchiveReader("multi_recording_archive1.sigmf")
+reader = SigMFArchiveReader("multi_recording_archive.sigmf")
 # length of reader and reader.sigmffiles should be the same
 print(len(reader))
 print(len(reader.sigmffiles))
@@ -219,26 +219,26 @@ from sigmf.sigmffile import (SigMFFile,
 
 
 # create data file
-random_data1 = np.random.rand(128)
-data1_path = "recording1.sigmf-data"
-random_data1.tofile(data1_path)
+random_data = np.random.rand(128)
+data_path = "recording.sigmf-data"
+random_data.tofile(data_path)
 
 # create metadata
-sigmf_file_1 = SigMFFile(name='recording1')
-sigmf_file_1.set_global_field("core:datatype", "rf32_le")
-sigmf_file_1.add_annotation(start_index=0, length=len(random_data1))
-sigmf_file_1.add_capture(start_index=0)
-sigmf_file_1.set_data_file(data1_path)
+sigmf_file = SigMFFile(name='recording')
+sigmf_file.set_global_field("core:datatype", "rf32_le")
+sigmf_file.add_annotation(start_index=0, length=len(random_data))
+sigmf_file.add_capture(start_index=0)
+sigmf_file.set_data_file(data_path)
 
 # create archive using SigMFArchive
-archive1 = SigMFArchive(sigmffiles=sigmf_file_1,
+archive = SigMFArchive(sigmffiles=sigmf_file,
                         path="single_recording_archive1.sigmf")
 
 # create archive using SigMFFile archive()
-archive1_path = sigmf_file_1.archive(file_path="single_recording_archive2.sigmf")
+archive_path = sigmf_file.archive(file_path="single_recording_archive2.sigmf")
 
 # create archive using tofile
-sigmf_file_1.tofile(file_path="single_recording_archive3.sigmf",
+sigmf_file.tofile(file_path="single_recording_archive3.sigmf",
                     toarchive=True)
 ```
 
@@ -277,8 +277,8 @@ sigmf_file_2.set_data_file(data2_path)
 
 # create archive using SigMFArchive
 sigmffiles = [sigmf_file_1, sigmf_file_2]
-archive3 = SigMFArchive(sigmffiles=sigmffiles,
-                        path="multi_recording_archive1.sigmf")
+archive = SigMFArchive(sigmffiles=sigmffiles,
+                        path="multi_recording_archive.sigmf")
 ```
 
 ### Load a SigMF Archive and slice its data without untaring it
