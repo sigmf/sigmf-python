@@ -159,13 +159,22 @@ class SigMFFile(SigMFMetafile):
 
         Parameters
         ----------
-        name: Name used for directory and filenames if archived.
-                     For example, given `name=archive1`, then passing this
-                     sigmffile to SigMFArchive will add the following files
-                     to the archive:
-                        - archive1/
-                          - archive1.sigmf-meta
-                          - archive1.sigmf-data
+        name: str, required
+            Name used for directory and filenames if archived.
+            For example, given `name=recording1`, then passing this
+            sigmffile to SigMFArchive will add the following files
+            to the archive:
+            - recording1/
+                - recording1.sigmf-meta
+                - recording1.sigmf-data
+            Folders can also be added in the name. For example, given
+            `name=folder1/recording1`, then passing this
+            sigmffile to SigMFArchive will add the following files
+            to the archive:
+            - folder1/
+                - recording1/
+                    - recording1.sigmf-meta
+                    - recording1.sigmf-data
         metadata: str or dict, optional
             Metadata for associated dataset.
         data_file: str, optional
