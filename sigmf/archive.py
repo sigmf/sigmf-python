@@ -103,9 +103,16 @@ class SigMFArchive():
             return tarinfo
 
         for sigmffile in self.sigmffiles:
-            self._create_parent_dirs(sigmf_archive, sigmffile.name, chmod)
-            file_path = os.path.join(sigmffile.name,
-                                     os.path.basename(sigmffile.name))
+            sigmffile_name = os.path.normpath(sigmffile.name)
+            if os.path.isabs(sigmffile_name):
+                # remove root path component to make relative path for tarfile
+                sigmffile_name_split = sigmffile_name.split(os.path.sep)
+                sigmffile_name = os.path.sep.join(sigmffile_name_split[1:])
+                if os.path.isabs(sigmffile_name):
+                    raise SigMFFileError("Invalid SigMFFile name")
+            self._create_parent_dirs(sigmf_archive, sigmffile_name, chmod)
+            file_path = os.path.join(sigmffile_name,
+                                     os.path.basename(sigmffile_name))
             sf_md_filename = file_path + SIGMF_METADATA_EXT
             sf_data_filename = file_path + SIGMF_DATASET_EXT
             metadata = sigmffile.dumps(pretty=pretty)

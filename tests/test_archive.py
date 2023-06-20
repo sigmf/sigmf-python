@@ -225,3 +225,34 @@ def test_archive_no_path_or_fileobj(test_sigmffile):
     """Error should be raised when no path or fileobj given."""
     with pytest.raises(error.SigMFFileError):
         SigMFArchive(test_sigmffile)
+
+
+def test_fromfile_name_to_archive(test_sigmffile):
+    """make sure creating an archive works when reading a sigmf-meta file with
+    absolute path
+    """
+    try:
+        with open('/tmp/test_sigmf.sigmf-meta', 'w') as test_sigmf_meta_f:
+            test_sigmffile.dump(test_sigmf_meta_f)
+        read_sigmffile = sigmffile.fromfile('/tmp/test_sigmf.sigmf-meta')
+        assert read_sigmffile.name == '/tmp/test_sigmf'
+        read_sigmffile.set_data_file(data_file=test_sigmffile.data_file)
+        read_sigmffile.archive('/tmp/testarchive.sigmf')
+        sigmf_tar = tarfile.open('/tmp/testarchive.sigmf')
+        basedir, subdir, file1, file2 = sigmf_tar.getmembers()
+        assert basedir.name == 'tmp'
+        assert subdir.name == 'tmp/test_sigmf'
+        if file1.name.endswith(SIGMF_DATASET_EXT):
+            sigmf_data = file1
+            sigmf_meta = file2
+        else:
+            sigmf_data = file2
+            sigmf_meta = file1
+
+        assert sigmf_data.name == 'tmp/test_sigmf/test_sigmf.sigmf-data'
+        assert sigmf_meta.name == 'tmp/test_sigmf/test_sigmf.sigmf-meta'
+    finally:
+        if os.path.exists('/tmp/test_sigmf.sigmf-meta'):
+            os.remove('/tmp/test_sigmf.sigmf-meta')
+        if os.path.exists('/tmp/testarchive.sigmf'):
+            os.remove('/tmp/testarchive.sigmf')
