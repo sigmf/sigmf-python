@@ -61,15 +61,17 @@ from sigmf.sigmffile import (fromarchive,
 
 # read multirecording archive using fromarchive
 sigmffiles = fromarchive("multi_recording_archive.sigmf")
+# length should be equal to the number of recordings in the archive
 print(len(sigmffiles))  
 
 # read multirecording archive using fromfile
 sigmffiles = fromfile("multi_recording_archive.sigmf")
+# length should be equal to the number of recordings in the archive
 print(len(sigmffiles))
 
 # read multirecording archive using SigMFArchiveReader
 reader = SigMFArchiveReader("multi_recording_archive.sigmf")
-# length of reader and reader.sigmffiles should be the same
+# length of reader and reader.sigmffiles should be equal to the number of recordings in the archive
 print(len(reader))
 print(len(reader.sigmffiles))
 ```
@@ -297,13 +299,13 @@ In [1]: import sigmf
 
 In [2]: arc = sigmf.SigMFArchiveReader('/src/LTE.sigmf')
 
-In [3]: arc.shape
+In [3]: arc.sigmffiles[0].shape
 Out[3]: (15379532,)
 
-In [4]: arc.ndim
+In [4]: arc.sigmffiles[0].ndim
 Out[4]: 1
 
-In [5]: arc[:10]
+In [5]: arc.sigmffiles[0][:10]
 Out[5]: 
 array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
         48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
@@ -316,13 +318,13 @@ However, the `.sigmffile` member keeps track of this, and converts the data
 to `numpy.complex64` *after* slicing it, that is, after reading it from disk.
 
 ```python
-In [6]: arc.sigmffile.get_global_field(sigmf.SigMFFile.DATATYPE_KEY)
+In [6]: arc.sigmffiles[0].get_global_field(sigmf.SigMFFile.DATATYPE_KEY)
 Out[6]: 'ci16_le'
 
-In [7]: arc.sigmffile._memmap.dtype
+In [7]: arc.sigmffiles[0]._memmap.dtype
 Out[7]: dtype('int16')
 
-In [8]: arc.sigmffile._return_type
+In [8]: arc.sigmffiles[0]._return_type
 Out[8]: '<c8'
 ```
 
@@ -338,7 +340,7 @@ In [2]: sigmf_bytes = io.BytesIO(open('/src/LTE.sigmf', 'rb').read())
 
 In [3]: arc = sigmf.SigMFArchiveReader(archive_buffer=sigmf_bytes)
 
-In [4]: arc[:10]
+In [4]: arc.sigmffiles[0][:10]
 Out[4]: 
 array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
         48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
