@@ -137,6 +137,10 @@ class SigMFArchive():
         self.path = sigmf_archive.name
 
     def _create_parent_dirs(self, _tarfile, sigmffile_name, set_permission):
+        """ Create parent directory TarInfo objects if tarfile doesn't
+        already contain parent directories. Then call the set_permission
+        function and add to the tarfile.
+        """
         path_components = sigmffile_name.split(os.path.sep)
         current_path = ""
         for path in path_components:
