@@ -14,6 +14,7 @@ from sigmf import error, sigmffile
 from sigmf.archive import (SIGMF_DATASET_EXT,
                            SIGMF_METADATA_EXT,
                            SigMFArchive)
+from sigmf.archivereader import SigMFArchiveReader
 
 from .testdata import TEST_FLOAT32_DATA_1, TEST_METADATA_1
 
@@ -256,3 +257,21 @@ def test_fromfile_name_to_archive(test_sigmffile):
             os.remove('/tmp/test_sigmf.sigmf-meta')
         if os.path.exists('/tmp/testarchive.sigmf'):
             os.remove('/tmp/testarchive.sigmf')
+
+
+def test_create_archive_from_archive_reader(test_sigmffile,
+                                            test_alternate_sigmffile):
+    """ This test is to ensure that SigMFArchive will correctly create archive
+    using SigMFFile offset_and_size which is set when using SigMFArchiveReader
+    """
+    original_sigmffiles = [test_sigmffile, test_alternate_sigmffile]
+    with tempfile.TemporaryDirectory() as temp_dir:
+        archive_path1 = os.path.join(temp_dir, "original_archive.sigmf")
+        SigMFArchive(sigmffiles=original_sigmffiles, path=archive_path1)
+        reader = SigMFArchiveReader(path=archive_path1)
+        archive_path2 = os.path.join(temp_dir, "archive_from_reader.sigmf")
+        SigMFArchive(sigmffiles=reader.sigmffiles, path=archive_path2)
+        read_archive_from_reader = SigMFArchiveReader(path=archive_path2)
+        # SigMFFile.__eq__() method will check metadata
+        # which includes datafile hash
+        assert original_sigmffiles == read_archive_from_reader.sigmffiles

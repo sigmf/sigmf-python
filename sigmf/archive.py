@@ -124,8 +124,13 @@ class SigMFArchive():
             sigmf_archive.addfile(metadata_tarinfo, fileobj=metadata_buffer)
             data_tarinfo = sigmf_archive.gettarinfo(name=sigmffile.data_file,
                                                     arcname=sf_data_filename)
+            if sigmffile.offset_and_size:
+                data_tarinfo.size = sigmffile.offset_and_size[1]
+
             data_tarinfo = chmod(data_tarinfo)
             with open(sigmffile.data_file, "rb") as data_file:
+                if sigmffile.offset_and_size:
+                    data_file.seek(sigmffile.offset_and_size[0])
                 sigmf_archive.addfile(data_tarinfo, fileobj=data_file)
 
         sigmf_archive.close()
