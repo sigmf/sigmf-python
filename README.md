@@ -67,7 +67,7 @@ print(len(sigmffiles))
 sigmffiles = fromfile("multi_recording_archive.sigmf")
 print(len(sigmffiles))
 
-# # read multirecording archive using SigMFArchiveReader
+# read multirecording archive using SigMFArchiveReader
 reader = SigMFArchiveReader("multi_recording_archive.sigmf")
 # length of reader and reader.sigmffiles should be the same
 print(len(reader))
