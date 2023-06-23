@@ -245,7 +245,7 @@ sigmf_file.tofile(file_path="single_recording_archive3.sigmf",
 ```
 
 ### Create SigMF Archives with Multiple Recordings
-Archives with multiple recordings can be created using `SigMFArchive` class.
+Archives with multiple recordings can be created using the `SigMFArchive` class.
 
 ```python
 import numpy as np
