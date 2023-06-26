@@ -10,7 +10,10 @@ import os
 import tarfile
 
 from .sigmffile import SigMFFile
-from .archive import SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SIGMF_ARCHIVE_EXT
+from .archive import (SIGMF_COLLECTION_EXT,
+                      SIGMF_DATASET_EXT,
+                      SIGMF_METADATA_EXT,
+                      SIGMF_ARCHIVE_EXT)
 from .error import SigMFFileError
 
 
@@ -76,6 +79,10 @@ class SigMFArchiveReader():
                     elif memb.name.endswith(SIGMF_DATASET_EXT):
                         data_offset_size = memb.offset_data, memb.size
                         data_found = True
+                    elif memb.name.endswith(SIGMF_COLLECTION_EXT):
+                        print('A SigMF Collection file ',
+                              memb.name,
+                              'was found but not handled.')
                     else:
                         print('A regular file',
                               memb.name,
