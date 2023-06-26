@@ -205,21 +205,18 @@ def test_archive_names(test_sigmffile):
         a = SigMFArchive(sigmffiles=test_sigmffile, path=t.name)
         assert a.path == t.name
         observed_sigmffile = sigmffile.fromarchive(t.name)
-        assert os.path.dirname(observed_sigmffile.name) == test_sigmffile.name
-        assert os.path.basename(observed_sigmffile.name) == test_sigmffile.name
+        observed_sigmffile.name == test_sigmffile.name
 
     with tempfile.NamedTemporaryFile(suffix=".sigmf") as t:
         archive_path = test_sigmffile.archive(t.name)
         assert archive_path == t.name
         observed_sigmffile = sigmffile.fromarchive(t.name)
-        assert os.path.dirname(observed_sigmffile.name) == test_sigmffile.name
-        assert os.path.basename(observed_sigmffile.name) == test_sigmffile.name
+        observed_sigmffile.name == test_sigmffile.name
 
     with tempfile.NamedTemporaryFile(suffix=".sigmf") as t:
         test_sigmffile.tofile(t.name, toarchive=True)
         observed_sigmffile = sigmffile.fromarchive(t.name)
-        assert os.path.dirname(observed_sigmffile.name) == test_sigmffile.name
-        assert os.path.basename(observed_sigmffile.name) == test_sigmffile.name
+        observed_sigmffile.name == test_sigmffile.name
 
 
 def test_archive_no_path_or_fileobj(test_sigmffile):
@@ -275,3 +272,7 @@ def test_create_archive_from_archive_reader(test_sigmffile,
         # SigMFFile.__eq__() method will check metadata
         # which includes datafile hash
         assert original_sigmffiles == read_archive_from_reader.sigmffiles
+        observed_sigmffile0 = read_archive_from_reader.sigmffiles[0]
+        observed_sigmffile1 = read_archive_from_reader.sigmffiles[1]
+        assert test_sigmffile.name == observed_sigmffile0.name
+        assert test_alternate_sigmffile.name == observed_sigmffile1.name

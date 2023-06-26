@@ -8,6 +8,7 @@
 
 import os
 import tarfile
+import warnings
 
 from .sigmffile import SigMFFile
 from .archive import (SIGMF_COLLECTION_EXT,
@@ -15,6 +16,13 @@ from .archive import (SIGMF_COLLECTION_EXT,
                       SIGMF_METADATA_EXT,
                       SIGMF_ARCHIVE_EXT)
 from .error import SigMFFileError
+
+
+class ArchiveRecording:
+    """Holds TarInfo objects found in archive for a recording"""
+    def __init__(self) -> None:
+        self.metadata = None
+        self.data = None
 
 
 class SigMFArchiveReader():
@@ -55,8 +63,9 @@ class SigMFArchiveReader():
             data_offset_size = None
             sigmffile_name = None
             self.sigmffiles = []
-            data_found = False
+            recordings = []
 
+            recording = ArchiveRecording()
             for memb in tar_obj.getmembers():
                 if memb.isdir():  # memb.type == tarfile.DIRTYPE:
                     # the directory structure will be reflected in the member
@@ -65,20 +74,13 @@ class SigMFArchiveReader():
 
                 elif memb.isfile():  # memb.type == tarfile.REGTYPE:
                     if memb.name.endswith(SIGMF_METADATA_EXT):
-                        json_contents = memb.name
-                        if data_offset_size is None:
-                            # consider a warnings.warn() here; the datafile
-                            # should be earlier in the archive than the
-                            # metadata, so that updating it (like, adding an
-                            # annotation) is fast.
-                            pass
-                        with tar_obj.extractfile(memb) as memb_fid:
-                            json_contents = memb_fid.read()
-
-                        sigmffile_name, _ = os.path.splitext(memb.name)
+                        if recording.metadata:
+                            # save previous recording
+                            recordings.append(recording)
+                            recording = ArchiveRecording()
+                        recording.metadata = memb
                     elif memb.name.endswith(SIGMF_DATASET_EXT):
-                        data_offset_size = memb.offset_data, memb.size
-                        data_found = True
+                        recording.data = memb
                     elif memb.name.endswith(SIGMF_COLLECTION_EXT):
                         print('A SigMF Collection file ',
                               memb.name,
@@ -94,25 +96,35 @@ class SigMFArchiveReader():
                           memb.name,
                           'was found but not handled, just FYI.')
 
-                if data_offset_size is not None and json_contents is not None:
+            if recording.metadata:
+                recordings.append(recording)  # save final recording
+
+            if recordings:
+                for recording in recordings:
+                    metadata = recording.metadata
+                    sigmffile_name, _ = os.path.splitext(metadata.name)
+                    sigmffile_name = os.path.dirname(sigmffile_name)
+                    with tar_obj.extractfile(metadata) as memb_fid:
+                        json_contents = memb_fid.read()
                     sigmffile = SigMFFile(sigmffile_name,
                                           metadata=json_contents)
-                    sigmffile.validate()
 
-                    sigmffile.set_data_file(self.path,
-                                            data_buffer=archive_buffer,
-                                            skip_checksum=skip_checksum,
-                                            offset=data_offset_size[0],
-                                            size_bytes=data_offset_size[1],
-                                            map_readonly=map_readonly)
+                    sigmffile.validate()
+                    data = recording.data
+                    if data:
+                        data_offset_size = data.offset_data, data.size
+                        sigmffile.set_data_file(self.path,
+                                                data_buffer=archive_buffer,
+                                                skip_checksum=skip_checksum,
+                                                offset=data_offset_size[0],
+                                                size_bytes=data_offset_size[1],
+                                                map_readonly=map_readonly)
 
                     self.sigmffiles.append(sigmffile)
-                    data_offset_size = None
-                    json_contents = None
-                    sigmffile_name = None
 
-            if not data_found:
-                raise SigMFFileError('No .sigmf-data file found in archive!')
+            if not any([r.data for r in recordings]):
+                warnings.warn(f"No file with {SIGMF_DATASET_EXT} extension"
+                              " found in archive!")
         finally:
             if tar_obj:
                 tar_obj.close()
