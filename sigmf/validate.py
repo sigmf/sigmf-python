@@ -65,8 +65,7 @@ def validate(metadata, ref_schema=schema.get_schema()):
     -------
     None, will raise error if invalid.
     '''
-    validator = jsonschema.Draft7Validator(schema=ref_schema)
-    validator.validate(instance=metadata)
+    jsonschema.validators.validate(instance=metadata, schema=ref_schema)
 
     # assure capture and annotation order
     # TODO: There is a way to do this with just the schema apparently.
