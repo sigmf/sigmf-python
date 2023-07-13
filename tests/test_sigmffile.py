@@ -100,12 +100,10 @@ def test_add_annotation_with_duplicate_key():
 def test_fromarchive(test_sigmffile):
     print("test_sigmffile is:\n", test_sigmffile)
     tf = tempfile.mkstemp()[1]
-    td = tempfile.mkdtemp()
     archive_path = test_sigmffile.archive(file_path=tf)
-    result = sigmffile.fromarchive(archive_path=archive_path, dir=td)
+    result = sigmffile.fromarchive(archive_path=archive_path)
     assert result == test_sigmffile
     os.remove(tf)
-    shutil.rmtree(td)
 
 
 def test_fromarchive_multi_recording(test_sigmffile,

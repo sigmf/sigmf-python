@@ -944,11 +944,8 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     return None
 
 
-def fromarchive(archive_path, dir=None):
+def fromarchive(archive_path):
     """Extract an archive and return containing SigMFFiles.
-
-    The `dir` parameter is no longer used as this function has been changed to
-    access SigMF archives without extracting them.
 
     If the archive contains a single recording, a single SigMFFile object will
     be returned. If the archive contains multiple recordings a list of
