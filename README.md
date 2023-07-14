@@ -136,6 +136,7 @@ data.tofile('example_cf32.sigmf-data')
 
 # create the metadata
 meta = SigMFFile(
+    name='example_cf32',
     data_file='example_cf32.sigmf-data', # extension is optional
     global_info = {
         SigMFFile.DATATYPE_KEY: get_data_type_str(data),  # in this case, 'cf32_le'
@@ -176,6 +177,7 @@ data_ci16.view(np.float32).astype(np.int16).tofile('example_ci16.sigmf-data')
 
 # create the metadata for the second file
 meta_ci16 = SigMFFile(
+    name='example_ci16',
     data_file='example_ci16.sigmf-data', # extension is optional
     global_info = {
         SigMFFile.DATATYPE_KEY: 'ci16_le', # get_data_type_str() is only valid for numpy types
