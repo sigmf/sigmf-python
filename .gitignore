@@ -4,6 +4,7 @@
 .cache
 
 # setuptools related
+dist/*
 build/*
 .eggs/*
 SigMF.egg-info/*
