@@ -29,7 +29,7 @@ from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 
 @pytest.fixture
 def test_data_file():
-    """when called, yeilds temporary file"""
+    """when called, yields temporary file"""
     with tempfile.NamedTemporaryFile() as temp:
         TEST_FLOAT32_DATA.tofile(temp.name)
         yield temp
