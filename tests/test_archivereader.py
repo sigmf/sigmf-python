@@ -1,54 +1,75 @@
-import codecs
-import json
-import tarfile
+# Copyright 2023 GNU Radio Foundation
 import tempfile
-from os import path
-
 import numpy as np
-import pytest
+import unittest
 
-from sigmf import error
+import sigmf
 from sigmf import SigMFFile, SigMFArchiveReader
-from sigmf.archive import SIGMF_DATASET_EXT, SIGMF_METADATA_EXT
 
-def test_access_data_without_untar(test_sigmffile):
-    global_info = {
-            "core:author": "Glen M",
-            "core:datatype": "ri16_le",
-            "core:license": "https://creativecommons.org/licenses/by-sa/4.0/",
-            "core:num_channels": 2,
-            "core:sample_rate": 48000,
-            "core:version": "1.0.0"
+
+class TestArchiveReader(unittest.TestCase):
+    def setUp(self):
+        # in order to check shapes we need some positive number of samples to work with
+        # number of samples should be lowest common factor of num_channels
+        self.raw_count = 16
+        self.lut = {
+            "i8": np.int8,
+            "u8": np.uint8,
+            "i16": np.int16,
+            "u16": np.uint16,
+            "u32": np.uint32,
+            "i32": np.int32,
+            "f32": np.float32,
+            "f64": np.float64,
         }
-    capture_info = {
-            "core:datetime": "2021-06-18T23:17:51.163959Z",
-            "core:sample_start": 0
-        }
-    
-    NUM_ROWS = 5
 
-    for dt in "ri16_le", "ci16_le", "rf32_le", "rf64_le", "cf32_le", "cf64_le":
-        global_info["core:datatype"] = dt
-        for num_chan in 1,3:
-            global_info["core:num_channels"] = num_chan
-            base_filename = dt + '_' + str(num_chan)
-            archive_filename = base_filename + '.sigmf'
-    
-            a = np.arange(NUM_ROWS * num_chan * (2 if 'c' in dt else 1))
-            if 'i16' in dt:
-                b = a.astype(np.int16)
-            elif 'f32' in dt:
-                b = a.astype(np.float32)
-            elif 'f64' in dt:
-                b = a.astype(np.float64)
-            else:
-                raise ValueError('whoops')
-    
-            test_sigmffile.data_file = None
-            with tempfile.NamedTemporaryFile() as temp:
-                b.tofile(temp.name)
-                meta = SigMFFile(data_file=temp.name, global_info=global_info)
-                meta.add_capture(0, metadata=capture_info)
-                meta.tofile(archive_filename, toarchive=True)
+    def test_access_data_without_untar(self):
+        """iterate through datatypes and verify IO is correct"""
+        _, temp_path = tempfile.mkstemp()
+        _, temp_archive = tempfile.mkstemp(suffix=".sigmf")
 
-                archi = SigMFArchiveReader(archive_filename, skip_checksum=True)
+        for key, dtype in self.lut.items():
+            # for each type of storage
+            temp_samples = np.arange(self.raw_count, dtype=dtype)
+            temp_samples.tofile(temp_path)
+            for num_channels in [1, 4, 8]:
+                # for single or 8 channel
+                for complex_prefix in ["r", "c"]:
+                    # for real or complex
+                    target_count = self.raw_count
+                    temp_meta = SigMFFile(
+                        data_file=temp_path,
+                        global_info={
+                            SigMFFile.DATATYPE_KEY: f"{complex_prefix}{key}_le",
+                            SigMFFile.NUM_CHANNELS_KEY: num_channels,
+                            SigMFFile.VERSION_KEY: sigmf.__version__,
+                        },
+                    )
+                    temp_meta.tofile(temp_archive, toarchive=True)
+
+                    readback = SigMFArchiveReader(temp_archive)
+                    readback_samples = readback[:]
+
+                    if complex_prefix == "c":
+                        # complex data will be half as long
+                        target_count //= 2
+                        self.assertTrue(np.all(np.iscomplex(readback_samples)))
+                    if num_channels != 1:
+                        # check expected # of channels
+                        self.assertEqual(
+                            readback_samples.ndim,
+                            2,
+                            "Mismatch in shape of readback samples.",
+                        )
+                    target_count //= num_channels
+
+                    self.assertEqual(
+                        target_count,
+                        temp_meta._count_samples(),
+                        "Mismatch in expected metadata length.",
+                    )
+                    self.assertEqual(
+                        target_count,
+                        len(readback),
+                        "Mismatch in expected readback length",
+                    )

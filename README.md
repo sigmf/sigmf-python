@@ -2,15 +2,14 @@
 <img src="https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/logo/sigmf_logo.png" width="30%" />
 </p>
 
-This repository contains a python module for interacting with SigMF Objects. 
+This repository contains a python module for interacting with SigMF Objects.
 This module works with Python 3.6 and higher. This module is distributed freely
 under the terms GNU Lesser GPL v3 License.
 
 # Signal Metadata Format (SigMF)
 
-The [SigMF specification document](sigmf-spec.md), `sigmf-spec.md` is located in the
+The [SigMF specification document](https://github.com/sigmf/SigMF/blob/HEAD/sigmf-spec.md), `sigmf-spec.md` is located in the
 https://github.com/gnuradio/SigMF repository.
-
 
 # Installation
 
@@ -203,7 +202,7 @@ In [4]: arc.ndim
 Out[4]: 1
 
 In [5]: arc[:10]
-Out[5]: 
+Out[5]:
 array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
         48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
 ```
@@ -238,7 +237,7 @@ In [2]: sigmf_bytes = io.BytesIO(open('/src/LTE.sigmf', 'rb').read())
 In [3]: arc = sigmf.SigMFArchiveReader(archive_buffer=sigmf_bytes)
 
 In [4]: arc[:10]
-Out[4]: 
+Out[4]:
 array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
         48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
 ```
