@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-__version__ = '1.1.2'
+__version__ = "1.1.3"
 
 from .archive import SigMFArchive
 from .sigmffile import SigMFFile, SigMFCollection
