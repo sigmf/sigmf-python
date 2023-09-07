@@ -246,3 +246,26 @@ def test_captures_checking():
     assert (160,224) == sigmf4.get_capture_byte_boundarys(1)
     assert np.array_equal(np.array(range(64)), sigmf4.read_samples_in_capture(0,autoscale=False)[:,0])
     assert np.array_equal(np.array(range(64,96)), sigmf4.read_samples_in_capture(1,autoscale=False)[:,1])
+
+def test_slicing():
+    '''Test __getitem___ builtin for sigmffile, make sure slicing and indexing works as expected.'''
+    np.array(TEST_U8_DATA0, dtype=np.uint8).tofile('/tmp/d5.sigmf-data')
+    with open('/tmp/d5.sigmf-meta','w') as f0: json.dump(TEST_U8_META0, f0)
+    sigmf0 = sigmffile.fromfile('/tmp/d5.sigmf-meta')
+    assert np.array_equal(TEST_U8_DATA0, sigmf0[:])
+    assert TEST_U8_DATA0[6] == sigmf0[6]
+
+    np.array(TEST_FLOAT32_DATA, dtype=np.float32).tofile('/tmp/d6.sigmf-data')
+    with open('/tmp/d6.sigmf-meta','w') as f1: json.dump(TEST_METADATA, f1)
+    sigmf1 = sigmffile.fromfile('/tmp/d6.sigmf-meta')
+    assert np.array_equal(TEST_FLOAT32_DATA, sigmf1[:])
+    assert sigmf1[10] == TEST_FLOAT32_DATA[10]
+
+    np.array(TEST_U8_DATA4, dtype=np.uint8).tofile('/tmp/d7.sigmf-data')
+    with open('/tmp/d7.sigmf-meta','w') as f4: json.dump(TEST_U8_META4, f4)
+    sigmf2 = sigmffile.fromfile('/tmp/d7.sigmf-meta')
+    channelized = np.array(TEST_U8_DATA4).reshape((128,2))
+    assert np.array_equal(channelized, sigmf2[:][:])
+    assert np.array_equal(sigmf2[10:20, 91:112], sigmf2.read_samples(autoscale=False)[10:20, 91:112])
+    assert np.array_equal(sigmf2[0], channelized[0])
+    assert np.array_equal(sigmf2[1,:], channelized[1,:])

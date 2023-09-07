@@ -201,18 +201,21 @@ class SigMFFile(SigMFMetafile):
             raise StopIteration
 
     def __getitem__(self, sli):
-        a = self._memmap[sli] # matches behavior of numpy.ndarray.__getitem__()
-        if self._return_type is not None:
-            # is_fixed_point and is_complex
-            if self._memmap.ndim == 2:
-                # num_channels == 1
-                a = a[:,0].astype(self._return_type) + 1.j * a[:,1].astype(self._return_type)
-            elif self._memmap.ndim == 3:
-                # num_channels > 1
-                a = a[:,:,0].astype(self._return_type) + 1.j * a[:,:,1].astype(self._return_type)
-            else:
-                raise ValueError("unhandled ndim in SigMFFile.__getitem__(); this shouldn't happen")
-        return a
+        mem = self._memmap[sli] # matches behavior of numpy.ndarray.__getitem__()
+        
+        if self._return_type is None:
+            return mem
+
+        # is_fixed_point and is_complex
+        if self._memmap.ndim == 2:
+            # num_channels == 1
+            ray = mem[:,0].astype(self._return_type) + 1.j * mem[:,1].astype(self._return_type)
+        elif self._memmap.ndim == 3:
+            # num_channels > 1
+            ray = mem[:,:,0].astype(self._return_type) + 1.j * mem[:,:,1].astype(self._return_type)
+        else:
+            raise ValueError("unhandled ndim in SigMFFile.__getitem__(); this shouldn't happen")
+        return ray[0] if type(sli) is int else ray # return element instead of 1-element array
 
     def _get_start_offset(self):
         """
