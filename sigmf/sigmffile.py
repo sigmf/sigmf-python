@@ -174,7 +174,6 @@ class SigMFFile(SigMFMetafile):
         if metadata is None:
             self._metadata = {self.GLOBAL_KEY:{}, self.CAPTURE_KEY:[], self.ANNOTATION_KEY:[]}
             self._metadata[self.GLOBAL_KEY][self.NUM_CHANNELS_KEY] = 1
-            self._metadata[self.GLOBAL_KEY][self.VERSION_KEY] = __version__
         elif isinstance(metadata, dict):
             self._metadata = metadata
         else:
@@ -183,6 +182,8 @@ class SigMFFile(SigMFMetafile):
             self.set_global_info(global_info)
         if data_file is not None:
             self.set_data_file(data_file, skip_checksum=skip_checksum, map_readonly=map_readonly)
+
+        self._metadata[self.GLOBAL_KEY][self.VERSION_KEY] = '1.0.0'
 
     def __len__(self):
         return self._memmap.shape[0]
@@ -675,7 +676,6 @@ class SigMFCollection(SigMFMetafile):
 
         if metadata is None:
             self._metadata = {self.COLLECTION_KEY:{}}
-            self._metadata[self.COLLECTION_KEY][self.VERSION_KEY] = __version__
             self._metadata[self.COLLECTION_KEY][self.STREAMS_KEY] = []
         else:
             self._metadata = metadata
@@ -687,6 +687,8 @@ class SigMFCollection(SigMFMetafile):
 
         if not self.skip_checksums:
             self.verify_stream_hashes()
+
+        self._metadata[self.COLLECTION_KEY][self.VERSION_KEY] = '1.0.0'
 
     def __len__(self):
         '''

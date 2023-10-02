@@ -112,7 +112,6 @@ meta = SigMFFile(
         SigMFFile.SAMPLE_RATE_KEY: 48000,
         SigMFFile.AUTHOR_KEY: 'jane.doe@domain.org',
         SigMFFile.DESCRIPTION_KEY: 'All zero complex float32 example file.',
-        SigMFFile.VERSION_KEY: sigmf.__version__,
     }
 )
 
@@ -151,7 +150,6 @@ meta_ci16 = SigMFFile(
         SigMFFile.DATATYPE_KEY: 'ci16_le', # get_data_type_str() is only valid for numpy types
         SigMFFile.SAMPLE_RATE_KEY: 48000,
         SigMFFile.DESCRIPTION_KEY: 'All zero complex int16 file.',
-        SigMFFile.VERSION_KEY: sigmf.__version__,
     }
 )
 meta_ci16.add_capture(0, metadata=meta.get_capture_info(0))
@@ -161,7 +159,6 @@ collection = SigMFCollection(['example_cf32.sigmf-meta', 'example_ci16.sigmf-met
         metadata = {'collection': {
             SigMFCollection.AUTHOR_KEY: 'sigmf@sigmf.org',
             SigMFCollection.DESCRIPTION_KEY: 'Collection of two all zero files.',
-            SigMFCollection.VERSION_KEY: sigmf.__version__,
         }
     }
 )
