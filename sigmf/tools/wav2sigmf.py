@@ -13,7 +13,6 @@ def writeSigMFArchiveFromWave(input_wav_filename, archive_filename=None, start_d
         SigMFFile.DATATYPE_KEY: get_data_type_str(wav_data),
         SigMFFile.SAMPLE_RATE_KEY: samplerate,
         SigMFFile.DESCRIPTION_KEY: 'Converted from ' + input_wav_filename + '.',
-        SigMFFile.VERSION_KEY: sigmf.__version__,
         SigMFFile.NUM_CHANNELS_KEY: 1 if len(wav_data.shape) < 2 else wav_data.shape[1],
         SigMFFile.RECORDER_KEY: os.path.basename(__file__),
     }
