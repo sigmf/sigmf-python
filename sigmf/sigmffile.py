@@ -433,7 +433,7 @@ class SigMFFile(SigMFMetafile):
             if file_data_size % (sample_size * num_channels) != 0:
                 warnings.warn(f'File `{self.data_file}` does not contain an integer '
                     'number of samples across channels. It may be invalid data.')
-            if len(annotations) > 0 and annotations[-1][self.START_INDEX_KEY] + annotations[-1][self.LENGTH_INDEX_KEY] > sample_count:
+            if len(annotations) > 0 and annotations[-1].get(self.START_INDEX_KEY, 0) + annotations[-1].get(self.LENGTH_INDEX_KEY, 0) > sample_count:
                 warnings.warn(f'File `{self.data_file}` ends before the final annotation '
                     'in the corresponding SigMF metadata.')
         self.sample_count = sample_count
