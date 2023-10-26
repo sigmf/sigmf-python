@@ -929,10 +929,13 @@ def fromfile(filename, skip_checksum=False):
     archive_fn = fns['archive_fn']
     collection_fn = fns['collection_fn']
 
-    if (filename.lower().endswith(SIGMF_ARCHIVE_EXT) or not path.isfile(meta_fn)) and path.isfile(archive_fn):
+    # extract the extension to check whether we are dealing with an archive, collection, etc.
+    file_path, ext = path.splitext(filename) # works with Pathlib - ext contains a dot
+
+    if (ext.lower().endswith(SIGMF_ARCHIVE_EXT) or not path.isfile(meta_fn)) and path.isfile(archive_fn):
         return fromarchive(archive_fn)
 
-    if (filename.lower().endswith(SIGMF_COLLECTION_EXT) or not path.isfile(meta_fn)) and path.isfile(collection_fn):
+    if (ext.lower().endswith(SIGMF_COLLECTION_EXT) or not path.isfile(meta_fn)) and path.isfile(collection_fn):
         collection_fp = open(collection_fn, "rb")
         bytestream_reader = codecs.getreader("utf-8")
         mdfile_reader = bytestream_reader(collection_fp)
