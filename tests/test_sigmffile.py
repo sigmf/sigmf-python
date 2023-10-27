@@ -22,6 +22,7 @@ import os
 import shutil
 import tempfile
 import json
+from pathlib import Path
 import numpy as np
 import unittest
 
@@ -33,13 +34,28 @@ from .testdata import *
 
 class TestClassMethods(unittest.TestCase):
     def setUp(self):
-        '''assure tests have a valid SigMF object to work with'''
-        _, temp_path = tempfile.mkstemp()
-        TEST_FLOAT32_DATA.tofile(temp_path)
-        self.sigmf_object = SigMFFile(TEST_METADATA, data_file=temp_path)
+        """ensure tests have a valid SigMF object to work with"""
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.temp_path_data = self.temp_dir / "trash.sigmf-data"
+        self.temp_path_meta = self.temp_dir / "trash.sigmf-meta"
+        TEST_FLOAT32_DATA.tofile(self.temp_path_data)
+        self.sigmf_object = SigMFFile(TEST_METADATA, data_file=self.temp_path_data)
+        self.sigmf_object.tofile(self.temp_path_meta)
+
+    def tearDown(self):
+        """remove temporary dir"""
+        shutil.rmtree(self.temp_dir)
+
+    def test_pathlib_handle(self):
+        """ensure file can be a string or a pathlib object"""
+        self.assertTrue(self.temp_path_data.exists())
+        obj_str = sigmffile.fromfile(str(self.temp_path_data))
+        obj_str.validate()
+        obj_pth = sigmffile.fromfile(self.temp_path_data)
+        obj_pth.validate()
 
     def test_iterator_basic(self):
-        '''make sure default batch_size works'''
+        """make sure default batch_size works"""
         count = 0
         for _ in self.sigmf_object:
             count += 1
