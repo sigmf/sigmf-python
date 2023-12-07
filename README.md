@@ -1,25 +1,21 @@
-<p align="center">
-<img src="https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/logo/sigmf_logo.png" width="30%" />
-</p>
+<p align="center"><img src="https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/logo/sigmf_logo.png" width="30%" /></p>
 
-This repository contains a python module for interacting with SigMF Objects.
-This module works with Python 3.6 and higher. This module is distributed freely
+This python module makes it easy to interact with Signal Metadata Format
+(SigMF) objects. This module works with Python 3.6+ and is distributed freely
 under the terms GNU Lesser GPL v3 License.
 
-# Signal Metadata Format (SigMF)
-
-The [SigMF specification document](https://github.com/sigmf/SigMF/blob/HEAD/sigmf-spec.md), `sigmf-spec.md` is located in the
-https://github.com/gnuradio/SigMF repository.
+The [SigMF specification document](https://github.com/sigmf/SigMF/blob/HEAD/sigmf-spec.md)
+is located in the [SigMF](https://github.com/gnuradio/SigMF) repository.
 
 # Installation
 
-To install the latest released version of the SigMF package, install it from pip:
+To install the latest release, install from pip:
 
 ```bash
 pip install sigmf
 ```
 
-To install the latest development version, build the package from source:
+To install the latest development version, build from source:
 
 ```bash
 git clone https://github.com/sigmf/sigmf-python.git
@@ -29,8 +25,10 @@ pip install .
 
 To run the included QA tests:
 ```bash
-cd test/
-python3 -m pytest
+# basic
+python3 -m pytest tests/
+# fancy
+coverage run --a --source sigmf -m pytest --doctest-modules
 ```
 
 # Examples
@@ -180,45 +178,40 @@ cf32_sigmffile = collection.get_SigMFFile(stream_name='example_cf32')
 
 Since an *archive* is merely a tarball (uncompressed), and since there any many
 excellent tools for manipulating tar files, it's fairly straightforward to
-access the *data* part of a SigMF archive without untaring it.
-This is a compelling feature because 1) archives make it harder for the `-data`
-and the `-meta` to get separated, and 2) some datasets are so large that it can
+access the *data* part of a SigMF archive without un-taring it. This is a
+compelling feature because __1__ archives make it harder for the `-data` and
+the `-meta` to get separated, and __2__ some datasets are so large that it can
 be impractical (due to available disk space, or slow network speeds if the
 archive file resides on a network file share) or simply obnoxious to untar it
 first.
 
 ```python
-In [1]: import sigmf
-
-In [2]: arc = sigmf.SigMFArchiveReader('/src/LTE.sigmf')
-
-In [3]: arc.shape
-Out[3]: (15379532,)
-
-In [4]: arc.ndim
-Out[4]: 1
-
-In [5]: arc[:10]
-Out[5]:
+>>> import sigmf
+>>> arc = sigmf.SigMFArchiveReader('/src/LTE.sigmf')
+>>> arc.shape
+(15379532,)
+>>> arc.ndim
+1
+>>> arc[:10]
 array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
         48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
 ```
 
 The preceeding example exhibits another feature of this approach; the archive
 `LTE.sigmf` is actually `complex-int16`'s on disk, for which there is no
-corresponding type in `numpy`.
-However, the `.sigmffile` member keeps track of this, and converts the data
-to `numpy.complex64` *after* slicing it, that is, after reading it from disk.
+corresponding type in `numpy`. However, the `.sigmffile` member keeps track of
+this, and converts the data to `numpy.complex64` *after* slicing it, that is,
+after reading it from disk.
 
 ```python
-In [6]: arc.sigmffile.get_global_field(sigmf.SigMFFile.DATATYPE_KEY)
-Out[6]: 'ci16_le'
+>>> arc.sigmffile.get_global_field(sigmf.SigMFFile.DATATYPE_KEY)
+'ci16_le'
 
-In [7]: arc.sigmffile._memmap.dtype
-Out[7]: dtype('int16')
+>>> arc.sigmffile._memmap.dtype
+dtype('int16')
 
-In [8]: arc.sigmffile._return_type
-Out[8]: '<c8'
+>>> arc.sigmffile._return_type
+'<c8'
 ```
 
 Another supported mode is the case where you might have an archive that *is not
@@ -227,14 +220,10 @@ Instead of needing to write this out to a temporary file before being able to
 read it, this can be done "in mid air" or "without touching the ground (disk)".
 
 ```python
-In [1]: import sigmf, io
-
-In [2]: sigmf_bytes = io.BytesIO(open('/src/LTE.sigmf', 'rb').read())
-
-In [3]: arc = sigmf.SigMFArchiveReader(archive_buffer=sigmf_bytes)
-
-In [4]: arc[:10]
-Out[4]:
+>>> import sigmf, io
+>>> sigmf_bytes = io.BytesIO(open('/src/LTE.sigmf', 'rb').read())
+>>> arc = sigmf.SigMFArchiveReader(archive_buffer=sigmf_bytes)
+>>> arc[:10]
 array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
         48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
 ```
@@ -243,8 +232,8 @@ array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
 
 ### Is this a GNU Radio effort?
 
-*No*, this is not a GNU Radio-specific effort. It is hosted under the GNU Radio
-Github account because this effort first emerged from a group of GNU Radio core
+*No*, this is not a GNU Radio-specific effort.
+This effort first emerged from a group of GNU Radio core
 developers, but the goal of the project to provide a standard that will be
 useful to anyone and everyone, regardless of tool or workflow.
 
