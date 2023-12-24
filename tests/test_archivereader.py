@@ -11,6 +11,7 @@ import unittest
 
 import numpy as np
 
+import sigmf
 from sigmf import SigMFArchiveReader, SigMFFile, __specification__
 
 
@@ -80,3 +81,14 @@ class TestArchiveReader(unittest.TestCase):
                         len(readback),
                         "Mismatch in expected readback length",
                     )
+
+
+def test_archiveread_data_file_unchanged(test_sigmffile):
+    with tempfile.NamedTemporaryFile(suffix='.sigmf') as temp:
+        input_samples = test_sigmffile.read_samples()
+        test_sigmffile.archive(temp.name)
+
+        arc = sigmf.sigmffile.fromfile(temp.name)
+        output_samples = arc.read_samples()
+
+        assert np.array_equal(input_samples, output_samples)
