@@ -7,6 +7,7 @@
 """Create and extract SigMF archives."""
 
 import os
+import io
 import shutil
 import tarfile
 import tempfile
@@ -72,7 +73,12 @@ class SigMFArchive():
         with open(sigmf_md_path, "w") as mdfile:
             self.sigmffile.dump(mdfile, pretty=True)
 
-        shutil.copy(self.sigmffile.data_file, sigmf_data_path)
+        if isinstance(self.sigmffile.data_buffer, io.BytesIO):
+            self.sigmffile.data_file = sigmf_data_path
+            with open(sigmf_data_path, 'wb') as f:
+                f.write(self.sigmffile.data_buffer.getbuffer())
+        else:
+            shutil.copy(self.sigmffile.data_file, sigmf_data_path)
 
         def chmod(tarinfo):
             if tarinfo.isdir():
@@ -110,7 +116,7 @@ class SigMFArchive():
         self.name = name if has_correct_extension else name + SIGMF_ARCHIVE_EXT
 
     def _ensure_data_file_set(self):
-        if not self.sigmffile.data_file:
+        if not self.sigmffile.data_file and not isinstance(self.sigmffile.data_buffer, io.BytesIO):
             err = "no data file - use `set_data_file`"
             raise SigMFFileError(err)
 

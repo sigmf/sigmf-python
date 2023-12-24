@@ -15,6 +15,7 @@ from collections import OrderedDict
 from os import path
 
 import numpy as np
+import io
 
 from . import __specification__, __version__, schema, sigmf_hash, validate
 from .archive import SIGMF_ARCHIVE_EXT, SIGMF_COLLECTION_EXT, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SigMFArchive
@@ -246,7 +247,7 @@ class SigMFFile(SigMFMetafile):
             # check for any non-zero `header_bytes` fields in captures segments
             if capture.get(self.HEADER_BYTES_KEY, 0):
                 return False
-        if not path.isfile(self.data_file):
+        if self.data_file is not None and not path.isfile(self.data_file):
             return False
         # if we get here, the file exists and is conforming
         return True
@@ -631,7 +632,7 @@ class SigMFFile(SigMFMetafile):
             raise IOError('Number of samples must be greater than zero, or -1 for all samples.')
         elif start_index + count > self.sample_count:
             raise IOError("Cannot read beyond EOF.")
-        if self.data_file is None:
+        if self.data_file is None and not isinstance(self.data_buffer, io.BytesIO):
             if self.get_global_field(self.METADATA_ONLY_KEY, False):
                 # only if data_file is `None` allows access to dynamically generated datsets
                 raise SigMFFileError("Cannot read samples from a metadata only distribution.")
@@ -658,9 +659,15 @@ class SigMFFile(SigMFMetafile):
         data_type_out = np.dtype("f4") if not self.is_complex_data else np.dtype("f4, f4")
         num_channels = self.get_num_channels()
 
-        fp = open(self.data_file, "rb")
-        fp.seek(first_byte, 0)
-        data = np.fromfile(fp, dtype=data_type_in, count=nitems)
+        if self.data_file is not None:
+            fp = open(self.data_file, "rb")
+            fp.seek(first_byte, 0)
+            data = np.fromfile(fp, dtype=data_type_in, count=nitems)
+        elif self.data_buffer is not None:
+            data = np.frombuffer(self.data_buffer.getbuffer(), dtype=data_type_in, count=nitems)
+        else:
+            data = self._memmap
+
         if num_channels != 1:
             # return reshaped view for num_channels
             # first dimension will be double size if `is_complex_data`
@@ -678,7 +685,9 @@ class SigMFFile(SigMFMetafile):
         else:
             data = data.view(component_type_in)
 
-        fp.close()
+        if self.data_file is not None:
+            fp.close()
+
         return data
 
 
