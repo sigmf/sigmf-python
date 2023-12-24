@@ -927,14 +927,14 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     return None
 
 
-def fromarchive(archive_path, dir=None):
+def fromarchive(archive_path, dir=None, skip_checksum=False):
     """Extract an archive and return a SigMFFile.
 
     The `dir` parameter is no longer used as this function has been changed to
     access SigMF archives without extracting them.
     """
     from .archivereader import SigMFArchiveReader
-    return SigMFArchiveReader(archive_path).sigmffile
+    return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
 
 
 def fromfile(filename, skip_checksum=False):
@@ -965,7 +965,7 @@ def fromfile(filename, skip_checksum=False):
     file_path, ext = path.splitext(filename) # works with Pathlib - ext contains a dot
 
     if (ext.lower().endswith(SIGMF_ARCHIVE_EXT) or not path.isfile(meta_fn)) and path.isfile(archive_fn):
-        return fromarchive(archive_fn)
+        return fromarchive(archive_fn, skip_checksum=skip_checksum)
 
     if (ext.lower().endswith(SIGMF_COLLECTION_EXT) or not path.isfile(meta_fn)) and path.isfile(collection_fn):
         collection_fp = open(collection_fn, "rb")
