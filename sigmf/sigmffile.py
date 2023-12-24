@@ -442,7 +442,7 @@ class SigMFFile(SigMFMetafile):
             sample_count = self._get_sample_count_from_annotations()
         else:
             header_bytes = sum([c.get(self.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
-            file_size = path.getsize(self.data_file) if self.offset_and_size is None else self.offset_and_size[1]
+            file_size = path.getsize(self.data_file) if self.data_size_bytes is None else self.data_size_bytes
             file_data_size = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes  # bytes
             sample_size = self.get_sample_size() # size of a sample in bytes
             num_channels = self.get_num_channels()
@@ -483,9 +483,9 @@ class SigMFFile(SigMFMetafile):
         """
         old_hash = self.get_global_field(self.HASH_KEY)
         if self.data_file is not None:
-            new_hash = sigmf_hash.calculate_sha512(self.data_file, offset_and_size=self.offset_and_size)
+            new_hash = sigmf_hash.calculate_sha512(self.data_file, offset=self.data_offset, size=self.data_size_bytes)
         else:
-            new_hash = sigmf_hash.calculate_sha512(fileobj=self.data_buffer, offset_and_size=self.offset_and_size)
+            new_hash = sigmf_hash.calculate_sha512(fileobj=self.data_buffer, offset=self.data_offset, size=self.data_size_bytes)
         if old_hash:
             if old_hash != new_hash:
                 raise SigMFFileError('Calculated file hash does not match associated metadata.')
@@ -503,7 +503,8 @@ class SigMFFile(SigMFMetafile):
 
         self.data_file = data_file
         self.data_buffer = data_buffer
-        self.offset_and_size = None if (offset == 0 and size_bytes is None) else (offset, size_bytes)
+        self.data_offset = offset
+        self.data_size_bytes = size_bytes
         self._count_samples()
 
         dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
