@@ -531,8 +531,8 @@ class SigMFFile(SigMFMetafile):
                 buffer_count = -1 if mapped_length is None else mapped_length
                 raveled = np.frombuffer(self.data_buffer.getbuffer(), count=buffer_count, **common_args)
             else:
-                raise ValueError('In sigmffile.set_data_file(), either data_file or data_buffer must be not None')
-        except:  # TODO include likely exceptions here
+                raise SigMFFileError('In sigmffile.set_data_file(), either data_file or data_buffer must be not None')
+        except SigMFFileError:  # TODO include likely exceptions here
             warnings.warn('Failed to create data array from memory-map-file or buffer!')
         else:
             self._memmap = raveled.reshape(mapped_reshape)
