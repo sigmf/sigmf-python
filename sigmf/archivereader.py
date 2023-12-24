@@ -7,9 +7,11 @@
 """Access SigMF archives without extracting them."""
 
 import os
+import io
 import shutil
 import tarfile
 import tempfile
+from pathlib import Path
 
 from . import __version__
 from .archive import SIGMF_ARCHIVE_EXT, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SigMFArchive
@@ -64,6 +66,8 @@ class SigMFArchiveReader():
                 elif memb.name.endswith(SIGMF_DATASET_EXT):
                     data_offset = memb.offset_data
                     data_size_bytes = memb.size
+                    with tar_obj.extractfile(memb) as memb_fid:
+                        data_buffer = io.BytesIO(memb_fid.read())
 
                 else:
                     print('A regular file', memb.name, 'was found but ignored in the archive')
@@ -77,10 +81,8 @@ class SigMFArchiveReader():
         valid_md = self.sigmffile.validate()
 
         self.sigmffile.set_data_file(
-            self.name,
-            data_buffer=archive_buffer,
+            data_buffer=data_buffer,
             skip_checksum=skip_checksum,
-            offset=data_offset,
             size_bytes=data_size_bytes,
             map_readonly=map_readonly,
         )
