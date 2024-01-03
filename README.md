@@ -1,4 +1,4 @@
-<p align="center"><img src="https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/logo/sigmf_logo.png" width="30%" /></p>
+<p align="center"><img src="https://github.com/sigmf/SigMF/raw/sigmf-v1.x/logo/sigmf_logo.png" width="30%" /></p>
 
 This python module makes it easy to interact with Signal Metadata Format
 (SigMF) objects. This module works with Python 3.6+ and is distributed freely
