@@ -368,15 +368,17 @@ class SigMFFile(SigMFMetafile):
             end_byte += (self.get_capture_start(index+1) - self.get_capture_start(index)) * self.get_sample_size() * self.get_num_channels()
         return (start_byte, end_byte)
 
-    def add_annotation(self, start_index, length, metadata=None):
+    def add_annotation(self, start_index, length=None, metadata=None):
         """
-        Insert annotation at start_index with length.
+        Insert annotation at start_index with length (if != None).
         """
         assert start_index >= self._get_start_offset()
-        assert length >= 1
+
         new_annot = metadata or {}
         new_annot[self.START_INDEX_KEY] = start_index
-        new_annot[self.LENGTH_INDEX_KEY] = length
+        if length is not None:
+            assert length >= 1
+            new_annot[self.LENGTH_INDEX_KEY] = length
 
         self._metadata[self.ANNOTATION_KEY] += [new_annot]
         # sort annotations by start_index

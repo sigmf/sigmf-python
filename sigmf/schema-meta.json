@@ -238,8 +238,7 @@
                         "$id": "#/properties/annotations/items/anyOf/0",
                         "description": "The annotations value is an array of annotation segment objects that describe anything regarding the signal data not part of the Captures and Global objects. It MUST be sorted by the value of each Annotation Segment's `core:sample_start` key, ascending.",
                         "required": [
-                            "core:sample_start",
-                            "core:sample_count"
+                            "core:sample_start"
                         ],
                         "type": "object",
                         "properties": {
