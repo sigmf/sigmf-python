@@ -61,6 +61,45 @@ class TestClassMethods(unittest.TestCase):
             count += 1
         self.assertEqual(count, len(self.sigmf_object))
 
+class TestAnnotationHandling(unittest.TestCase):
+
+    def test_get_annotations_with_index(self):
+        smf = SigMFFile(TEST_METADATA_MULTI_ANNON)
+        annotations_idx10 = smf.get_annotations(index=10)
+        self.assertListEqual(annotations_idx10,
+            [
+                {SigMFFile.START_INDEX_KEY: 0},
+                {SigMFFile.START_INDEX_KEY: 0, SigMFFile.LENGTH_INDEX_KEY: 32}
+            ])
+    
+    def test__count_samples_from_annotation(self):
+        smf = SigMFFile(TEST_METADATA_MULTI_ANNON)
+        sample_count = smf._count_samples()
+        self.assertEqual(sample_count, 32)
+    
+    def test_set_data_file_without_annotations(self):
+        smf = SigMFFile(
+            global_info = {
+                SigMFFile.DATATYPE_KEY: utils.get_data_type_str(TEST_FLOAT32_DATA),  # in this case, 'cf32_le'
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_path_data = os.path.join(tmpdir, "datafile")
+            TEST_FLOAT32_DATA.tofile(temp_path_data)
+            smf.set_data_file(temp_path_data)
+            samples = smf.read_samples()
+            self.assertTrue(len(samples)==16)
+
+    def test_set_data_file_with_annotations(self):
+        smf = SigMFFile(TEST_METADATA_MULTI_ANNON)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_path_data = os.path.join(tmpdir, "datafile")
+            TEST_FLOAT32_DATA.tofile(temp_path_data)
+            with self.assertWarns(Warning):
+                # Issues warning since file ends before the final annotatio
+                smf.set_data_file(temp_path_data)
+                samples = smf.read_samples()
+                self.assertTrue(len(samples)==16)
 
 def simulate_capture(sigmf_md, n, capture_len):
     start_index = capture_len * n

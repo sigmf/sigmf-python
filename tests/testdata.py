@@ -38,6 +38,20 @@ TEST_METADATA = {
     }
 }
 
+TEST_METADATA_MULTI_ANNON = {
+    SigMFFile.ANNOTATION_KEY: [
+        {SigMFFile.START_INDEX_KEY: 0},
+        {SigMFFile.LENGTH_INDEX_KEY: 32, SigMFFile.START_INDEX_KEY: 0},
+        {SigMFFile.LENGTH_INDEX_KEY: 4, SigMFFile.START_INDEX_KEY: 4}],
+    SigMFFile.CAPTURE_KEY: [{SigMFFile.START_INDEX_KEY: 0}],
+    SigMFFile.GLOBAL_KEY: {
+        SigMFFile.DATATYPE_KEY: 'rf32_le',
+        SigMFFile.HASH_KEY: 'f4984219b318894fa7144519185d1ae81ea721c6113243a52b51e444512a39d74cf41a4cec3c5d000bd7277cc71232c04d7a946717497e18619bdbe94bfeadd6',
+        SigMFFile.NUM_CHANNELS_KEY: 1,
+        SigMFFile.VERSION_KEY: '1.0.0'
+    }
+}
+
 # Data0 is a test of a compliant two capture recording
 TEST_U8_DATA0 = list(range(256))
 TEST_U8_META0 = {
