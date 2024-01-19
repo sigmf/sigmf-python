@@ -402,11 +402,23 @@ class SigMFFile(SigMFMetafile):
         list of dict
             Each dictionary contains one annotation for the sample at `index`.
         '''
-        return [
-            x for x in self._metadata.get(self.ANNOTATION_KEY, [])
-            if index is None or (x[self.START_INDEX_KEY] <= index
-            and (self.LENGTH_INDEX_KEY not in x or x[self.START_INDEX_KEY] + x[self.LENGTH_INDEX_KEY] > index))
-        ]
+        annotations = self._metadata.get(self.ANNOTATION_KEY, [])
+        if index is None:
+            return annotations
+        
+        annotations_including_index = []
+        for annotation in annotations:
+            if index < annotation[self.START_INDEX_KEY]:
+                # index is before annotation starts -> skip
+                continue
+            if self.LENGTH_INDEX_KEY in annotation:
+                # Annotation includes sample_count -> check end index
+                if index >= annotation[self.START_INDEX_KEY] + annotation[self.LENGTH_INDEX_KEY]:
+                    # index is after annotation end -> skip
+                    continue
+            
+            annotations_including_index.append(annotation)
+        return annotations_including_index
 
     def get_sample_size(self):
         """

@@ -25,6 +25,7 @@ import json
 from pathlib import Path
 import numpy as np
 import unittest
+import copy
 
 from sigmf import sigmffile, utils
 from sigmf.sigmffile import SigMFFile
@@ -64,25 +65,34 @@ class TestClassMethods(unittest.TestCase):
 class TestAnnotationHandling(unittest.TestCase):
 
     def test_get_annotations_with_index(self):
-        smf = SigMFFile(TEST_METADATA_MULTI_ANNON)
+        """Test that only annotations containing index are returned from get_annotations()"""
+        smf = SigMFFile(copy.deepcopy(TEST_METADATA))
+        smf.add_annotation(start_index=1)
+        smf.add_annotation(start_index=4, length=4)
         annotations_idx10 = smf.get_annotations(index=10)
-        self.assertListEqual(annotations_idx10,
+        self.assertListEqual(
+            annotations_idx10,
             [
-                {SigMFFile.START_INDEX_KEY: 0},
-                {SigMFFile.START_INDEX_KEY: 0, SigMFFile.LENGTH_INDEX_KEY: 32}
-            ])
+                {SigMFFile.START_INDEX_KEY: 0, SigMFFile.LENGTH_INDEX_KEY: 16},
+                {SigMFFile.START_INDEX_KEY: 1},
+            ]
+        )
     
     def test__count_samples_from_annotation(self):
-        smf = SigMFFile(TEST_METADATA_MULTI_ANNON)
+        """Make sure sample count from annotations use correct end index"""
+        smf = SigMFFile(copy.deepcopy(TEST_METADATA))
+        smf.add_annotation(start_index=0, length=32)
+        smf.add_annotation(start_index=4, length=4)
         sample_count = smf._count_samples()
         self.assertEqual(sample_count, 32)
     
     def test_set_data_file_without_annotations(self):
-        smf = SigMFFile(
-            global_info = {
-                SigMFFile.DATATYPE_KEY: utils.get_data_type_str(TEST_FLOAT32_DATA),  # in this case, 'cf32_le'
-            }
-        )
+        """
+        Make sure setting data_file with no annotations registered does not
+        raise any errors
+        """
+        smf = SigMFFile(copy.deepcopy(TEST_METADATA))
+        smf._metadata[SigMFFile.ANNOTATION_KEY].clear()
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_path_data = os.path.join(tmpdir, "datafile")
             TEST_FLOAT32_DATA.tofile(temp_path_data)
@@ -91,7 +101,13 @@ class TestAnnotationHandling(unittest.TestCase):
             self.assertTrue(len(samples)==16)
 
     def test_set_data_file_with_annotations(self):
-        smf = SigMFFile(TEST_METADATA_MULTI_ANNON)
+        """
+        Make sure setting data_file with annotations registered use sample
+        count from data_file and issue a warning if annotations have end
+        indices bigger than file end index
+        """
+        smf = SigMFFile(copy.deepcopy(TEST_METADATA))
+        smf.add_annotation(start_index=0, length=32)
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_path_data = os.path.join(tmpdir, "datafile")
             TEST_FLOAT32_DATA.tofile(temp_path_data)
