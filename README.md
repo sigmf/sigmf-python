@@ -1,21 +1,21 @@
-<p align="center"><img src="https://github.com/sigmf/SigMF/raw/sigmf-v1.x/logo/sigmf_logo.png" width="30%" /></p>
+<p align="center"><img src="https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/logo/sigmf_logo.svg" alt="Rendered SigMF Logo"/></p>
 
 This python module makes it easy to interact with Signal Metadata Format
-(SigMF) objects. This module works with Python 3.6+ and is distributed freely
-under the terms GNU Lesser GPL v3 License.
+(SigMF) recordings. This module works with Python 3.7+ and is distributed
+freely under the terms GNU Lesser GPL v3 License.
 
 The [SigMF specification document](https://github.com/sigmf/SigMF/blob/HEAD/sigmf-spec.md)
 is located in the [SigMF](https://github.com/gnuradio/SigMF) repository.
 
 # Installation
 
-To install the latest release, install from pip:
+To install the latest PyPi release, install from pip:
 
 ```bash
 pip install sigmf
 ```
 
-To install the latest development version, build from source:
+To install the latest git release, build from source:
 
 ```bash
 git clone https://github.com/sigmf/sigmf-python.git
@@ -23,12 +23,19 @@ cd sigmf-python
 pip install .
 ```
 
-To run the included QA tests:
+Testing can be run with a variety of tools:
+
 ```bash
-# basic
-python3 -m pytest tests/
-# fancy
-coverage run --a --source sigmf -m pytest --doctest-modules
+# pytest and coverage run locally
+pytest
+coverage run
+# run coverage in a venv
+tox run
+# other useful tools
+pylint sigmf tests
+pytype
+black
+flake8
 ```
 
 # Examples

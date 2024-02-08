@@ -202,7 +202,7 @@ class SigMFFile(SigMFMetafile):
 
     def __getitem__(self, sli):
         mem = self._memmap[sli] # matches behavior of numpy.ndarray.__getitem__()
-        
+
         if self._return_type is None:
             return mem
 
@@ -229,13 +229,15 @@ class SigMFFile(SigMFMetafile):
 
     def _is_conforming_dataset(self):
         """
-        Returns `True` if the dataset is conforming to SigMF, `False` otherwise
-
         The dataset is non-conforming if the datafile contains non-sample bytes
         which means global trailing_bytes field is zero or not set, all captures
         `header_bytes` fields are zero or not set. Because we do not necessarily
         know the filename no means of verifying the meta/data filename roots
         match, but this will also check that a data file exists.
+
+        Returns
+        -------
+        `True` if the dataset is conforming to SigMF, `False` otherwise
         """
         if self.get_global_field(self.TRAILING_BYTES_KEY, 0):
             return False
@@ -405,7 +407,7 @@ class SigMFFile(SigMFMetafile):
         annotations = self._metadata.get(self.ANNOTATION_KEY, [])
         if index is None:
             return annotations
-        
+
         annotations_including_index = []
         for annotation in annotations:
             if index < annotation[self.START_INDEX_KEY]:
@@ -416,7 +418,7 @@ class SigMFFile(SigMFMetafile):
                 if index >= annotation[self.START_INDEX_KEY] + annotation[self.LENGTH_INDEX_KEY]:
                     # index is after annotation end -> skip
                     continue
-            
+
             annotations_including_index.append(annotation)
         return annotations_including_index
 

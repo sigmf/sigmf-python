@@ -10,8 +10,8 @@ import os
 import logging
 from PySimpleGUI import *
 
-from .sigmffile import SigMFFile, fromarchive, dtype_info
-from .archive import SIGMF_ARCHIVE_EXT
+from ..sigmffile import SigMFFile, fromarchive, dtype_info
+from ..archive import SIGMF_ARCHIVE_EXT
 
 log = logging.getLogger()
 
