@@ -9,8 +9,9 @@ build/*
 .eggs/*
 SigMF.egg-info/*
 
-# pytest & coverage related
+# test related
 .coverage
 pytest.xml
 coverage.xml
+.tox/
 htmlcov/*

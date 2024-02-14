@@ -1,0 +1,102 @@
+[project]
+name = "SigMF"
+description = "Easily interact with Signal Metadata Format (SigMF) recordings."
+keywords = ["gnuradio"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dynamic = ["version", "readme"]
+requires-python = ">=3.7"
+dependencies = [
+    "numpy",        # for vector math
+    "jsonschema",   # for spec validation
+]
+    [project.urls]
+    repository = "https://github.com/sigmf/sigmf-python"
+    [project.scripts]
+    sigmf_validate = "sigmf.validate:main"
+    sigmf_gui = "sigmf.apps.gui:main [apps]"
+    sigmf_convert_wav = "sigmf.apps.convert_wav:main [apps]"
+    [project.optional-dependencies]
+    test = [
+        "pylint",
+        "pytest",
+        "pytest-cov",
+        "hypothesis",   # next-gen testing framework
+    ]
+    apps = [
+        "scipy",        # for wav i/o
+        # FIXME: PySimpleGUI 2024-02-12 v5.0.0 release seems to have a bug. Unpin version when possible.
+        "PySimpleGUI < 5.0.0",  # for gui interface
+    ]
+
+[tool.setuptools]
+packages = ["sigmf"]
+    [tool.setuptools.dynamic]
+    version = {attr = "sigmf.__version__"}
+    readme = {file = ["README.md"], content-type = "text/markdown"}
+    [tool.setuptools.package-data]
+    sigmf = ["*.json"]
+
+[build-system]
+requires = ["setuptools>=65.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.coverage.run]
+branch = true
+source = ["sigmf", "tests"]
+# -rA captures stdout from all tests and places it after the pytest summary
+command_line = "-m pytest -rA --doctest-modules --junitxml=pytest.xml"
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+
+[tool.pylint]
+    [tool.pylint.main]
+    load-plugins = [
+        "pylint.extensions.typing",
+        "pylint.extensions.docparams",
+    ]
+    exit-zero = true
+    [tool.pylint.messages_control]
+    disable = [
+        "logging-not-lazy",
+        "missing-module-docstring",
+        "import-error",
+        "unspecified-encoding",
+    ]
+    max-line-length = 120
+    [tool.pylint.REPORTS]
+    # omit from the similarity reports
+    ignore-comments = 'yes'
+    ignore-docstrings = 'yes'
+    ignore-imports = 'yes'
+    ignore-signatures = 'yes'
+    min-similarity-lines = 4
+
+[tool.pytype]
+inputs = ['sigmf', 'tests']
+
+[tool.black]
+line-length = 120
+
+[tool.tox]
+legacy_tox_ini = '''
+    [tox]
+    skip_missing_interpreters = True
+    envlist = py{37,38,39,310,311,312}
+
+    [testenv]
+    usedevelop = True
+    deps = .[test,apps]
+    commands = coverage run
+'''

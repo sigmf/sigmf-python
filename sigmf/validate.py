@@ -124,5 +124,5 @@ def main():
     log.info('Validation OK!')
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
