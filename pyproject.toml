@@ -35,7 +35,8 @@ dependencies = [
     ]
     apps = [
         "scipy",        # for wav i/o
-        "PySimpleGUI",  # for gui interface
+        # FIXME: PySimpleGUI 2024-02-12 v5.0.0 release seems to have a bug. Unpin version when possible.
+        "PySimpleGUI < 5.0.0",  # for gui interface
     ]
 
 [tool.setuptools]
