@@ -7,9 +7,11 @@
 """Access SigMF archives without extracting them."""
 
 import os
+import io
 import shutil
 import tarfile
 import tempfile
+from pathlib import Path
 
 from . import __version__  #, schema, sigmf_hash, validate
 from .sigmffile import SigMFFile
@@ -42,7 +44,8 @@ class SigMFArchiveReader():
             raise ValueError('In sigmf.archivereader.__init__(), either `name` or `archive_buffer` must be not None')
 
         json_contents = None
-        data_offset_size = None
+        data_offset = None
+        data_size_bytes = None
 
         for memb in tar_obj.getmembers():
             if memb.isdir():  # memb.type == tarfile.DIRTYPE:
@@ -52,7 +55,7 @@ class SigMFArchiveReader():
             elif memb.isfile():  # memb.type == tarfile.REGTYPE:
                 if memb.name.endswith(SIGMF_METADATA_EXT):
                     json_contents = memb.name
-                    if data_offset_size is None:
+                    if data_offset is None:
                         # consider a warnings.warn() here; the datafile should be earlier in the
                         # archive than the metadata, so that updating it (like, adding an annotation)
                         # is fast.
@@ -61,21 +64,28 @@ class SigMFArchiveReader():
                         json_contents = memb_fid.read()
 
                 elif memb.name.endswith(SIGMF_DATASET_EXT):
-                    data_offset_size = memb.offset_data, memb.size
+                    data_offset = memb.offset_data
+                    data_size_bytes = memb.size
+                    with tar_obj.extractfile(memb) as memb_fid:
+                        data_buffer = io.BytesIO(memb_fid.read())
 
                 else:
                     print('A regular file', memb.name, 'was found but ignored in the archive')
             else:
                 print('A member of type', memb.type, 'and name', memb.name, 'was found but not handled, just FYI.')
 
-        if data_offset_size is None:
+        if data_offset is None:
             raise SigMFFileError('No .sigmf-data file found in archive!')
 
         self.sigmffile = SigMFFile(metadata=json_contents)
         valid_md = self.sigmffile.validate()
 
-        self.sigmffile.set_data_file(self.name, data_buffer=archive_buffer, skip_checksum=skip_checksum, offset=data_offset_size[0],
-                                     size_bytes=data_offset_size[1], map_readonly=map_readonly)
+        self.sigmffile.set_data_file(
+            data_buffer=data_buffer,
+            skip_checksum=skip_checksum,
+            size_bytes=data_size_bytes,
+            map_readonly=map_readonly,
+        )
 
         self.ndim = self.sigmffile.ndim
         self.shape = self.sigmffile.shape

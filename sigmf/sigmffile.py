@@ -14,6 +14,7 @@ import tempfile
 from os import path
 import warnings
 import numpy as np
+import io
 
 from . import __version__, schema, sigmf_hash, validate
 from .archive import SigMFArchive, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SIGMF_ARCHIVE_EXT, SIGMF_COLLECTION_EXT
@@ -245,7 +246,7 @@ class SigMFFile(SigMFMetafile):
             # check for any non-zero `header_bytes` fields in captures segments
             if capture.get(self.HEADER_BYTES_KEY, 0):
                 return False
-        if not path.isfile(self.data_file):
+        if self.data_file is not None and not path.isfile(self.data_file):
             return False
         # if we get here, the file exists and is conforming
         return True
@@ -441,7 +442,7 @@ class SigMFFile(SigMFMetafile):
             sample_count = self._get_sample_count_from_annotations()
         else:
             header_bytes = sum([c.get(self.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
-            file_size = path.getsize(self.data_file) if self.offset_and_size is None else self.offset_and_size[1]
+            file_size = path.getsize(self.data_file) if self.data_size_bytes is None else self.data_size_bytes
             file_data_size = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes  # bytes
             sample_size = self.get_sample_size() # size of a sample in bytes
             num_channels = self.get_num_channels()
@@ -482,9 +483,9 @@ class SigMFFile(SigMFMetafile):
         """
         old_hash = self.get_global_field(self.HASH_KEY)
         if self.data_file is not None:
-            new_hash = sigmf_hash.calculate_sha512(self.data_file, offset_and_size=self.offset_and_size)
+            new_hash = sigmf_hash.calculate_sha512(self.data_file, offset=self.data_offset, size=self.data_size_bytes)
         else:
-            new_hash = sigmf_hash.calculate_sha512(fileobj=self.data_buffer, offset_and_size=self.offset_and_size)
+            new_hash = sigmf_hash.calculate_sha512(fileobj=self.data_buffer, offset=self.data_offset, size=self.data_size_bytes)
         if old_hash:
             if old_hash != new_hash:
                 raise SigMFFileError('Calculated file hash does not match associated metadata.')
@@ -502,7 +503,8 @@ class SigMFFile(SigMFMetafile):
 
         self.data_file = data_file
         self.data_buffer = data_buffer
-        self.offset_and_size = None if (offset == 0 and size_bytes is None) else (offset, size_bytes)
+        self.data_offset = offset
+        self.data_size_bytes = size_bytes
         self._count_samples()
 
         dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
@@ -530,8 +532,8 @@ class SigMFFile(SigMFMetafile):
                 buffer_count = -1 if mapped_length is None else mapped_length
                 raveled = np.frombuffer(self.data_buffer.getbuffer(), count=buffer_count, **common_args)
             else:
-                raise ValueError('In sigmffile.set_data_file(), either data_file or data_buffer must be not None')
-        except:  # TODO include likely exceptions here
+                raise SigMFFileError('In sigmffile.set_data_file(), either data_file or data_buffer must be not None')
+        except SigMFFileError:  # TODO include likely exceptions here
             warnings.warn('Failed to create data array from memory-map-file or buffer!')
         else:
             self._memmap = raveled.reshape(mapped_reshape)
@@ -629,7 +631,7 @@ class SigMFFile(SigMFMetafile):
             raise IOError('Number of samples must be greater than zero, or -1 for all samples.')
         elif start_index + count > self.sample_count:
             raise IOError("Cannot read beyond EOF.")
-        if self.data_file is None:
+        if self.data_file is None and not isinstance(self.data_buffer, io.BytesIO):
             if self.get_global_field(self.METADATA_ONLY_KEY, False):
                 # only if data_file is `None` allows access to dynamically generated datsets
                 raise SigMFFileError("Cannot read samples from a metadata only distribution.")
@@ -656,9 +658,13 @@ class SigMFFile(SigMFMetafile):
         data_type_out = np.dtype("f4") if not self.is_complex_data else np.dtype("f4, f4")
         num_channels = self.get_num_channels()
 
-        fp = open(self.data_file, "rb")
-        fp.seek(first_byte, 0)
-        data = np.fromfile(fp, dtype=data_type_in, count=nitems)
+        if self.data_file is not None:
+            fp = open(self.data_file, "rb")
+            fp.seek(first_byte, 0)
+            data = np.fromfile(fp, dtype=data_type_in, count=nitems)
+        else:
+            data = self._memmap
+
         if num_channels != 1:
             # return reshaped view for num_channels
             # first dimension will be double size if `is_complex_data`
@@ -676,7 +682,9 @@ class SigMFFile(SigMFMetafile):
         else:
             data = data.view(component_type_in)
 
-        fp.close()
+        if self.data_file is not None:
+            fp.close()
+
         return data
 
 
@@ -928,14 +936,14 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     return None
 
 
-def fromarchive(archive_path, dir=None):
+def fromarchive(archive_path, dir=None, skip_checksum=False):
     """Extract an archive and return a SigMFFile.
 
     The `dir` parameter is no longer used as this function has been changed to
     access SigMF archives without extracting them.
     """
     from .archivereader import SigMFArchiveReader
-    return SigMFArchiveReader(archive_path).sigmffile
+    return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
 
 
 def fromfile(filename, skip_checksum=False):
@@ -966,7 +974,7 @@ def fromfile(filename, skip_checksum=False):
     file_path, ext = path.splitext(filename) # works with Pathlib - ext contains a dot
 
     if (ext.lower().endswith(SIGMF_ARCHIVE_EXT) or not path.isfile(meta_fn)) and path.isfile(archive_fn):
-        return fromarchive(archive_fn)
+        return fromarchive(archive_fn, skip_checksum=skip_checksum)
 
     if (ext.lower().endswith(SIGMF_COLLECTION_EXT) or not path.isfile(meta_fn)) and path.isfile(collection_fn):
         collection_fp = open(collection_fn, "rb")
