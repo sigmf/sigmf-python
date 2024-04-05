@@ -39,6 +39,12 @@ class FailingCases(unittest.TestCase):
     def setUp(self):
         self.metadata = dict(TEST_METADATA)
 
+    def test_no_version(self):
+        '''core:version must be present'''
+        del self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.VERSION_KEY]
+        with self.assertRaises(ValidationError):
+            SigMFFile(self.metadata).validate()
+
     def test_extra_top_level_key(self):
         '''no extra keys allowed on the top level'''
         self.metadata['extra'] = 0
