@@ -6,11 +6,12 @@
 
 """Utilities"""
 
+import re
+import sys
 from copy import deepcopy
 from datetime import datetime
-import sys
+
 import numpy as np
-import re
 
 from . import error
 

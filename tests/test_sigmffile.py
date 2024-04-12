@@ -18,14 +18,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import copy
+import json
 import os
 import shutil
 import tempfile
-import json
-from pathlib import Path
-import numpy as np
 import unittest
-import copy
+from pathlib import Path
+
+import numpy as np
 
 from sigmf import sigmffile, utils
 from sigmf.sigmffile import SigMFFile

@@ -6,18 +6,20 @@
 
 """converter for wav containers"""
 
-import os
-import tempfile
 import datetime
-import pathlib
-import argparse
 import getpass
+import logging
+import os
+import pathlib
+import tempfile
 
 from scipy.io import wavfile
 
 from .. import archive
 from ..sigmffile import SigMFFile
 from ..utils import get_data_type_str
+
+log = logging.getLogger()
 
 
 def convert_wav(input_wav_filename, archive_filename=None, start_datetime=None, author=None):
@@ -62,17 +64,32 @@ def main():
     """
     entry-point for sigmf_convert_wav
     """
+
+    import argparse
+
+    from sigmf import __version__ as toolversion
+
     parser = argparse.ArgumentParser(description="Convert .wav to .sigmf container.")
     parser.add_argument("input", type=str, help="Wavfile path")
     parser.add_argument("--author", type=str, default=None, help=f"set {SigMFFile.AUTHOR_KEY} metadata")
+    parser.add_argument('-v', '--verbose', action='count', default=0)
+    parser.add_argument('--version', action='version', version=f'%(prog)s v{toolversion}')
     args = parser.parse_args()
+
+    level_lut = {
+        0: logging.WARNING,
+        1: logging.INFO,
+        2: logging.DEBUG,
+    }
+    logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
     out_fname = convert_wav(
         input_wav_filename=args.input,
         author=args.author,
     )
-    print("Wrote", out_fname)
+    log.info(f"Write {out_fname}")
 
 
 if __name__ == "__main__":
     main()
+

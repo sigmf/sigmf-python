@@ -21,10 +21,10 @@
 import tempfile
 import unittest
 
+from jsonschema.exceptions import ValidationError
+
 import sigmf
 from sigmf import SigMFFile
-
-from jsonschema.exceptions import ValidationError
 
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 

@@ -6,8 +6,8 @@
 
 '''Schema IO'''
 
-import os
 import json
+import os
 
 from . import utils
 

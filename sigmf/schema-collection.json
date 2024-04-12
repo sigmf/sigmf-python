@@ -20,7 +20,7 @@
                     "$id": "#/properties/collection/properties/core%3Aversion",
                     "description": "The version of the SigMF specification used to create the Collection file.",
                     "examples": [
-                        "1.0.0"
+                        "1.2.0"
                     ],
                     "type": "string"
                 },

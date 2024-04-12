@@ -1,12 +1,20 @@
+# Copyright: Multiple Authors
+#
+# This file is part of SigMF. https://github.com/sigmf/sigmf-python
+#
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
+"""Tests for SigMF Archives"""
+
 import codecs
 import json
 import tarfile
 import tempfile
 from os import path
 
+import jsonschema
 import numpy as np
 import pytest
-import jsonschema
 
 from sigmf import error
 from sigmf.archive import SIGMF_DATASET_EXT, SIGMF_METADATA_EXT

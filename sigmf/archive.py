@@ -13,7 +13,6 @@ import tempfile
 
 from .error import SigMFFileError
 
-
 SIGMF_ARCHIVE_EXT = ".sigmf"
 SIGMF_METADATA_EXT = ".sigmf-meta"
 SIGMF_DATASET_EXT = ".sigmf-data"
