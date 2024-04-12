@@ -40,6 +40,7 @@ def test_sigmffile(test_data_file):
     """If pytest uses this signature, will return valid SigMF file."""
     sigf = SigMFFile()
     sigf.set_global_field("core:datatype", "rf32_le")
+    sigf.set_global_field("core:version", "1.0.0")
     sigf.add_annotation(start_index=0, length=len(TEST_FLOAT32_DATA))
     sigf.add_capture(start_index=0)
     sigf.set_data_file(test_data_file.name)
