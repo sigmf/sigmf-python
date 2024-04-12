@@ -1,6 +1,6 @@
 # Copyright: Multiple Authors
 #
-# This file is part of SigMF. https://github.com/sigmf/SigMF
+# This file is part of sigmf-python. https://github.com/sigmf/SigMF
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
