@@ -3,12 +3,14 @@
 # This file is part of SigMF. https://github.com/sigmf/sigmf-python
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
+
+"""Tests for Archive I/O"""
+
 import tempfile
 import unittest
 
 import numpy as np
 
-import sigmf
 from sigmf import SigMFArchiveReader, SigMFFile, __specification__
 
 

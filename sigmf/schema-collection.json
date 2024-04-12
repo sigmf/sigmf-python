@@ -1,5 +1,5 @@
 {
-    "$id": "https://github.com/gnuradio/SigMF",
+    "$id": "https://github.com/sigmf/SigMF",
     "$schema": "http://json-schema.org/draft-07/schema",
     "default": {},
     "required": [
