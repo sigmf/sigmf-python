@@ -83,7 +83,7 @@ def test_unwritable_fileobj_throws_fileerror(test_sigmffile):
 def test_unwritable_name_throws_fileerror(test_sigmffile):
     # Cannot assume /root/ is unwritable (e.g. Docker environment)
     # so use invalid filename
-    unwritable_file = '/bad_name/'
+    unwritable_file = "/bad_name/"
     with pytest.raises(error.SigMFFileError):
         test_sigmffile.archive(name=unwritable_file)
 

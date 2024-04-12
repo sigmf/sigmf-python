@@ -51,8 +51,8 @@ class TestClassMethods(unittest.TestCase):
             count += 1
         self.assertEqual(count, len(self.sigmf_object))
 
-class TestAnnotationHandling(unittest.TestCase):
 
+class TestAnnotationHandling(unittest.TestCase):
     def test_get_annotations_with_index(self):
         """Test that only annotations containing index are returned from get_annotations()"""
         smf = SigMFFile(copy.deepcopy(TEST_METADATA))
@@ -87,7 +87,7 @@ class TestAnnotationHandling(unittest.TestCase):
             TEST_FLOAT32_DATA.tofile(temp_path_data)
             smf.set_data_file(temp_path_data)
             samples = smf.read_samples()
-            self.assertTrue(len(samples)==16)
+            self.assertTrue(len(samples) == 16)
 
     def test_set_data_file_with_annotations(self):
         """
@@ -104,7 +104,8 @@ class TestAnnotationHandling(unittest.TestCase):
                 # Issues warning since file ends before the final annotatio
                 smf.set_data_file(temp_path_data)
                 samples = smf.read_samples()
-                self.assertTrue(len(samples)==16)
+                self.assertTrue(len(samples) == 16)
+
 
 def simulate_capture(sigmf_md, n, capture_len):
     start_index = capture_len * n
@@ -118,9 +119,7 @@ def simulate_capture(sigmf_md, n, capture_len):
         "core:longitude": -105.0 + 0.0001 * n,
     }
 
-    sigmf_md.add_annotation(start_index=start_index,
-                            length=capture_len,
-                            metadata=annotation_md)
+    sigmf_md.add_annotation(start_index=start_index, length=capture_len, metadata=annotation_md)
 
 
 def test_default_constructor():
@@ -129,7 +128,7 @@ def test_default_constructor():
 
 def test_set_non_required_global_field():
     sigf = SigMFFile()
-    sigf.set_global_field('this_is:not_in_the_schema', None)
+    sigf.set_global_field("this_is:not_in_the_schema", None)
 
 
 def test_add_capture():
@@ -226,89 +225,95 @@ class TestMultichannel(unittest.TestCase):
 
 
 def test_key_validity():
-    '''assure the keys in test metadata are valid'''
+    """assure the keys in test metadata are valid"""
     for top_key, top_val in TEST_METADATA.items():
         if type(top_val) is dict:
             for core_key in top_val.keys():
-                assert core_key in vars(SigMFFile)[f'VALID_{top_key.upper()}_KEYS']
+                assert core_key in vars(SigMFFile)[f"VALID_{top_key.upper()}_KEYS"]
         elif type(top_val) is list:
             # annotations are in a list
             for annot in top_val:
                 for core_key in annot.keys():
                     assert core_key in SigMFFile.VALID_ANNOTATION_KEYS
         else:
-            raise ValueError('expected list or dict')
+            raise ValueError("expected list or dict")
 
 
 def test_ordered_metadata():
-    '''check to make sure the metadata is sorted as expected'''
+    """check to make sure the metadata is sorted as expected"""
     sigf = SigMFFile()
-    top_sort_order = ['global', 'captures', 'annotations']
+    top_sort_order = ["global", "captures", "annotations"]
     for kdx, key in enumerate(sigf.ordered_metadata()):
         assert kdx == top_sort_order.index(key)
 
 
 def test_captures_checking():
-    '''
+    """
     these tests make sure the various captures access tools work properly
-    '''
-    np.array(TEST_U8_DATA0, dtype=np.uint8).tofile('/tmp/d0.sigmf-data')
-    with open('/tmp/d0.sigmf-meta','w') as f0: json.dump(TEST_U8_META0, f0)
-    np.array(TEST_U8_DATA1, dtype=np.uint8).tofile('/tmp/d1.sigmf-data')
-    with open('/tmp/d1.sigmf-meta','w') as f1: json.dump(TEST_U8_META1, f1)
-    np.array(TEST_U8_DATA2, dtype=np.uint8).tofile('/tmp/d2.sigmf-data')
-    with open('/tmp/d2.sigmf-meta','w') as f2: json.dump(TEST_U8_META2, f2)
-    np.array(TEST_U8_DATA3, dtype=np.uint8).tofile('/tmp/d3.sigmf-data')
-    with open('/tmp/d3.sigmf-meta','w') as f3: json.dump(TEST_U8_META3, f3)
-    np.array(TEST_U8_DATA4, dtype=np.uint8).tofile('/tmp/d4.sigmf-data')
-    with open('/tmp/d4.sigmf-meta','w') as f4: json.dump(TEST_U8_META4, f4)
+    """
+    np.array(TEST_U8_DATA0, dtype=np.uint8).tofile("/tmp/d0.sigmf-data")
+    with open("/tmp/d0.sigmf-meta", "w") as f0:
+        json.dump(TEST_U8_META0, f0)
+    np.array(TEST_U8_DATA1, dtype=np.uint8).tofile("/tmp/d1.sigmf-data")
+    with open("/tmp/d1.sigmf-meta", "w") as f1:
+        json.dump(TEST_U8_META1, f1)
+    np.array(TEST_U8_DATA2, dtype=np.uint8).tofile("/tmp/d2.sigmf-data")
+    with open("/tmp/d2.sigmf-meta", "w") as f2:
+        json.dump(TEST_U8_META2, f2)
+    np.array(TEST_U8_DATA3, dtype=np.uint8).tofile("/tmp/d3.sigmf-data")
+    with open("/tmp/d3.sigmf-meta", "w") as f3:
+        json.dump(TEST_U8_META3, f3)
+    np.array(TEST_U8_DATA4, dtype=np.uint8).tofile("/tmp/d4.sigmf-data")
+    with open("/tmp/d4.sigmf-meta", "w") as f4:
+        json.dump(TEST_U8_META4, f4)
 
-    sigmf0 = sigmffile.fromfile('/tmp/d0.sigmf-meta', skip_checksum=True)
-    sigmf1 = sigmffile.fromfile('/tmp/d1.sigmf-meta', skip_checksum=True)
-    sigmf2 = sigmffile.fromfile('/tmp/d2.sigmf-meta', skip_checksum=True)
-    sigmf3 = sigmffile.fromfile('/tmp/d3.sigmf-meta', skip_checksum=True)
-    sigmf4 = sigmffile.fromfile('/tmp/d4.sigmf-meta', skip_checksum=True)
+    sigmf0 = sigmffile.fromfile("/tmp/d0.sigmf-meta", skip_checksum=True)
+    sigmf1 = sigmffile.fromfile("/tmp/d1.sigmf-meta", skip_checksum=True)
+    sigmf2 = sigmffile.fromfile("/tmp/d2.sigmf-meta", skip_checksum=True)
+    sigmf3 = sigmffile.fromfile("/tmp/d3.sigmf-meta", skip_checksum=True)
+    sigmf4 = sigmffile.fromfile("/tmp/d4.sigmf-meta", skip_checksum=True)
 
     assert sigmf0._count_samples() == 256
     assert sigmf0._is_conforming_dataset()
-    assert (0,0) == sigmf0.get_capture_byte_boundarys(0)
-    assert (0,256) == sigmf0.get_capture_byte_boundarys(1)
+    assert (0, 0) == sigmf0.get_capture_byte_boundarys(0)
+    assert (0, 256) == sigmf0.get_capture_byte_boundarys(1)
     assert np.array_equal(TEST_U8_DATA0, sigmf0.read_samples(autoscale=False))
     assert np.array_equal(np.array([]), sigmf0.read_samples_in_capture(0))
-    assert np.array_equal(TEST_U8_DATA0, sigmf0.read_samples_in_capture(1,autoscale=False))
+    assert np.array_equal(TEST_U8_DATA0, sigmf0.read_samples_in_capture(1, autoscale=False))
 
     assert sigmf1._count_samples() == 192
     assert not sigmf1._is_conforming_dataset()
-    assert (32,160) == sigmf1.get_capture_byte_boundarys(0)
-    assert (160,224) == sigmf1.get_capture_byte_boundarys(1)
-    assert np.array_equal(np.array(range(128)), sigmf1.read_samples_in_capture(0,autoscale=False))
-    assert np.array_equal(np.array(range(128,192)), sigmf1.read_samples_in_capture(1,autoscale=False))
+    assert (32, 160) == sigmf1.get_capture_byte_boundarys(0)
+    assert (160, 224) == sigmf1.get_capture_byte_boundarys(1)
+    assert np.array_equal(np.array(range(128)), sigmf1.read_samples_in_capture(0, autoscale=False))
+    assert np.array_equal(np.array(range(128, 192)), sigmf1.read_samples_in_capture(1, autoscale=False))
 
     assert sigmf2._count_samples() == 192
     assert not sigmf2._is_conforming_dataset()
-    assert (32,160) == sigmf2.get_capture_byte_boundarys(0)
-    assert (176,240) == sigmf2.get_capture_byte_boundarys(1)
-    assert np.array_equal(np.array(range(128)), sigmf2.read_samples_in_capture(0,autoscale=False))
-    assert np.array_equal(np.array(range(128,192)), sigmf2.read_samples_in_capture(1,autoscale=False))
+    assert (32, 160) == sigmf2.get_capture_byte_boundarys(0)
+    assert (176, 240) == sigmf2.get_capture_byte_boundarys(1)
+    assert np.array_equal(np.array(range(128)), sigmf2.read_samples_in_capture(0, autoscale=False))
+    assert np.array_equal(np.array(range(128, 192)), sigmf2.read_samples_in_capture(1, autoscale=False))
 
     assert sigmf3._count_samples() == 192
     assert not sigmf3._is_conforming_dataset()
-    assert (32,64) == sigmf3.get_capture_byte_boundarys(0)
-    assert (64,160) == sigmf3.get_capture_byte_boundarys(1)
-    assert (192,256) == sigmf3.get_capture_byte_boundarys(2)
-    assert np.array_equal(np.array(range(32)), sigmf3.read_samples_in_capture(0,autoscale=False))
-    assert np.array_equal(np.array(range(32,128)), sigmf3.read_samples_in_capture(1,autoscale=False))
-    assert np.array_equal(np.array(range(128,192)), sigmf3.read_samples_in_capture(2,autoscale=False))
+    assert (32, 64) == sigmf3.get_capture_byte_boundarys(0)
+    assert (64, 160) == sigmf3.get_capture_byte_boundarys(1)
+    assert (192, 256) == sigmf3.get_capture_byte_boundarys(2)
+    assert np.array_equal(np.array(range(32)), sigmf3.read_samples_in_capture(0, autoscale=False))
+    assert np.array_equal(np.array(range(32, 128)), sigmf3.read_samples_in_capture(1, autoscale=False))
+    assert np.array_equal(np.array(range(128, 192)), sigmf3.read_samples_in_capture(2, autoscale=False))
 
     assert sigmf4._count_samples() == 96
     assert not sigmf4._is_conforming_dataset()
-    assert (32,160) == sigmf4.get_capture_byte_boundarys(0)
-    assert (160,224) == sigmf4.get_capture_byte_boundarys(1)
-    assert np.array_equal(np.array(range(64)), sigmf4.read_samples_in_capture(0,autoscale=False)[:,0])
-    assert np.array_equal(np.array(range(64,96)), sigmf4.read_samples_in_capture(1,autoscale=False)[:,1])
+    assert (32, 160) == sigmf4.get_capture_byte_boundarys(0)
+    assert (160, 224) == sigmf4.get_capture_byte_boundarys(1)
+    assert np.array_equal(np.array(range(64)), sigmf4.read_samples_in_capture(0, autoscale=False)[:, 0])
+    assert np.array_equal(np.array(range(64, 96)), sigmf4.read_samples_in_capture(1, autoscale=False)[:, 1])
+
 
 def test_slicing():
-    '''Test __getitem___ builtin for sigmffile, make sure slicing and indexing works as expected.'''
+    """Test __getitem___ builtin for sigmffile, make sure slicing and indexing works as expected."""
     _, temp_data0 = tempfile.mkstemp()
     np.array(TEST_U8_DATA0, dtype=np.uint8).tofile(temp_data0)
     sigmf0 = SigMFFile(metadata=TEST_U8_META0, data_file=temp_data0)
@@ -326,8 +331,8 @@ def test_slicing():
     _, temp_data2 = tempfile.mkstemp()
     np.array(TEST_U8_DATA4, dtype=np.uint8).tofile(temp_data2)
     sigmf2 = SigMFFile(TEST_U8_META4, data_file=temp_data2)
-    channelized = np.array(TEST_U8_DATA4).reshape((128,2))
+    channelized = np.array(TEST_U8_DATA4).reshape((128, 2))
     assert np.array_equal(channelized, sigmf2[:][:])
     assert np.array_equal(sigmf2[10:20, 91:112], sigmf2.read_samples(autoscale=False)[10:20, 91:112])
     assert np.array_equal(sigmf2[0], channelized[0])
-    assert np.array_equal(sigmf2[1,:], channelized[1,:])
+    assert np.array_equal(sigmf2[1, :], channelized[1, :])
