@@ -1,7 +1,7 @@
 [project]
 name = "SigMF"
 description = "Easily interact with Signal Metadata Format (SigMF) recordings."
-keywords = ["gnuradio"]
+keywords = ["gnuradio", "radio"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
@@ -13,6 +13,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Communications :: Ham Radio",
 ]
 dynamic = ["version", "readme"]
 requires-python = ">=3.7"

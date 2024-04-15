@@ -1,24 +1,26 @@
 # Copyright: Multiple Authors
 #
-# This file is part of SigMF. https://github.com/sigmf/sigmf-python
+# This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 '''SigMFFile Object'''
 
-from collections import OrderedDict
 import codecs
 import json
 import tarfile
 import tempfile
-from os import path
 import warnings
+from collections import OrderedDict
+from os import path
+
 import numpy as np
 
-from . import __version__, schema, sigmf_hash, validate
-from .archive import SigMFArchive, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SIGMF_ARCHIVE_EXT, SIGMF_COLLECTION_EXT
+from . import __specification__, __version__, schema, sigmf_hash, validate
+from .archive import SIGMF_ARCHIVE_EXT, SIGMF_COLLECTION_EXT, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SigMFArchive
+from .error import SigMFAccessError, SigMFFileError
 from .utils import dict_merge
-from .error import SigMFFileError, SigMFAccessError
+
 
 class SigMFMetafile():
     VALID_KEYS = {}
@@ -174,7 +176,7 @@ class SigMFFile(SigMFMetafile):
         if metadata is None:
             self._metadata = {self.GLOBAL_KEY:{}, self.CAPTURE_KEY:[], self.ANNOTATION_KEY:[]}
             self._metadata[self.GLOBAL_KEY][self.NUM_CHANNELS_KEY] = 1
-            self._metadata[self.GLOBAL_KEY][self.VERSION_KEY] = "1.0.0"
+            self._metadata[self.GLOBAL_KEY][self.VERSION_KEY] = __specification__
         elif isinstance(metadata, dict):
             self._metadata = metadata
         else:

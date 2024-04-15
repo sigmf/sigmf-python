@@ -1,14 +1,19 @@
 # Copyright: Multiple Authors
 #
-# This file is part of SigMF. https://github.com/sigmf/sigmf-python
+# This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 '''SigMF Validator'''
 
+import argparse
+import json
+import logging
+
 import jsonschema
 
-from . import schema
+from . import __version__ as toolversion
+from . import error, schema, sigmffile
 
 
 def extend_with_default(validator_class):
@@ -80,15 +85,6 @@ def validate(metadata, ref_schema=schema.get_schema()):
 
 
 def main():
-    import argparse
-    import logging
-    import json
-
-    from . import sigmffile
-    from . import error
-
-    from sigmf import __version__ as toolversion
-
     parser = argparse.ArgumentParser(description='Validate SigMF Archive or file pair against JSON schema.',
                                      prog='sigmf_validate')
     parser.add_argument('filename', help='SigMF path (extension optional).')

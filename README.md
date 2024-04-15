@@ -1,11 +1,11 @@
-<p align="center"><img src="https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/logo/sigmf_logo.svg" alt="Rendered SigMF Logo"/></p>
+<p align="center"><img src="https://github.com/sigmf/SigMF/blob/v1.2.0/logo/sigmf_logo.png" alt="Rendered SigMF Logo"/></p>
 
 This python module makes it easy to interact with Signal Metadata Format
 (SigMF) recordings. This module works with Python 3.7+ and is distributed
 freely under the terms GNU Lesser GPL v3 License.
 
 The [SigMF specification document](https://github.com/sigmf/SigMF/blob/HEAD/sigmf-spec.md)
-is located in the [SigMF](https://github.com/gnuradio/SigMF) repository.
+is located in the [SigMF](https://github.com/sigmf/SigMF) repository.
 
 # Installation
 

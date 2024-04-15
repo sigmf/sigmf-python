@@ -1,16 +1,17 @@
 # Copyright: Multiple Authors
 #
-# This file is part of SigMF. https://github.com/sigmf/sigmf-python
+# This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 """Utilities"""
 
+import re
+import sys
 from copy import deepcopy
 from datetime import datetime
-import sys
+
 import numpy as np
-import re
 
 from . import error
 

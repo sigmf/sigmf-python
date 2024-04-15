@@ -1,17 +1,20 @@
 # Copyright: Multiple Authors
 #
-# This file is part of SigMF. https://github.com/sigmf/sigmf-python
+# This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 '''GUI for creating & editing SigMF Files'''
 
-import os
+import argparse
 import logging
+import os
+
 from PySimpleGUI import *
 
-from ..sigmffile import SigMFFile, fromarchive, dtype_info
+from .. import __version__ as toolversion
 from ..archive import SIGMF_ARCHIVE_EXT
+from ..sigmffile import SigMFFile, dtype_info, fromarchive
 
 log = logging.getLogger()
 
@@ -381,13 +384,10 @@ def add_capture(capture_data_input, values, capture_selector_dict, file_data, fr
 
 
 def main():
-    import argparse
-    from sigmf import __version__ as toolversion
-
     parser = argparse.ArgumentParser(description='Edit SigMF Archive.')
     parser.add_argument('-i', '--input', help='Input SigMF Archive Path.', default=None)
     parser.add_argument('-v', '--verbose', action='count', default=0)
-    parser.add_argument('--version', action='version', version=f'%(prog)s {toolversion}')
+    parser.add_argument('--version', action='version', version=f'%(prog)s v{toolversion}')
     args = parser.parse_args()
 
     level_lut = {
@@ -638,3 +638,6 @@ def main():
             break
 
     window.Close()
+
+if __name__ == "__main__":
+    main()

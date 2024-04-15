@@ -1,12 +1,20 @@
+# Copyright: Multiple Authors
+#
+# This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
+#
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
+"""Tests for SigMFArchive"""
+
 import codecs
 import json
 import tarfile
 import tempfile
 from os import path
 
+import jsonschema
 import numpy as np
 import pytest
-import jsonschema
 
 from sigmf import error
 from sigmf.archive import SIGMF_DATASET_EXT, SIGMF_METADATA_EXT
@@ -75,7 +83,7 @@ def test_unwritable_fileobj_throws_fileerror(test_sigmffile):
 def test_unwritable_name_throws_fileerror(test_sigmffile):
     # Cannot assume /root/ is unwritable (e.g. Docker environment)
     # so use invalid filename
-    unwritable_file = '/bad_name/'
+    unwritable_file = "/bad_name/"
     with pytest.raises(error.SigMFFileError):
         test_sigmffile.archive(name=unwritable_file)
 

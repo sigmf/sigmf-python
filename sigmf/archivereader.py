@@ -1,6 +1,6 @@
 # Copyright: Multiple Authors
 #
-# This file is part of SigMF. https://github.com/gnuradio/SigMF
+# This file is part of sigmf-python. https://github.com/sigmf/SigMF
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
@@ -11,11 +11,11 @@ import shutil
 import tarfile
 import tempfile
 
-from . import __version__  #, schema, sigmf_hash, validate
-from .sigmffile import SigMFFile
-from .archive import SigMFArchive, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SIGMF_ARCHIVE_EXT
-from .utils import dict_merge
+from . import __version__
+from .archive import SIGMF_ARCHIVE_EXT, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SigMFArchive
 from .error import SigMFFileError
+from .sigmffile import SigMFFile
+from .utils import dict_merge
 
 
 class SigMFArchiveReader():

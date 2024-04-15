@@ -1,10 +1,17 @@
-# Copyright 2023 GNU Radio Foundation
+# Copyright: Multiple Authors
+#
+# This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
+#
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
+"""Tests for SigMFArchiveReader"""
+
 import tempfile
-import numpy as np
 import unittest
 
-import sigmf
-from sigmf import SigMFFile, SigMFArchiveReader
+import numpy as np
+
+from sigmf import SigMFArchiveReader, SigMFFile, __specification__
 
 
 class TestArchiveReader(unittest.TestCase):
@@ -42,7 +49,7 @@ class TestArchiveReader(unittest.TestCase):
                         global_info={
                             SigMFFile.DATATYPE_KEY: f"{complex_prefix}{key}_le",
                             SigMFFile.NUM_CHANNELS_KEY: num_channels,
-                            SigMFFile.VERSION_KEY: "1.0.0",
+                            SigMFFile.VERSION_KEY: __specification__,
                         },
                     )
                     temp_meta.tofile(temp_archive, toarchive=True)
