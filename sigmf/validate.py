@@ -9,6 +9,8 @@
 import argparse
 import json
 import logging
+import glob
+from pathlib import Path
 
 import jsonschema
 
@@ -102,22 +104,41 @@ def main():
     log = logging.getLogger()
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    try:
-        signal = sigmffile.fromfile(args.filename, skip_checksum=args.skip_checksum)
-    except error.SigMFFileError as err:
-        # this happens if checksum fails
-        log.error(err)
-        exit(1)
-    except IOError as err:
-        log.error(err)
-        log.error('Unable to read SigMF, bad path?')
-        exit(1)
-    except json.decoder.JSONDecodeError as err:
-        log.error(err)
-        log.error('Unable to decode malformed JSON.')
-        exit(1)
-    signal.validate()
-    log.info('Validation OK!')
+    # check filename to see if it contains a wildcard
+    if "*" in args.filename:
+        # get current working directory where `sigmf_validate` was executed - and attach the globstar query RELATIVE to execution.
+        query = Path.cwd() / args.filename
+        # use glob searching to select all files.
+        # cast to str as glob doesn't accept Pathlib objects
+        input_files = glob.glob(str(query))
+    else:
+        # only 1 file to iterate over.
+        input_files = [args.filename]
+
+    # raise an error if no files were detected.
+    if len(input_files) == 0:
+        raise error.SigMFFileError("Unable to read SigMF - no files were detected using query `{}`".format(args.filename))
+    
+    errors_detected = 0
+    # loop over every file and perform validation.
+    for sigfile in input_files:
+
+        try:
+            # load signal.
+            signal = sigmffile.fromfile(sigfile, skip_checksum=args.skip_checksum)
+            # validate
+            signal.validate()
+
+        # handle all 4 exceptions at once...
+        except (jsonschema.exceptions.ValidationError, error.SigMFFileError, json.decoder.JSONDecodeError, IOError) as err:
+            # catch the error, print and continue
+            log.error("file `{}`: {}".format(sigfile, err))
+            errors_detected += 1
+    
+    # iff no errors were detected throughout the run...
+    if errors_detected == 0:
+        # all happy - success!
+        log.info('Validation (# files = {}) OK!'.format(len(input_files)))
 
 
 if __name__ == "__main__":
