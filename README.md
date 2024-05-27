@@ -4,8 +4,7 @@ This python module makes it easy to interact with Signal Metadata Format
 (SigMF) recordings. This module works with Python 3.7+ and is distributed
 freely under the terms GNU Lesser GPL v3 License.
 
-The [SigMF specification document](https://github.com/sigmf/SigMF/blob/HEAD/sigmf-spec.md)
-is located in the [SigMF](https://github.com/sigmf/SigMF) repository.
+This module follows the SigMF specification [html](https://sigmf.org/)/[pdf](https://sigmf.github.io/SigMF/sigmf-spec.pdf) from the [spec repository](https://github.com/sigmf/SigMF).
 
 # Installation
 
