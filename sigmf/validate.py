@@ -12,10 +12,12 @@ import logging
 import os
 import sys
 
+# required for Python 3.7
+from typing import Optional, Tuple
+
 # multi-threading library - should work well as I/O will be the primary
 # cost for small SigMF files. Swap to ProcessPool if files are large.
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 
 import jsonschema
 
@@ -38,13 +40,13 @@ def extend_with_default(validator_class):
             if "default" in subschema:
                 instance.setdefault(property, subschema["default"])
 
-        for error in validate_properties(
+        for err in validate_properties(
             validator,
             properties,
             instance,
             topschema,
         ):
-            yield error
+            yield err
 
     return jsonschema.validators.extend(
         validator_class,
@@ -95,7 +97,7 @@ def validate(metadata, ref_schema=schema.get_schema()):
                 count = new_count
 
 
-def _validate_single_file(filename, skip_checksum: bool, logger: logging.Logger) -> None:
+def _validate_single_file(filename, skip_checksum: bool, logger: logging.Logger) -> int:
     """Validates a single SigMF file.
 
     To be called as part of a multithreading / multiprocess application.
@@ -129,7 +131,7 @@ def _validate_single_file(filename, skip_checksum: bool, logger: logging.Logger)
         return 0
 
 
-def main(arg_tuple=None):
+def main(arg_tuple: Optional[Tuple[str, ...]] = None) -> None:
     """entry-point for command-line validator"""
     parser = argparse.ArgumentParser(
         description="Validate SigMF Archive or file pair against JSON schema.", prog="sigmf_validate"
@@ -172,7 +174,7 @@ def main(arg_tuple=None):
                 n_completed += 1
 
     if n_total == 0:
-        log.error(f"No paths to validate.")
+        log.error("No paths to validate.")
         sys.exit(1)
     elif n_completed != n_total:
         log.info(f"Validated {n_completed} of {n_total} files OK")
