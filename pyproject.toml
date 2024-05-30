@@ -91,6 +91,9 @@ inputs = ['sigmf', 'tests']
 [tool.black]
 line-length = 120
 
+[tool.isort]
+profile = "black"
+
 [tool.tox]
 legacy_tox_ini = '''
     [tox]

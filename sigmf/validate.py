@@ -4,11 +4,20 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-'''SigMF Validator'''
-
+"""SigMF Validator"""
 import argparse
+import glob
 import json
 import logging
+import os
+import sys
+
+# required for Python 3.7
+from typing import Optional, Tuple
+
+# multi-threading library - should work well as I/O will be the primary
+# cost for small SigMF files. Swap to ProcessPool if files are large.
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import jsonschema
 
@@ -17,13 +26,13 @@ from . import error, schema, sigmffile
 
 
 def extend_with_default(validator_class):
-    '''
+    """
     Boilerplate code from [1] to retrieve jsonschema default dict.
 
     References
     ----------
     [1] https://python-jsonschema.readthedocs.io/en/stable/faq/
-    '''
+    """
     validate_properties = validator_class.VALIDATORS["properties"]
 
     def set_defaults(validator, properties, instance, topschema):
@@ -31,21 +40,25 @@ def extend_with_default(validator_class):
             if "default" in subschema:
                 instance.setdefault(property, subschema["default"])
 
-        for error in validate_properties(
-            validator, properties, instance, topschema,
+        for err in validate_properties(
+            validator,
+            properties,
+            instance,
+            topschema,
         ):
-            yield error
+            yield err
 
     return jsonschema.validators.extend(
-        validator_class, {"properties": set_defaults},
+        validator_class,
+        {"properties": set_defaults},
     )
 
 
 def get_default_metadata(ref_schema=schema.get_schema()):
-    '''
+    """
     retrieve defaults from schema
     FIXME: not working yet
-    '''
+    """
     default = {}
     validator = extend_with_default(jsonschema.Draft7Validator)
     validator(ref_schema).validate(default)
@@ -53,7 +66,7 @@ def get_default_metadata(ref_schema=schema.get_schema()):
 
 
 def validate(metadata, ref_schema=schema.get_schema()):
-    '''
+    """
     Check that the provided `metadata` dict is valid according to the `ref_schema` dict.
     Walk entire schema and check all keys.
 
@@ -69,30 +82,67 @@ def validate(metadata, ref_schema=schema.get_schema()):
     Returns
     -------
     None, will raise error if invalid.
-    '''
+    """
     jsonschema.validators.validate(instance=metadata, schema=ref_schema)
 
     # assure capture and annotation order
     # TODO: There is a way to do this with just the schema apparently.
-    for key in ['captures', 'annotations']:
+    for key in ["captures", "annotations"]:
         count = -1
         for item in metadata[key]:
-            new_count = item['core:sample_start']
+            new_count = item["core:sample_start"]
             if new_count < count:
-                raise jsonschema.exceptions.ValidationError(f'{key} has bad order')
+                raise jsonschema.exceptions.ValidationError(f"{key} has bad order")
             else:
                 count = new_count
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Validate SigMF Archive or file pair against JSON schema.',
-                                     prog='sigmf_validate')
-    parser.add_argument('filename', help='SigMF path (extension optional).')
-    parser.add_argument('--skip-checksum', action='store_true', help='Skip reading dataset to validate checksum.')
-    parser.add_argument('-v', '--verbose', action='count', default=0)
-    parser.add_argument('--version', action='version', version=f'%(prog)s {toolversion}')
+def _validate_single_file(filename, skip_checksum: bool, logger: logging.Logger) -> int:
+    """Validates a single SigMF file.
 
-    args = parser.parse_args()
+    To be called as part of a multithreading / multiprocess application.
+
+    Parameters
+    ----------
+    filename : str
+        Path and name to sigmf.data or sigmf.meta file.
+    skip_checksum : bool
+        Whether to perform checksum computation.
+    logger : logging.Logger
+        Logging object to log errors to.
+
+    Returns
+    -------
+    rc : int
+        0 if OK, 1 if err
+    """
+    try:
+        # load signal
+        signal = sigmffile.fromfile(filename, skip_checksum=skip_checksum)
+        # validate
+        signal.validate()
+
+    # handle any of 4 exceptions at once...
+    except (jsonschema.exceptions.ValidationError, error.SigMFFileError, json.decoder.JSONDecodeError, IOError) as err:
+        # catch the error, log, and continue
+        logger.error("file `{}`: {}".format(filename, err))
+        return 1
+    else:
+        return 0
+
+
+def main(arg_tuple: Optional[Tuple[str, ...]] = None) -> None:
+    """entry-point for command-line validator"""
+    parser = argparse.ArgumentParser(
+        description="Validate SigMF Archive or file pair against JSON schema.", prog="sigmf_validate"
+    )
+    parser.add_argument("path", nargs="*", help="SigMF path(s). Accepts * wildcards and extensions are optional.")
+    parser.add_argument("--skip-checksum", action="store_true", help="Skip reading dataset to validate checksum.")
+    parser.add_argument("-v", "--verbose", action="count", default=0)
+    parser.add_argument("--version", action="version", version=f"%(prog)s {toolversion}")
+
+    # allow pass-in arg_tuple for testing purposes
+    args = parser.parse_args(arg_tuple)
 
     level_lut = {
         0: logging.WARNING,
@@ -102,22 +152,35 @@ def main():
     log = logging.getLogger()
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    try:
-        signal = sigmffile.fromfile(args.filename, skip_checksum=args.skip_checksum)
-    except error.SigMFFileError as err:
-        # this happens if checksum fails
-        log.error(err)
-        exit(1)
-    except IOError as err:
-        log.error(err)
-        log.error('Unable to read SigMF, bad path?')
-        exit(1)
-    except json.decoder.JSONDecodeError as err:
-        log.error(err)
-        log.error('Unable to decode malformed JSON.')
-        exit(1)
-    signal.validate()
-    log.info('Validation OK!')
+    paths = []
+    # resolve possible wildcards
+    for path in args.path:
+        paths += glob.glob(path)
+
+    # multi-processing / threading pathway.
+    n_completed = 0
+    n_total = len(paths)
+    # estimate number of CPU cores
+    # https://stackoverflow.com/questions/1006289/how-to-find-out-the-number-of-cpus-using-python
+    est_cpu_cores = len(os.sched_getaffinity(0))
+    # create a thread pool
+    # https://docs.python.org/3.7/library/concurrent.futures.html#threadpoolexecutor
+    with ThreadPoolExecutor(max_workers=est_cpu_cores - 1) as executor:
+        # submit jobs
+        future_validations = {executor.submit(_validate_single_file, path, args.skip_checksum, log) for path in paths}
+        # load and await jobs to complete... no return
+        for future in as_completed(future_validations):
+            if future.result() == 0:
+                n_completed += 1
+
+    if n_total == 0:
+        log.error("No paths to validate.")
+        sys.exit(1)
+    elif n_completed != n_total:
+        log.info(f"Validated {n_completed} of {n_total} files OK")
+        sys.exit(1)
+    else:
+        log.info(f"Validated all {n_total} files OK!")
 
 
 if __name__ == "__main__":
