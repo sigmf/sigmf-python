@@ -10,7 +10,7 @@ import argparse
 import logging
 import os
 
-from PySimpleGUI import *
+import PySimpleGUI as sg
 
 from .. import __version__ as toolversion
 from ..archive import SIGMF_ARCHIVE_EXT
@@ -18,10 +18,10 @@ from ..sigmffile import SigMFFile, dtype_info, fromarchive
 
 log = logging.getLogger()
 
-validate_button = Button('Update', bind_return_key=False, enable_events=True)
-submit_button = Button('Save Archive', disabled=True, button_color=('white', '#D3D3D3'))
-load_button = Button('Load', key='Load Archive')
-combo_button = InputCombo((), size=(20, 1), enable_events=True, key='Capture Combo')
+validate_button = sg.Button('Update', bind_return_key=False, enable_events=True)
+submit_button = sg.Button('Save Archive', disabled=True, button_color=('white', '#D3D3D3'))
+load_button = sg.Button('Load', key='Load Archive')
+combo_button = sg.InputCombo((), size=(20, 1), enable_events=True, key='Capture Combo')
 
 
 class Unit:
@@ -267,7 +267,7 @@ def add_sigmf_field(funct, values, field_name, *args, required=False, type=None,
             else:
                 funct(*args, input)
         except UserWarning as w:
-            Popup('Warning: {}'.format(repr(w)), title='Warning')
+            sg.Popup('Warning: {}'.format(repr(w)), title='Warning')
         except Exception as e:
             show_error(repr(e))
             return False
@@ -278,7 +278,7 @@ def add_sigmf_field(funct, values, field_name, *args, required=False, type=None,
 
 
 def show_error(message):
-    PopupError(message, title='Error', line_width=60)
+    sg.PopupError(message, title='Error', line_width=60)
 
 
 def validate_data(file):
@@ -289,7 +289,7 @@ def validate_data(file):
         submit_button.Update(disabled=True)
         return False
     else:
-        PopupOK('Data is valid\n', file.dumps(pretty=True), title='')
+        sg.PopupOK('Data is valid\n', file.dumps(pretty=True), title='')
         return True
 
 
@@ -305,7 +305,7 @@ def update_capture_screen(capture_data_input, capture_text_blocks, capture_dict)
 def update_global_screen(window_data_input, window_text_blocks, window_dict, archive):
     data_type = window_dict[SigMFFile.DATATYPE_KEY]
     data_info = dtype_info(data_type)
-    sample_size = 64 if '64' in datatype else 32 if '32' in data_type else 16 if '16' in data_type else 8 if '8' in data_type else None
+    sample_size = 64 if '64' in data_type else 32 if '32' in data_type else 16 if '16' in data_type else 8 if '8' in data_type else None
     assert sample_size is not None
     window_text_blocks[WindowInput.DATA_TYPE_FIXEDPOINT].Update(bool(data_info['is_fixedpoint']))
     window_text_blocks[WindowInput.DATA_TYPE_UNSIGNED].Update(bool(data_info['is_unsigned']))
@@ -404,36 +404,36 @@ def main():
     f = SigMFFile()
     capture_selector_dict = {}
 
-    layout = [[Text('This is the SigMF tool to archive RF datasets', size=(80, 1))],
-              [Text('Enter your data and signal captures below. You must include', auto_size_text=True),
-               Text('required', text_color='red', font=DEFAULT_FONT + ('italic',), auto_size_text=True),
-               Text('fields.', size=(50, 1), auto_size_text=True)],
-              [Text('_' * 150, auto_size_text=True)]]
+    layout = [[sg.Text('This is the SigMF tool to archive RF datasets', size=(80, 1))],
+              [sg.Text('Enter your data and signal captures below. You must include', auto_size_text=True),
+               sg.Text('required', text_color='red', font=sg.DEFAULT_FONT + ('italic',), auto_size_text=True),
+               sg.Text('fields.', size=(50, 1), auto_size_text=True)],
+              [sg.Text('_' * 150, auto_size_text=True)]]
 
-    layout.append([Text('Global Data', font=('Arial', 12, 'bold'))])
+    layout.append([sg.Text('Global Data', font=('Arial', 12, 'bold'))])
     num_components = 0
     line = []
     for el in window_input.iter_core():
         size = (30, 1) if len(line) == 0 else (None, None)
         auto_size = True if len(line) == 0 else (10, 1)
-        line.extend([Text(el, justification='right', size=size,
+        line.extend([sg.Text(el, justification='right', size=size,
                           text_color='red' if el in window_input.req_tags else None, auto_size_text=auto_size)])
         if el in window_input.el_multiline:
-            window_text_blocks.update({el: Multiline(window_input.el_text.get(el, ''), key=el,
+            window_text_blocks.update({el: sg.Multiline(window_input.el_text.get(el, ''), key=el,
                                                      tooltip=window_input.el_tooltips.get(el, None), size=(30, 2))})
         elif el in window_input.el_selector:
-            window_text_blocks.update({el: Combo(values=window_input.el_selector[el], key=el,
+            window_text_blocks.update({el: sg.Combo(values=window_input.el_selector[el], key=el,
                                                  size=window_input.el_size.get(el, (None, None)))})
         elif el in window_input.el_checkbox:
-            window_text_blocks.update({el: Checkbox(window_input.el_text.get(el, ''), key=el,
+            window_text_blocks.update({el: sg.Checkbox(window_input.el_text.get(el, ''), key=el,
                                                     size=window_input.el_size.get(el, (None, None)))})
         else:
-            window_text_blocks.update({el: InputText(window_input.el_text.get(el, ''), key=el,
+            window_text_blocks.update({el: sg.InputText(window_input.el_text.get(el, ''), key=el,
                                                      tooltip=window_input.el_tooltips.get(el, None))})
         line.append(window_text_blocks[el])
 
         if el in window_input.el_units:
-            line.append(Text(window_input.el_units[el]))
+            line.append(sg.Text(window_input.el_units[el]))
 
         num_components += 1
         if num_components < window_input.first_line_size:
@@ -447,21 +447,21 @@ def main():
             if el is None:
                 continue
             color = 'red' if el in window_input.req_tags else None
-            window_text_blocks.update({el: InputText(window_input.el_text.get(el, ''), key=el,
+            window_text_blocks.update({el: sg.InputText(window_input.el_text.get(el, ''), key=el,
                                                      tooltip=window_input.el_tooltips.get(el, None))})
-            line.extend([Text(el, justification='right', size=(size, 1), text_color=color), window_text_blocks[el]])
+            line.extend([sg.Text(el, justification='right', size=(size, 1), text_color=color), window_text_blocks[el]])
             if el in window_input.el_units:
-                line.append(Text(window_input.el_units[el], size=(5, 1)))
+                line.append(sg.Text(window_input.el_units[el], size=(5, 1)))
             else:
-                line.append(Text('', size=(5, 1)))
+                line.append(sg.Text('', size=(5, 1)))
         layout.append(line)
 
     layout.extend(
-        [[Text('_' * 150, auto_size_text=True)],
-         [Text('Individual Capture Data', font=('Arial', 12, 'bold'))],
-         [Text('Capture Selector', auto_size_text=True), combo_button, Text('', size=(10, 1)),
-          Button('Add Capture', enable_events=True), Button('Remove Capture', enable_events=True, size=(15, 1)),
-          Button('Clear Capture', enable_events=True, size=(15, 1))]]
+        [[sg.Text('_' * 150, auto_size_text=True)],
+         [sg.Text('Individual Capture Data', font=('Arial', 12, 'bold'))],
+         [sg.Text('Capture Selector', auto_size_text=True), combo_button, sg.Text('', size=(10, 1)),
+          sg.Button('Add Capture', enable_events=True), sg.Button('Remove Capture', enable_events=True, size=(15, 1)),
+          sg.Button('Clear Capture', enable_events=True, size=(15, 1))]]
     )
 
     for el1, el2, el3 in capture_data_input.iter_x(3):
@@ -469,30 +469,30 @@ def main():
         for el in [el1, el2, el3]:
             if el is None:
                 continue
-            capture_text_blocks.update({el: InputText(key=el, tooltip=capture_data_input.el_tooltips.get(el, None))})
+            capture_text_blocks.update({el: sg.InputText(key=el, tooltip=capture_data_input.el_tooltips.get(el, None))})
             color = 'red' if el in capture_data_input.req_tags else None
-            line.extend([Text(el, justification='right', size=(20, 1), text_color=color), capture_text_blocks[el]])
+            line.extend([sg.Text(el, justification='right', size=(20, 1), text_color=color), capture_text_blocks[el]])
             if el in capture_data_input.el_units:
-                line.append(Text(capture_data_input.el_units[el], size=(5, 1)))
+                line.append(sg.Text(capture_data_input.el_units[el], size=(5, 1)))
             else:
-                line.append(Text('', size=(5, 1)))
+                line.append(sg.Text('', size=(5, 1)))
         layout.append(line)
 
     window_text_blocks.update(
-        {WindowInput.DATA_FILE: InputText('', key=WindowInput.DATA_FILE)})
+        {WindowInput.DATA_FILE: sg.InputText('', key=WindowInput.DATA_FILE)})
     layout.extend(
-        [[Text('_' * 150, auto_size_text=True)],
-         [Text('Data Location', font=('Arial', 12, 'bold'))],
-         [Text(WindowInput.DATA_FILE, size=(30, 1), justification='right', text_color='red'),
-          window_text_blocks[WindowInput.DATA_FILE], FileBrowse()],
-         [Text(WindowInput.OUTPUT_FOLDER, size=(30, 1), justification='right'),
-          InputText('', key=WindowInput.OUTPUT_FOLDER), FolderBrowse(), submit_button],
-         [Text(WindowInput.LOAD_PATH, size=(30, 1), justification='right'), InputText('', key=WindowInput.LOAD_PATH),
-          FileBrowse(file_types=(("Archive Files", "*.sigmf"),)), load_button],
-         [validate_button, Button('View Data')]]
+        [[sg.Text('_' * 150, auto_size_text=True)],
+         [sg.Text('Data Location', font=('Arial', 12, 'bold'))],
+         [sg.Text(WindowInput.DATA_FILE, size=(30, 1), justification='right', text_color='red'),
+          window_text_blocks[WindowInput.DATA_FILE], sg.FileBrowse()],
+         [sg.Text(WindowInput.OUTPUT_FOLDER, size=(30, 1), justification='right'),
+          sg.InputText('', key=WindowInput.OUTPUT_FOLDER), sg.FolderBrowse(), submit_button],
+         [sg.Text(WindowInput.LOAD_PATH, size=(30, 1), justification='right'), sg.InputText('', key=WindowInput.LOAD_PATH),
+          sg.FileBrowse(file_types=(("Archive Files", "*.sigmf"),)), load_button],
+         [validate_button, sg.Button('View Data')]]
     )
 
-    window = Window('SigMF Archive Creator',
+    window = sg.Window('SigMF Archive Creator',
                     auto_size_buttons=False,
                     default_element_size=(20, 1),
                     auto_size_text=False,
@@ -534,7 +534,7 @@ def main():
                 add_capture(capture_data_input, capture, capture_selector_dict, f, from_archive=True)
 
         elif event == 'Data Type Help':
-            PopupOK(
+            sg.PopupOK(
                 'Format: <TypeCharacters><ElementBitSize>_<Endianness>\n\n'
                 '\tTypeCharacters:\n'
                 '\t\tUnsigned data: \"u\"\n'
@@ -581,7 +581,7 @@ def main():
                 continue
 
             if validate_data(f):
-                submit_button.Update(disabled=False, button_color=DEFAULT_BUTTON_COLOR)
+                submit_button.Update(disabled=False, button_color=sg.DEFAULT_BUTTON_COLOR)
         elif event == 'Capture Combo':
             capture_dict = capture_selector_dict[values['Capture Combo']]
             update_capture_screen(capture_data_input, capture_text_blocks, capture_dict)
@@ -620,7 +620,7 @@ def main():
         elif event == 'Clear Capture':
             update_capture_screen(capture_data_input, capture_text_blocks, None)
         elif event == 'View Data':
-            PopupOK('Current data:\n', f.dumps(pretty=True), title='')
+            sg.PopupOK('Current data:\n', f.dumps(pretty=True), title='')
         elif event == 'Save Archive':
             output_folder = values[WindowInput.OUTPUT_FOLDER]
             if output_folder == '':
@@ -632,7 +632,7 @@ def main():
             window.Refresh()
             archive_file = output_folder + '/' + os.path.basename(f.data_file).split('.')[0] + SIGMF_ARCHIVE_EXT
             f.archive(archive_file)
-            PopupOK('Saved archive as \n', archive_file, title='')
+            sg.PopupOK('Saved archive as \n', archive_file, title='')
         elif event in ['Cancel', None, 'Exit']:
             window.Close()
             break
