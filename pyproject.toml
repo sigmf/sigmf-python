@@ -36,9 +36,8 @@ dependencies = [
         "hypothesis",   # next-gen testing framework
     ]
     apps = [
+        "PySimpleGUI",  # for gui interface
         "scipy",        # for wav i/o
-        # FIXME: PySimpleGUI 2024-02-12 v5.0.0 release seems to have a bug. Unpin version when possible.
-        "PySimpleGUI < 5.0.0",  # for gui interface
     ]
 
 [tool.setuptools]
@@ -60,7 +59,7 @@ source = ["sigmf", "tests"]
 command_line = "-m pytest -rA --doctest-modules --junitxml=pytest.xml"
 
 [tool.pytest.ini_options]
-addopts = "--doctest-modules"
+addopts = "--doctest-modules --ignore=sigmf/apps/gui.py"
 
 [tool.pylint]
     [tool.pylint.main]

@@ -12,12 +12,12 @@ import logging
 import os
 import sys
 
-# required for Python 3.7
-from typing import Optional, Tuple
-
 # multi-threading library - should work well as I/O will be the primary
 # cost for small SigMF files. Swap to ProcessPool if files are large.
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# required for Python 3.7
+from typing import Optional, Tuple
 
 import jsonschema
 

@@ -6,21 +6,26 @@
 
 """Access SigMF archives without extracting them."""
 
-import os
 import io
+import os
 import shutil
 import tarfile
 import tempfile
 from pathlib import Path
 
 from . import __version__
-from .archive import SIGMF_ARCHIVE_EXT, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SigMFArchive
+from .archive import (
+    SIGMF_ARCHIVE_EXT,
+    SIGMF_DATASET_EXT,
+    SIGMF_METADATA_EXT,
+    SigMFArchive,
+)
 from .error import SigMFFileError
 from .sigmffile import SigMFFile
 from .utils import dict_merge
 
 
-class SigMFArchiveReader():
+class SigMFArchiveReader:
     """Access data within SigMF archive `tar` in-place without extracting.
 
     Parameters:
@@ -28,6 +33,7 @@ class SigMFArchiveReader():
       name      -- path to archive file to access. If file does not exist,
                    or if `name` doesn't end in .sigmf, SigMFFileError is raised.
     """
+
     def __init__(self, name=None, skip_checksum=False, map_readonly=True, archive_buffer=None):
         self.name = name
         if self.name is not None:
@@ -38,10 +44,10 @@ class SigMFArchiveReader():
             tar_obj = tarfile.open(self.name)
 
         elif archive_buffer is not None:
-            tar_obj = tarfile.open(fileobj=archive_buffer, mode='r:')
+            tar_obj = tarfile.open(fileobj=archive_buffer, mode="r:")
 
         else:
-            raise ValueError('In sigmf.archivereader.__init__(), either `name` or `archive_buffer` must be not None')
+            raise ValueError("In sigmf.archivereader.__init__(), either `name` or `archive_buffer` must be not None")
 
         json_contents = None
         data_offset = None
@@ -70,12 +76,12 @@ class SigMFArchiveReader():
                         data_buffer = io.BytesIO(memb_fid.read())
 
                 else:
-                    print('A regular file', memb.name, 'was found but ignored in the archive')
+                    print(f"A regular file {memb.name} was found but ignored in the archive")
             else:
-                print('A member of type', memb.type, 'and name', memb.name, 'was found but not handled, just FYI.')
+                print(f"A member of type {memb.type} and name {memb.name} was found but not handled, just FYI.")
 
         if data_offset is None:
-            raise SigMFFileError('No .sigmf-data file found in archive!')
+            raise SigMFFileError("No .sigmf-data file found in archive!")
 
         self.sigmffile = SigMFFile(metadata=json_contents)
         valid_md = self.sigmffile.validate()

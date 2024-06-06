@@ -6,8 +6,8 @@
 
 """Create and extract SigMF archives."""
 
-import os
 import io
+import os
 import shutil
 import tarfile
 import tempfile
@@ -20,7 +20,7 @@ SIGMF_DATASET_EXT = ".sigmf-data"
 SIGMF_COLLECTION_EXT = ".sigmf-collection"
 
 
-class SigMFArchive():
+class SigMFArchive:
     """Archive a SigMFFile.
 
     A `.sigmf` file must include both valid metadata and data.
@@ -52,6 +52,7 @@ class SigMFArchive():
                          - archive1.sigmf-meta
                          - archive1.sigmf-data
     """
+
     def __init__(self, sigmffile, name=None, fileobj=None):
         self.sigmffile = sigmffile
         self.name = name
@@ -61,9 +62,7 @@ class SigMFArchive():
 
         archive_name = self._get_archive_name()
         sigmf_fileobj = self._get_output_fileobj()
-        sigmf_archive = tarfile.TarFile(mode="w",
-                                        fileobj=sigmf_fileobj,
-                                        format=tarfile.PAX_FORMAT)
+        sigmf_archive = tarfile.TarFile(mode="w", fileobj=sigmf_fileobj, format=tarfile.PAX_FORMAT)
         tmpdir = tempfile.mkdtemp()
         sigmf_md_filename = archive_name + SIGMF_METADATA_EXT
         sigmf_md_path = os.path.join(tmpdir, sigmf_md_filename)
@@ -75,7 +74,7 @@ class SigMFArchive():
 
         if isinstance(self.sigmffile.data_buffer, io.BytesIO):
             self.sigmffile.data_file = sigmf_data_path
-            with open(sigmf_data_path, 'wb') as f:
+            with open(sigmf_data_path, "wb") as f:
                 f.write(self.sigmffile.data_buffer.getbuffer())
         else:
             shutil.copy(self.sigmffile.data_file, sigmf_data_path)

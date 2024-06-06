@@ -4,9 +4,10 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-'''SigMFFile Object'''
+"""SigMFFile Object"""
 
 import codecs
+import io
 import json
 import tarfile
 import tempfile
@@ -15,16 +16,22 @@ from collections import OrderedDict
 from os import path
 
 import numpy as np
-import io
 
 from . import __specification__, __version__, schema, sigmf_hash, validate
-from .archive import SIGMF_ARCHIVE_EXT, SIGMF_COLLECTION_EXT, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SigMFArchive
+from .archive import (
+    SIGMF_ARCHIVE_EXT,
+    SIGMF_COLLECTION_EXT,
+    SIGMF_DATASET_EXT,
+    SIGMF_METADATA_EXT,
+    SigMFArchive,
+)
 from .error import SigMFAccessError, SigMFFileError
 from .utils import dict_merge
 
 
-class SigMFMetafile():
+class SigMFMetafile:
     VALID_KEYS = {}
+
     def __init__(self):
         self.version = None
         self.schema = None
@@ -35,7 +42,7 @@ class SigMFMetafile():
         return self.dumps()
 
     def __repr__(self):
-        return f'SigMFFile({self})'
+        return f"SigMFFile({self})"
 
     def __iter__(self):
         '''special method to iterate through samples'''
@@ -43,7 +50,7 @@ class SigMFMetafile():
         return self
 
     def ordered_metadata(self):
-        '''
+        """
         Get a nicer representation of _metadata. Will sort keys, but put the
         top-level fields 'global', 'captures', 'annotations' in front.
 
@@ -52,7 +59,7 @@ class SigMFMetafile():
         ordered_meta : OrderedDict
             Cleaner representation of _metadata with top-level keys correctly
             ordered and the rest of the keys sorted.
-        '''
+        """
         ordered_meta = OrderedDict()
         for top_key in self.VALID_KEYS.keys():
             assert top_key in self._metadata
@@ -65,7 +72,7 @@ class SigMFMetafile():
         return ordered_meta
 
     def dump(self, filep, pretty=True):
-        '''
+        """
         Write metadata to a file.
 
         Parameters
@@ -74,16 +81,16 @@ class SigMFMetafile():
             File pointer or something that json.dump() can handle.
         pretty : bool, default True
             When True will write more human-readable output, otherwise will be flat JSON.
-        '''
+        """
         json.dump(
             self.ordered_metadata(),
             filep,
             indent=4 if pretty else None,
-            separators=(',', ': ') if pretty else None,
+            separators=(",", ": ") if pretty else None,
         )
 
     def dumps(self, pretty=True):
-        '''
+        """
         Get a string representation of the metadata.
 
         Parameters
@@ -95,12 +102,13 @@ class SigMFMetafile():
         -------
         string
             String representation of the metadata using json formatter.
-        '''
+        """
         return json.dumps(
             self.ordered_metadata(),
             indent=4 if pretty else None,
-            separators=(',', ': ') if pretty else None,
+            separators=(",", ": ") if pretty else None,
         )
+
 
 class SigMFFile(SigMFMetafile):
     START_INDEX_KEY = "core:sample_start"
@@ -152,7 +160,7 @@ class SigMFFile(SigMFMetafile):
     VALID_KEYS = {GLOBAL_KEY: VALID_GLOBAL_KEYS, CAPTURE_KEY: VALID_CAPTURE_KEYS, ANNOTATION_KEY: VALID_ANNOTATION_KEYS}
 
     def __init__(self, metadata=None, data_file=None, global_info=None, skip_checksum=False, map_readonly=True):
-        '''
+        """
         API for SigMF I/O
 
         Parameters
@@ -167,7 +175,7 @@ class SigMFFile(SigMFMetafile):
             When True will skip calculating hash on data_file (if present) to check against metadata.
         map_readonly: bool, default True
             Indicates whether assignments on the numpy.memmap are allowed.
-        '''
+        """
         super(SigMFFile, self).__init__()
         self.data_file = None
         self.sample_count = 0
@@ -175,7 +183,7 @@ class SigMFFile(SigMFMetafile):
         self.is_complex_data = False  # numpy.iscomplexobj(self._memmap) is not adequate for fixed-point complex case
 
         if metadata is None:
-            self._metadata = {self.GLOBAL_KEY:{}, self.CAPTURE_KEY:[], self.ANNOTATION_KEY:[]}
+            self._metadata = {self.GLOBAL_KEY: {}, self.CAPTURE_KEY: [], self.ANNOTATION_KEY: []}
             self._metadata[self.GLOBAL_KEY][self.NUM_CHANNELS_KEY] = 1
             self._metadata[self.GLOBAL_KEY][self.VERSION_KEY] = __specification__
         elif isinstance(metadata, dict):
@@ -191,7 +199,7 @@ class SigMFFile(SigMFMetafile):
         return self._memmap.shape[0]
 
     def __next__(self):
-        '''get next batch of samples'''
+        """get next batch of samples"""
         if self.iter_position < len(self):
             # normal batch
             value = self.read_samples(start_index=self.iter_position, count=1)
@@ -211,13 +219,13 @@ class SigMFFile(SigMFMetafile):
         # is_fixed_point and is_complex
         if self._memmap.ndim == 2:
             # num_channels == 1
-            ray = mem[:,0].astype(self._return_type) + 1.j * mem[:,1].astype(self._return_type)
+            ray = mem[:, 0].astype(self._return_type) + 1.0j * mem[:, 1].astype(self._return_type)
         elif self._memmap.ndim == 3:
             # num_channels > 1
-            ray = mem[:,:,0].astype(self._return_type) + 1.j * mem[:,:,1].astype(self._return_type)
+            ray = mem[:, :, 0].astype(self._return_type) + 1.0j * mem[:, :, 1].astype(self._return_type)
         else:
             raise ValueError("unhandled ndim in SigMFFile.__getitem__(); this shouldn't happen")
-        return ray[0] if type(sli) is int else ray # return element instead of 1-element array
+        return ray[0] if type(sli) is int else ray  # return element instead of 1-element array
 
     def _get_start_offset(self):
         """
@@ -226,7 +234,7 @@ class SigMFFile(SigMFMetafile):
         return self.get_global_field(self.START_OFFSET_KEY, 0)
 
     def get_num_channels(self):
-        '''Returns integer number of channels if present, otherwise 1'''
+        """Returns integer number of channels if present, otherwise 1"""
         return self.get_global_field(self.NUM_CHANNELS_KEY, 1)
 
     def _is_conforming_dataset(self):
@@ -318,9 +326,7 @@ class SigMFFile(SigMFMetafile):
         """
         Returns a list of dictionaries representing all captures.
         """
-        return [
-            x for x in self._metadata.get(self.CAPTURE_KEY, [])
-        ]
+        return [x for x in self._metadata.get(self.CAPTURE_KEY, [])]
 
     def get_capture_info(self, index):
         """
@@ -366,7 +372,7 @@ class SigMFFile(SigMFMetafile):
                 break
 
         end_byte = start_byte
-        if index == len(self.get_captures())-1:  # last captures...data is the rest of the file
+        if index == len(self.get_captures()) - 1:  # last captures...data is the rest of the file
             end_byte = path.getsize(self.data_file) - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
         else:
             end_byte += (self.get_capture_start(index+1) - self.get_capture_start(index)) * self.get_sample_size() * self.get_num_channels()
@@ -392,7 +398,7 @@ class SigMFFile(SigMFMetafile):
         )
 
     def get_annotations(self, index=None):
-        '''
+        """
         Get relevant annotations from metadata.
 
         Parameters
@@ -405,7 +411,7 @@ class SigMFFile(SigMFMetafile):
         -------
         list of dict
             Each dictionary contains one annotation for the sample at `index`.
-        '''
+        """
         annotations = self._metadata.get(self.ANNOTATION_KEY, [])
         if index is None:
             return annotations
@@ -429,7 +435,7 @@ class SigMFFile(SigMFMetafile):
         Determines the size of a sample, in bytes, from the datatype of this set.
         For complex data, a 'sample' includes both the real and imaginary part.
         """
-        return dtype_info(self.get_global_field(self.DATATYPE_KEY))['sample_size']
+        return dtype_info(self.get_global_field(self.DATATYPE_KEY))["sample_size"]
 
     def _count_samples(self):
         """
@@ -449,11 +455,9 @@ class SigMFFile(SigMFMetafile):
             num_channels = self.get_num_channels()
             sample_count = file_data_size // sample_size // num_channels
             if file_data_size % (sample_size * num_channels) != 0:
-                warnings.warn(f'File `{self.data_file}` does not contain an integer '
-                    'number of samples across channels. It may be invalid data.')
+                warnings.warn(f"File `{self.data_file}` does not contain an integer number of samples across channels. It may be invalid data.")
             if self._get_sample_count_from_annotations() > sample_count:
-                warnings.warn(f'File `{self.data_file}` ends before the final annotation '
-                    'in the corresponding SigMF metadata.')
+                warnings.warn(f"File `{self.data_file}` ends before the final annotation in the corresponding SigMF metadata.")
         self.sample_count = sample_count
         return sample_count
 
@@ -489,7 +493,7 @@ class SigMFFile(SigMFMetafile):
             new_hash = sigmf_hash.calculate_sha512(fileobj=self.data_buffer, offset=self.data_offset, size=self.data_size_bytes)
         if old_hash:
             if old_hash != new_hash:
-                raise SigMFFileError('Calculated file hash does not match associated metadata.')
+                raise SigMFFileError("Calculated file hash does not match associated metadata.")
 
         self.set_global_field(self.HASH_KEY, new_hash)
         return new_hash
@@ -509,12 +513,12 @@ class SigMFFile(SigMFMetafile):
         self._count_samples()
 
         dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
-        self.is_complex_data = dtype['is_complex']
+        self.is_complex_data = dtype["is_complex"]
         num_channels = self.get_num_channels()
         self.ndim = 1 if (num_channels < 2) else 2
 
-        complex_int_separates = dtype['is_complex'] and dtype['is_fixedpoint']
-        mapped_dtype_size = dtype['component_size'] if complex_int_separates else dtype['sample_size']
+        complex_int_separates = dtype["is_complex"] and dtype["is_fixedpoint"]
+        mapped_dtype_size = dtype["component_size"] if complex_int_separates else dtype["sample_size"]
         mapped_length = None if size_bytes is None else size_bytes // mapped_dtype_size
         mapped_reshape = (-1,)  # we can't use -1 in mapped_length ...
         if num_channels > 1:
@@ -522,20 +526,20 @@ class SigMFFile(SigMFMetafile):
         if complex_int_separates:
             # There is no corresponding numpy type, so we'll have to add another axis, with length of 2
             mapped_reshape = mapped_reshape + (2,)
-        self._return_type = dtype['memmap_convert_type']
-        common_args = {'dtype': dtype['memmap_map_type'], 'offset': offset}
+        self._return_type = dtype["memmap_convert_type"]
+        common_args = {"dtype": dtype["memmap_map_type"], "offset": offset}
         try:
             if self.data_file is not None:
-                open_mode = 'r' if map_readonly else 'r+'
+                open_mode = "r" if map_readonly else "r+"
                 memmap_shape = None if mapped_length is None else (mapped_length,)
                 raveled = np.memmap(self.data_file, mode=open_mode, shape=memmap_shape, **common_args)
             elif self.data_buffer is not None:
                 buffer_count = -1 if mapped_length is None else mapped_length
                 raveled = np.frombuffer(self.data_buffer.getbuffer(), count=buffer_count, **common_args)
             else:
-                raise SigMFFileError('In sigmffile.set_data_file(), either data_file or data_buffer must be not None')
+                raise SigMFFileError("In sigmffile.set_data_file(), either data_file or data_buffer must be not None")
         except SigMFFileError:  # TODO include likely exceptions here
-            warnings.warn('Failed to create data array from memory-map-file or buffer!')
+            warnings.warn("Failed to create data array from memory-map-file or buffer!")
         else:
             self._memmap = raveled.reshape(mapped_reshape)
             self.shape = self._memmap.shape if (self._return_type is None) else self._memmap.shape[:-1]
@@ -561,7 +565,7 @@ class SigMFFile(SigMFMetafile):
         return archive.path
 
     def tofile(self, file_path, pretty=True, toarchive=False, skip_validate=False):
-        '''
+        """
         Write metadata file or full archive containing metadata & dataset.
 
         Parameters
@@ -573,19 +577,19 @@ class SigMFFile(SigMFMetafile):
         toarchive : bool, default False
             If True will write both dataset & metadata into SigMF archive format as a single `tar` file.
             If False will only write metadata to `sigmf-meta`.
-        '''
+        """
         if not skip_validate:
             self.validate()
         fns = get_sigmf_filenames(file_path)
         if toarchive:
-            self.archive(fns['archive_fn'])
+            self.archive(fns["archive_fn"])
         else:
-            with open(fns['meta_fn'], 'w') as fp:
+            with open(fns["meta_fn"], "w") as fp:
                 self.dump(fp, pretty=pretty)
-                fp.write('\n')  # text files should end in carriage return
+                fp.write("\n")  # text files should end in carriage return
 
     def read_samples_in_capture(self, index=0, autoscale=True):
-        '''
+        """
         Reads samples from the specified captures segment in its entirety.
 
         Parameters
@@ -599,16 +603,18 @@ class SigMFFile(SigMFMetafile):
         -------
         data : ndarray
             Samples are returned as an array of float or complex, with number of dimensions equal to NUM_CHANNELS_KEY.
-        '''
+        """
         cb = self.get_capture_byte_boundarys(index)
         if (cb[1] - cb[0]) % (self.get_sample_size() * self.get_num_channels()):
-            warnings.warn(f'Capture `{index}` in `{self.data_file}` does not contain '
-                    'an integer number of samples across channels. It may be invalid.')
+            warnings.warn(
+                f"Capture `{index}` in `{self.data_file}` does not contain "
+                "an integer number of samples across channels. It may be invalid."
+            )
 
         return self._read_datafile(cb[0], (cb[1] - cb[0]) // self.get_sample_size(), autoscale, False)
 
     def read_samples(self, start_index=0, count=-1, autoscale=True, raw_components=False):
-        '''
+        """
         Reads the specified number of samples starting at the specified index from the associated data file.
 
         Parameters
@@ -627,9 +633,9 @@ class SigMFFile(SigMFMetafile):
         -------
         data : ndarray
             Samples are returned as an array of float or complex, with number of dimensions equal to NUM_CHANNELS_KEY.
-        '''
+        """
         if count == 0:
-            raise IOError('Number of samples must be greater than zero, or -1 for all samples.')
+            raise IOError("Number of samples must be greater than zero, or -1 for all samples.")
         elif start_index + count > self.sample_count:
             raise IOError("Cannot read beyond EOF.")
         if self.data_file is None and not isinstance(self.data_buffer, io.BytesIO):
@@ -641,20 +647,20 @@ class SigMFFile(SigMFMetafile):
         first_byte = start_index * self.get_sample_size() * self.get_num_channels()
 
         if not self._is_conforming_dataset():
-            warnings.warn(f'Recording dataset appears non-compliant, resulting data may be erroneous')
+            warnings.warn(f"Recording dataset appears non-compliant, resulting data may be erroneous")
         return self._read_datafile(first_byte, count * self.get_num_channels(), autoscale, False)
 
     def _read_datafile(self, first_byte, nitems, autoscale, raw_components):
-        '''
+        """
         internal function for reading samples from datafile
-        '''
+        """
         dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
-        self.is_complex_data = dtype['is_complex']
-        is_fixedpoint_data = dtype['is_fixedpoint']
-        is_unsigned_data = dtype['is_unsigned']
-        data_type_in = dtype['sample_dtype']
-        component_type_in = dtype['component_dtype']
-        component_size = dtype['component_size']
+        self.is_complex_data = dtype["is_complex"]
+        is_fixedpoint_data = dtype["is_fixedpoint"]
+        is_unsigned_data = dtype["is_unsigned"]
+        data_type_in = dtype["sample_dtype"]
+        component_type_in = dtype["component_dtype"]
+        component_size = dtype["component_size"]
 
         data_type_out = np.dtype("f4") if not self.is_complex_data else np.dtype("f4, f4")
         num_channels = self.get_num_channels()
@@ -677,8 +683,8 @@ class SigMFFile(SigMFMetafile):
             if autoscale and is_fixedpoint_data:
                 data = data.view(np.dtype("f4"))
                 if is_unsigned_data:
-                    data -= 2**(component_size*8-1)
-                data *= 2**-(component_size*8-1)
+                    data -= 2 ** (component_size * 8 - 1)
+                data *= 2 ** -(component_size * 8 - 1)
                 data = data.view(data_type_out)
             if self.is_complex_data:
                 data = data.view(np.complex64)
@@ -722,7 +728,7 @@ class SigMFCollection(SigMFMetafile):
         self.skip_checksums = skip_checksums
 
         if metadata is None:
-            self._metadata = {self.COLLECTION_KEY:{}}
+            self._metadata = {self.COLLECTION_KEY: {}}
             self._metadata[self.COLLECTION_KEY][self.STREAMS_KEY] = []
         else:
             self._metadata = metadata
@@ -736,46 +742,46 @@ class SigMFCollection(SigMFMetafile):
             self.verify_stream_hashes()
 
     def __len__(self):
-        '''
+        """
         the length of a collection is the number of streams
-        '''
+        """
         return len(self.get_stream_names())
 
     def verify_stream_hashes(self):
-        '''
+        """
         compares the stream hashes in the collection metadata to the metadata files
-        '''
+        """
         streams = self.get_collection_field(self.STREAMS_KEY, [])
         for stream in streams:
-            old_hash = stream.get('hash')
-            metafile_name = get_sigmf_filenames(stream.get('name'))['meta_fn']
+            old_hash = stream.get("hash")
+            metafile_name = get_sigmf_filenames(stream.get("name"))["meta_fn"]
             if path.isfile(metafile_name):
                 new_hash = sigmf_hash.calculate_sha512(filename=metafile_name)
                 if old_hash != new_hash:
-                    raise SigMFFileError(f'Calculated file hash for {metafile_name} does not match collection metadata.')
+                    raise SigMFFileError(f"Calculated file hash for {metafile_name} does not match collection metadata.")
 
     def set_streams(self, metafiles):
-        '''
+        """
         configures the collection `core:streams` field from the specified list of metafiles
-        '''
+        """
         self.metafiles = metafiles
         streams = []
         for metafile in self.metafiles:
-            if metafile.endswith('.sigmf-meta') and path.isfile(metafile):
+            if metafile.endswith(".sigmf-meta") and path.isfile(metafile):
                 stream = {
-                    "name": get_sigmf_filenames(metafile)['base_fn'],
-                    "hash": sigmf_hash.calculate_sha512(filename=metafile)
+                    "name": get_sigmf_filenames(metafile)["base_fn"],
+                    "hash": sigmf_hash.calculate_sha512(filename=metafile),
                 }
                 streams.append(stream)
             else:
-                raise SigMFFileError(f'Specifed stream file {metafile} is not a valid SigMF Metadata file')
+                raise SigMFFileError(f"Specifed stream file {metafile} is not a valid SigMF Metadata file")
         self.set_collection_field(self.STREAMS_KEY, streams)
 
     def get_stream_names(self):
-        '''
+        """
         returns a list of `name` object(s) from the `collection` level `core:streams` metadata
-        '''
-        return [s.get('name') for s in self.get_collection_field(self.STREAMS_KEY, [])]
+        """
+        return [s.get("name") for s in self.get_collection_field(self.STREAMS_KEY, [])]
 
     def set_collection_info(self, new_collection):
         """
@@ -805,7 +811,7 @@ class SigMFCollection(SigMFMetafile):
         return self._metadata[self.COLLECTION_KEY].get(key, default)
 
     def tofile(self, file_path, pretty=True):
-        '''
+        """
         Write metadata file
 
         Parameters
@@ -814,25 +820,26 @@ class SigMFCollection(SigMFMetafile):
             Location to save.
         pretty : bool, default True
             When True will write more human-readable output, otherwise will be flat JSON.
-        '''
+        """
         fns = get_sigmf_filenames(file_path)
-        with open(fns['collection_fn'], 'w') as fp:
+        with open(fns["collection_fn"], "w") as fp:
             self.dump(fp, pretty=pretty)
-            fp.write('\n')  # text files should end in carriage return
+            fp.write("\n")  # text files should end in carriage return
 
     def get_SigMFFile(self, stream_name=None, stream_index=None):
-        '''
+        """
         Returns the SigMFFile instance of the specified stream if it exists
-        '''
+        """
         metafile = None
         if stream_name is not None:
             if stream_name in self.get_stream_names():
-                metafile = stream_name + '.sigmf_meta'
+                metafile = stream_name + ".sigmf_meta"
         if stream_index is not None and stream_index < self.__len__():
-            metafile = self.get_stream_names()[stream_index] + '.sigmf_meta'
+            metafile = self.get_stream_names()[stream_index] + ".sigmf_meta"
 
         if metafile is not None:
             return fromfile(metafile, skip_checksum=self.skip_checksums)
+
 
 def dtype_info(datatype):
     """
@@ -883,7 +890,7 @@ def dtype_info(datatype):
 
     memmap_convert_type = None
     if is_complex_data:
-        data_type_str = ','.join((data_type_str, data_type_str))
+        data_type_str = ",".join((data_type_str, data_type_str))
         memmap_map_type = byte_order
         if is_fixedpoint_data:
             memmap_map_type += ("u" if is_unsigned_data else "i") + str(component_size)
@@ -894,45 +901,50 @@ def dtype_info(datatype):
         memmap_map_type = data_type_str
 
     data_type_in = np.dtype(data_type_str)
-    output_info['sample_dtype'] = data_type_in
-    output_info['component_dtype'] = data_type_in['f0'] if is_complex_data else data_type_in
-    output_info['sample_size'] = sample_size
-    output_info['component_size'] = component_size
-    output_info['is_complex'] = is_complex_data
-    output_info['is_unsigned'] = is_unsigned_data
-    output_info['is_fixedpoint'] = is_fixedpoint_data
-    output_info['memmap_map_type'] = memmap_map_type
-    output_info['memmap_convert_type'] = memmap_convert_type
+    output_info["sample_dtype"] = data_type_in
+    output_info["component_dtype"] = data_type_in["f0"] if is_complex_data else data_type_in
+    output_info["sample_size"] = sample_size
+    output_info["component_size"] = component_size
+    output_info["is_complex"] = is_complex_data
+    output_info["is_unsigned"] = is_unsigned_data
+    output_info["is_fixedpoint"] = is_fixedpoint_data
+    output_info["memmap_map_type"] = memmap_map_type
+    output_info["memmap_convert_type"] = memmap_convert_type
     return output_info
 
 
 def get_dataset_filename_from_metadata(meta_fn, metadata=None):
-    '''
+    """
     Parse provided metadata and return the expected data filename. In the case of
     a metadata only distribution, or if the file does not exist, this will return
     'None'. The priority for conflicting:
       1. The file named <METAFILE_BASENAME>.sigmf-meta if it exists
       2. The file in the `core:dataset` field (Non-Compliant Dataset) if it exists
       3. None (may be a metadata only distribution)
-    '''
-    compliant_data_fn = get_sigmf_filenames(meta_fn)['data_fn']
-    noncompliant_data_fn = metadata['global'].get("core:dataset", None)
+    """
+    compliant_data_fn = get_sigmf_filenames(meta_fn)["data_fn"]
+    noncompliant_data_fn = metadata["global"].get("core:dataset", None)
 
     if path.isfile(compliant_data_fn):
         if noncompliant_data_fn:
-            warnings.warn(f'Compliant Dataset `{compliant_data_fn}` exists but '
-                    f'"core:dataset" is also defined; using `{compliant_data_fn}`')
+            warnings.warn(
+                f"Compliant Dataset `{compliant_data_fn}` exists but "
+                f'"core:dataset" is also defined; using `{compliant_data_fn}`'
+            )
         return compliant_data_fn
 
     elif noncompliant_data_fn:
         if path.isfile(noncompliant_data_fn):
-            if metadata['global'].get("core:metadata_only", False):
-                warnings.warn('Schema defines "core:dataset" but "core:meatadata_only" '
-                        f'also exists; using `{noncompliant_data_fn}`')
+            if metadata["global"].get("core:metadata_only", False):
+                warnings.warn(
+                    'Schema defines "core:dataset" but "core:meatadata_only" '
+                    f"also exists; using `{noncompliant_data_fn}`"
+                )
             return noncompliant_data_fn
         else:
-            warnings.warn(f'Non-Compliant Dataset `{noncompliant_data_fn}` is specified '
-                    'in "core:dataset" but does not exist!')
+            warnings.warn(
+                f"Non-Compliant Dataset `{noncompliant_data_fn}` is specified " 'in "core:dataset" but does not exist!'
+            )
 
     return None
 
@@ -944,11 +956,12 @@ def fromarchive(archive_path, dir=None, skip_checksum=False):
     access SigMF archives without extracting them.
     """
     from .archivereader import SigMFArchiveReader
+
     return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
 
 
 def fromfile(filename, skip_checksum=False):
-    '''
+    """
     Creates and returns a SigMFFile or SigMFCollection instance with metadata
     loaded from the specified file. The filename may be that of either a
     sigmf-meta file, a sigmf-data file, a sigmf-collection file, or a sigmf
@@ -965,14 +978,14 @@ def fromfile(filename, skip_checksum=False):
     -------
     object
         SigMFFile object with dataset & metadata or a SigMFCollection depending on the type of file
-    '''
+    """
     fns = get_sigmf_filenames(filename)
-    meta_fn = fns['meta_fn']
-    archive_fn = fns['archive_fn']
-    collection_fn = fns['collection_fn']
+    meta_fn = fns["meta_fn"]
+    archive_fn = fns["archive_fn"]
+    collection_fn = fns["collection_fn"]
 
     # extract the extension to check whether we are dealing with an archive, collection, etc.
-    file_path, ext = path.splitext(filename) # works with Pathlib - ext contains a dot
+    file_path, ext = path.splitext(filename)  # works with Pathlib - ext contains a dot
 
     if (ext.lower().endswith(SIGMF_ARCHIVE_EXT) or not path.isfile(meta_fn)) and path.isfile(archive_fn):
         return fromarchive(archive_fn, skip_checksum=skip_checksum)
@@ -1006,8 +1019,10 @@ def get_sigmf_filenames(filename):
     filename -- the SigMF filename
     """
     filename = path.splitext(filename)[0]
-    return {'base_fn': filename,
-            'data_fn': filename+SIGMF_DATASET_EXT,
-            'meta_fn': filename+SIGMF_METADATA_EXT,
-            'archive_fn': filename+SIGMF_ARCHIVE_EXT,
-            'collection_fn': filename+SIGMF_COLLECTION_EXT}
+    return {
+        "base_fn": filename,
+        "data_fn": filename + SIGMF_DATASET_EXT,
+        "meta_fn": filename + SIGMF_METADATA_EXT,
+        "archive_fn": filename + SIGMF_ARCHIVE_EXT,
+        "collection_fn": filename + SIGMF_COLLECTION_EXT,
+    }
