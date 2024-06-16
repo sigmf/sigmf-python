@@ -5,15 +5,14 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 """GEOJson Definitions in Pydantic."""
 
-import warnings
 from typing import List, Optional, Dict, Any
+from typing_extensions import Literal
 from pydantic import (
     BaseModel,
     Field,
     AliasPath,
     AliasChoices,
     model_serializer,
-    field_validator,
     model_validator,
 )
 
@@ -49,18 +48,10 @@ class GeoJSONPoint(BaseModel):
     """GeoJsonPoint object as defined by RFC 7946."""
 
     # for Python 3.8+ - replace "type" with "Literal['point']"
-    type_: str = Field("Point", alias="type", description="Type of GeoJSON object as per RFC 5870", frozen=True)
+    type_: Literal["Point"] = Field(
+        "Point", alias="type", description="Type of GeoJSON object as per RFC 5870", frozen=True
+    )
     coordinates: WGS84Coordinate = Field(..., description="WGS84 coordinate reference system.")
-
-    @field_validator("type_")
-    @classmethod
-    def ensure_type_is_point(cls, value: str) -> str:
-        """Make sure type_ is Point (while Literal is not in for Python 3.7)"""
-        if value != "Point":
-            warnings.warn(
-                f"value != `{value}`, you may be using an alternative GeoJSON coordinate reference system to WGS84."
-            )
-        return value
 
     @model_validator(mode="before")
     @classmethod

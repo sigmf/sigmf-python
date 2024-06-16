@@ -1,4 +1,5 @@
 import unittest
+from pydantic import ValidationError
 
 from sigmf.component.geo_json import GeoJSONPoint
 
@@ -20,18 +21,6 @@ class CoverageCases(unittest.TestCase):
         self.assertEqual(self.point2, point_dict2)
         
 
-class WarningCases(unittest.TestCase):
-    """Cases that do not 'fail' but raise a warning to its behaviour."""
-    
-    def test_correct_point_type(self):
-        """Tests whether warning is raised when point type differs."""
-        point ={"type":"RandomType",
-                 "coordinates": [-107.6183682, 34.0787916, 2120.0]}
-        # when type != Point
-        with self.assertWarns(Warning):
-            GeoJSONPoint(**point)
-
-
 class FailingCases(unittest.TestCase):
     """Cases where the validator should throw an exception."""
 
@@ -41,6 +30,14 @@ class FailingCases(unittest.TestCase):
         self.point2 = {"type":"Point", "coordinates": [-107.6183682]}
         # no coordinates.
         self.point3 = {"type": "Point"}
+
+    def test_incorrect_point_type(self):
+        """Tests whether error is raised when point type differs."""
+        point ={"type":"RandomType",
+                    "coordinates": [-107.6183682, 34.0787916, 2120.0]}
+        # when type != Point
+        with self.assertRaises(ValidationError):
+            GeoJSONPoint(**point)
 
     def test_error_raises_incorrect_length(self):
         """Checks that the correct number of coordinates is specified."""
