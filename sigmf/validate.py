@@ -25,47 +25,7 @@ from . import __version__ as toolversion
 from . import error, schema, sigmffile
 
 
-def extend_with_default(validator_class):
-    """
-    Boilerplate code from [1] to retrieve jsonschema default dict.
-
-    References
-    ----------
-    [1] https://python-jsonschema.readthedocs.io/en/stable/faq/
-    """
-    validate_properties = validator_class.VALIDATORS["properties"]
-
-    def set_defaults(validator, properties, instance, topschema):
-        for property, subschema in properties.items():
-            if "default" in subschema:
-                instance.setdefault(property, subschema["default"])
-
-        for err in validate_properties(
-            validator,
-            properties,
-            instance,
-            topschema,
-        ):
-            yield err
-
-    return jsonschema.validators.extend(
-        validator_class,
-        {"properties": set_defaults},
-    )
-
-
-def get_default_metadata(ref_schema=schema.get_schema()):
-    """
-    retrieve defaults from schema
-    FIXME: not working yet
-    """
-    default = {}
-    validator = extend_with_default(jsonschema.Draft7Validator)
-    validator(ref_schema).validate(default)
-    return default
-
-
-def validate(metadata, ref_schema=schema.get_schema()):
+def validate(metadata, ref_schema=schema.get_schema()) -> None:
     """
     Check that the provided `metadata` dict is valid according to the `ref_schema` dict.
     Walk entire schema and check all keys.
@@ -79,22 +39,21 @@ def validate(metadata, ref_schema=schema.get_schema()):
         Since the schema evolves over time, we may want to be able to check
         against different versions in the *future*.
 
-    Returns
-    -------
-    None, will raise error if invalid.
+    Raises
+    ------
+    ValidationError
+        If metadata is invalid.
     """
     jsonschema.validators.validate(instance=metadata, schema=ref_schema)
 
-    # assure capture and annotation order
-    # TODO: There is a way to do this with just the schema apparently.
+    # ensure captures and annotations have monotonically increasing sample_start
     for key in ["captures", "annotations"]:
         count = -1
         for item in metadata[key]:
             new_count = item["core:sample_start"]
             if new_count < count:
-                raise jsonschema.exceptions.ValidationError(f"{key} has bad order")
-            else:
-                count = new_count
+                raise jsonschema.exceptions.ValidationError(f"{key} has incorrect sample start ordering.")
+            count = new_count
 
 
 def _validate_single_file(filename, skip_checksum: bool, logger: logging.Logger) -> int:
@@ -125,7 +84,7 @@ def _validate_single_file(filename, skip_checksum: bool, logger: logging.Logger)
     # handle any of 4 exceptions at once...
     except (jsonschema.exceptions.ValidationError, error.SigMFFileError, json.decoder.JSONDecodeError, IOError) as err:
         # catch the error, log, and continue
-        logger.error("file `{}`: {}".format(filename, err))
+        logger.error(f"file `{filename}`: {err}")
         return 1
     else:
         return 0
