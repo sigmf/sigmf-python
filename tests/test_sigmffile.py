@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from sigmf import sigmffile, utils
+from sigmf import error, sigmffile, utils
 from sigmf.sigmffile import SigMFFile
 
 from .testdata import *
@@ -51,6 +51,14 @@ class TestClassMethods(unittest.TestCase):
             count += 1
         self.assertEqual(count, len(self.sigmf_object))
 
+    def test_checksum(self):
+        """Ensure checksum fails when incorrect or empty string."""
+        for new_checksum in ("", "a", 0):
+            bad_checksum_metadata = copy.deepcopy(TEST_METADATA)
+            bad_checksum_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.HASH_KEY] = new_checksum
+            with self.assertRaises(error.SigMFFileError):
+                _ = SigMFFile(bad_checksum_metadata, self.temp_path_data)
+
 
 class TestAnnotationHandling(unittest.TestCase):
     def test_get_annotations_with_index(self):
@@ -64,7 +72,7 @@ class TestAnnotationHandling(unittest.TestCase):
             [
                 {SigMFFile.START_INDEX_KEY: 0, SigMFFile.LENGTH_INDEX_KEY: 16},
                 {SigMFFile.START_INDEX_KEY: 1},
-            ]
+            ],
         )
 
     def test__count_samples_from_annotation(self):
