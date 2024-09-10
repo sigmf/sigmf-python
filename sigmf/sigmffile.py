@@ -25,7 +25,7 @@ from .archive import (
     SIGMF_METADATA_EXT,
     SigMFArchive,
 )
-from .error import SigMFAccessError, SigMFFileError
+from .error import SigMFAccessError, SigMFError, SigMFFileError
 from .utils import dict_merge
 
 
@@ -45,7 +45,7 @@ class SigMFMetafile:
         return f"SigMFFile({self})"
 
     def __iter__(self):
-        '''special method to iterate through samples'''
+        """special method to iterate through samples"""
         self.iter_position = 0
         return self
 
@@ -182,14 +182,7 @@ class SigMFFile(SigMFMetafile):
         self._memmap = None
         self.is_complex_data = False  # numpy.iscomplexobj(self._memmap) is not adequate for fixed-point complex case
 
-        if metadata is None:
-            self._metadata = {self.GLOBAL_KEY: {}, self.CAPTURE_KEY: [], self.ANNOTATION_KEY: []}
-            self._metadata[self.GLOBAL_KEY][self.NUM_CHANNELS_KEY] = 1
-            self._metadata[self.GLOBAL_KEY][self.VERSION_KEY] = __specification__
-        elif isinstance(metadata, dict):
-            self._metadata = metadata
-        else:
-            self._metadata = json.loads(metadata)
+        self.set_metadata(metadata)
         if global_info is not None:
             self.set_global_info(global_info)
         if data_file is not None:
@@ -270,6 +263,27 @@ class SigMFFile(SigMFMetafile):
             self.schema = schema.get_schema(self.version)
         assert isinstance(self.schema, dict)
         return self.schema
+
+    def set_metadata(self, metadata):
+        """
+        Read provided metadata as either None (empty), string, bytes, or dictionary.
+        """
+        if metadata is None:
+            # Create empty
+            self._metadata = {self.GLOBAL_KEY: {}, self.CAPTURE_KEY: [], self.ANNOTATION_KEY: []}
+        elif isinstance(metadata, dict):
+            self._metadata = metadata
+        elif isinstance(metadata, (str, bytes)):
+            self._metadata = json.loads(metadata)
+        else:
+            raise SigMFError("Unable to interpret provided metadata.")
+
+        # if num_channels missing, default to 1
+        if self.get_global_field(self.NUM_CHANNELS_KEY) is None:
+            self.set_global_field(self.NUM_CHANNELS_KEY, 1)
+
+        # set specification version to current implemented version
+        self.set_global_field(self.VERSION_KEY, __specification__)
 
     def set_global_info(self, new_global):
         """
