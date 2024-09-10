@@ -505,7 +505,7 @@ class SigMFFile(SigMFMetafile):
             new_hash = sigmf_hash.calculate_sha512(self.data_file, offset=self.data_offset, size=self.data_size_bytes)
         else:
             new_hash = sigmf_hash.calculate_sha512(fileobj=self.data_buffer, offset=self.data_offset, size=self.data_size_bytes)
-        if old_hash:
+        if old_hash is not None:
             if old_hash != new_hash:
                 raise SigMFFileError("Calculated file hash does not match associated metadata.")
 
