@@ -26,7 +26,6 @@ dependencies = [
     repository = "https://github.com/sigmf/sigmf-python"
     [project.scripts]
     sigmf_validate = "sigmf.validate:main"
-    sigmf_gui = "sigmf.apps.gui:main [apps]"
     sigmf_convert_wav = "sigmf.apps.convert_wav:main [apps]"
     [project.optional-dependencies]
     test = [
@@ -36,7 +35,6 @@ dependencies = [
         "hypothesis",   # next-gen testing framework
     ]
     apps = [
-        "PySimpleGUI",  # for gui interface
         "scipy",        # for wav i/o
     ]
 
@@ -59,7 +57,7 @@ source = ["sigmf", "tests"]
 command_line = "-m pytest -rA --doctest-modules --junitxml=pytest.xml"
 
 [tool.pytest.ini_options]
-addopts = "--doctest-modules --ignore=sigmf/apps/gui.py"
+addopts = "--doctest-modules"
 
 [tool.pylint]
     [tool.pylint.main]
