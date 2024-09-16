@@ -4,10 +4,12 @@ on:
   push:
   pull_request:
     types: [opened, synchronize]
+  schedule:
+    - cron: "5 5 * * 5" # test every friday @ 0505
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.7", "3.9", "3.12"]
