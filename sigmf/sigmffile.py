@@ -340,7 +340,7 @@ class SigMFFile(SigMFMetafile):
         """
         Returns a list of dictionaries representing all captures.
         """
-        return [x for x in self._metadata.get(self.CAPTURE_KEY, [])]
+        return self._metadata.get(self.CAPTURE_KEY, [])
 
     def get_capture_info(self, index):
         """
