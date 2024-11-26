@@ -932,12 +932,15 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     Parse provided metadata and return the expected data filename. In the case of
     a metadata only distribution, or if the file does not exist, this will return
     'None'. The priority for conflicting:
-      1. The file named <METAFILE_BASENAME>.sigmf-meta if it exists
+      1. The file named <METAFILE_BASENAME>.sigmf-data if it exists
       2. The file in the `core:dataset` field (Non-Compliant Dataset) if it exists
       3. None (may be a metadata only distribution)
     """
     compliant_data_fn = get_sigmf_filenames(meta_fn)["data_fn"]
     noncompliant_data_fn = metadata["global"].get("core:dataset", None)
+    dir_path = path.split(meta_fn)[0]
+    if not dir_path:
+        dir_path = "."  # sets the correct path in the case meta_fn is only a filename
 
     if path.isfile(compliant_data_fn):
         if noncompliant_data_fn:
@@ -948,13 +951,14 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
         return compliant_data_fn
 
     elif noncompliant_data_fn:
-        if path.isfile(noncompliant_data_fn):
+        noncompliant_data_file_path = f"{dir_path}/{noncompliant_data_fn}"
+        if path.isfile(noncompliant_data_file_path):
             if metadata["global"].get("core:metadata_only", False):
                 warnings.warn(
-                    'Schema defines "core:dataset" but "core:meatadata_only" '
+                    'Schema defines "core:dataset" but "core:metadata_only" '
                     f"also exists; using `{noncompliant_data_fn}`"
                 )
-            return noncompliant_data_fn
+            return noncompliant_data_file_path
         else:
             warnings.warn(
                 f"Non-Compliant Dataset `{noncompliant_data_fn}` is specified " 'in "core:dataset" but does not exist!'
