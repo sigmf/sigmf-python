@@ -37,12 +37,12 @@ def parse_iso8601_datetime(datestr: str) -> datetime:
     if match:
         md = match.groupdict()
         length = min(7, len(md["frac"]))
-        datestr = ''.join([md["dt"], md["frac"][:length], "Z"])
+        datestr = "".join([md["dt"], md["frac"][:length], "Z"])
 
     try:
-        timestamp = datetime.strptime(datestr, '%Y-%m-%dT%H:%M:%S.%fZ')
+        timestamp = datetime.strptime(datestr, "%Y-%m-%dT%H:%M:%S.%fZ")
     except ValueError:
-        timestamp = datetime.strptime(datestr, '%Y-%m-%dT%H:%M:%SZ')
+        timestamp = datetime.strptime(datestr, "%Y-%m-%dT%H:%M:%SZ")
     return timestamp
 
 

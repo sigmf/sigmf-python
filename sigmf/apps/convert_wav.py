@@ -71,8 +71,8 @@ def main():
     parser = argparse.ArgumentParser(description="Convert .wav to .sigmf container.")
     parser.add_argument("input", type=str, help="Wavfile path")
     parser.add_argument("--author", type=str, default=None, help=f"set {SigMFFile.AUTHOR_KEY} metadata")
-    parser.add_argument('-v', '--verbose', action='count', default=0)
-    parser.add_argument('--version', action='version', version=f'%(prog)s v{toolversion}')
+    parser.add_argument("-v", "--verbose", action="count", default=0)
+    parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
     args = parser.parse_args()
 
     level_lut = {

@@ -84,7 +84,7 @@ class TestArchiveReader(unittest.TestCase):
 
 
 def test_archiveread_data_file_unchanged(test_sigmffile):
-    with tempfile.NamedTemporaryFile(suffix='.sigmf') as temp:
+    with tempfile.NamedTemporaryFile(suffix=".sigmf") as temp:
         input_samples = test_sigmffile.read_samples()
         test_sigmffile.archive(temp.name)
 
