@@ -752,6 +752,9 @@ class SigMFCollection(SigMFMetafile):
         else:
             self.set_streams(metafiles)
 
+        if self.get_collection_field(self.VERSION_KEY) is None:
+            self.set_collection_field(self.VERSION_KEY, __specification__)
+
         if not self.skip_checksums:
             self.verify_stream_hashes()
 
