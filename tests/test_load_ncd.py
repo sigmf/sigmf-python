@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-"""Tests for loading non-conforming datasets"""
+"""Tests for loading non-conforming datasets."""
 
 from typing import cast
 import os
