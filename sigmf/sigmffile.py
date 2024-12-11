@@ -725,7 +725,7 @@ class SigMFCollection(SigMFMetafile):
     ]
     VALID_KEYS = {COLLECTION_KEY: VALID_COLLECTION_KEYS}
 
-    def __init__(self, metafiles=None, metadata=None, skip_checksums=False):
+    def __init__(self, metafiles=None, metadata=None, path=None, skip_checksums=False):
         """Create a SigMF Collection object.
 
         Parameters:
@@ -737,9 +737,16 @@ class SigMFCollection(SigMFMetafile):
         metadata  -- collection metadata to use, if not provided this will populate a
                     minimal set of default metadata. The core:streams field will be
                     regenerated automatically
+
+        path -- path of the datafiles of the collection
         """
         super(SigMFCollection, self).__init__()
         self.skip_checksums = skip_checksums
+
+        if path is None or path == "":
+            self.path = "."
+        else:
+            self.path = path
 
         if metadata is None:
             self._metadata = {self.COLLECTION_KEY: {}}
@@ -769,10 +776,12 @@ class SigMFCollection(SigMFMetafile):
         for stream in streams:
             old_hash = stream.get("hash")
             metafile_name = get_sigmf_filenames(stream.get("name"))["meta_fn"]
-            if path.isfile(metafile_name):
-                new_hash = sigmf_hash.calculate_sha512(filename=metafile_name)
+            if path.isfile(f"{self.path}/{metafile_name}"):
+                new_hash = sigmf_hash.calculate_sha512(filename=f"{self.path}/{metafile_name}")
                 if old_hash != new_hash:
-                    raise SigMFFileError(f"Calculated file hash for {metafile_name} does not match collection metadata.")
+                    raise SigMFFileError(
+                        f"Calculated file hash for {self.path}/{metafile_name} does not match collection metadata."
+                    )
 
     def set_streams(self, metafiles):
         """
@@ -781,14 +790,14 @@ class SigMFCollection(SigMFMetafile):
         self.metafiles = metafiles
         streams = []
         for metafile in self.metafiles:
-            if metafile.endswith(".sigmf-meta") and path.isfile(metafile):
+            if metafile.endswith(".sigmf-meta") and path.isfile(f"{self.path}/{metafile}"):
                 stream = {
                     "name": get_sigmf_filenames(metafile)["base_fn"],
-                    "hash": sigmf_hash.calculate_sha512(filename=metafile),
+                    "hash": sigmf_hash.calculate_sha512(filename=f"{self.path}/{metafile}"),
                 }
                 streams.append(stream)
             else:
-                raise SigMFFileError(f"Specifed stream file {metafile} is not a valid SigMF Metadata file")
+                raise SigMFFileError(f"Specifed stream file {self.path}/{metafile} is not a valid SigMF Metadata file")
         self.set_collection_field(self.STREAMS_KEY, streams)
 
     def get_stream_names(self):
@@ -852,7 +861,7 @@ class SigMFCollection(SigMFMetafile):
             metafile = self.get_stream_names()[stream_index] + ".sigmf_meta"
 
         if metafile is not None:
-            return fromfile(metafile, skip_checksum=self.skip_checksums)
+            return fromfile(f"{self.path}/{metafile}", skip_checksum=self.skip_checksums)
 
 
 def dtype_info(datatype):
@@ -1011,7 +1020,11 @@ def fromfile(filename, skip_checksum=False):
         metadata = json.load(mdfile_reader)
         collection_fp.close()
 
-        return SigMFCollection(metadata=metadata, skip_checksums=skip_checksum)
+        dir_path = path.split(meta_fn)[0]
+        if not dir_path:
+            dir_path = "."  # sets the correct path in the case meta_fn is only a filename
+
+        return SigMFCollection(metadata=metadata, path=dir_path, skip_checksums=skip_checksum)
 
     else:
         meta_fp = open(meta_fn, "rb")
