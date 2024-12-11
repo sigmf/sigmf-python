@@ -6,6 +6,7 @@
 
 """Tests for loading non-conforming datasets"""
 
+from typing import cast
 import os
 import numpy as np
 import pytest
@@ -13,17 +14,18 @@ from sigmf.sigmffile import SigMFFile, fromfile
 
 
 @pytest.mark.parametrize(
-    ["file_path"],
+    "file_path",
     [
-        ["b1.bin"],
-        ["./b2.bin"],
-        ["test_subdir/b3.bin"],  # fails in the 1.2.3 version
-        ["./test_subdir/b4.bin"],  # fails in the 1.2.3 version
+        "b1.bin",
+        "./b2.bin",
+        "test_subdir/b3.bin",  # fails in the 1.2.3 version
+        "./test_subdir/b4.bin",  # fails in the 1.2.3 version
     ],
 )
 def test_load_ncd(file_path: str) -> None:
+    """Unit test - loading non-conforming dataset."""
     dir_path, file_name = os.path.split(file_path)
-    file_name_base, file_name_ext = os.path.splitext(file_name)
+    file_name_base = os.path.splitext(file_name)[0]
     if not dir_path:
         dir_path = "."  # sets the correct path in the case file is only a filename
     meta_file_path = f"{dir_path}/{file_name_base}.sigmf-meta"
@@ -35,7 +37,8 @@ def test_load_ncd(file_path: str) -> None:
         pass
 
     # create dataset
-    np.arange(10, dtype=np.int16).tofile(file_path)
+    data_in = np.arange(10, dtype=np.int16)
+    data_in.tofile(file_path)
 
     # create metadata file
     metadata = {
@@ -45,7 +48,7 @@ def test_load_ncd(file_path: str) -> None:
         },
         SigMFFile.CAPTURE_KEY: [
             {
-            SigMFFile.START_INDEX_KEY: 0,
+                SigMFFile.START_INDEX_KEY: 0,
             }
         ],
         SigMFFile.ANNOTATION_KEY: [],
@@ -54,9 +57,7 @@ def test_load_ncd(file_path: str) -> None:
     meta_file.tofile(meta_file_path)
 
     # load dataset
-    data = fromfile(meta_file_path)
+    dataset = cast(SigMFFile, fromfile(meta_file_path))
+    data_out = dataset.read_samples(autoscale=False)
 
-    assert np.array_equal(
-        np.arange(10, dtype=np.int16),
-        data.read_samples(autoscale=False),
-    )
+    assert np.array_equal(data_in, data_out)
