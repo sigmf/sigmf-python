@@ -29,7 +29,7 @@ def test_load_collection(index: int, collection_path: str) -> None:
     collection_file_path = f"{collection_path}collection{index}.sigmf-collection"
     dir_path = os.path.split(collection_file_path)[0]
     if not dir_path:
-        dir_path = "."  # sets the correct path in the case file is only a filename
+        dir_path = "."  # sets the correct path in the case collection_path is only a filename
     data_file1_name = f"data{index}_1.sigmf-data"
     data_file2_name = f"data{index}_2.sigmf-data"
     meta_file1_name = f"data{index}_1.sigmf-meta"
