@@ -14,7 +14,7 @@ from sigmf.sigmffile import SigMFFile, SigMFCollection, fromfile
 
 
 @pytest.mark.parametrize(
-    ["index", "collection_path"],
+    ["index", "dir_path"],
     enumerate(
         [
             "",
@@ -27,28 +27,27 @@ from sigmf.sigmffile import SigMFFile, SigMFCollection, fromfile
         ]
     ),
 )
-def test_load_collection(index: int, collection_path: str) -> None:
+def test_load_collection(index: int, dir_path: str) -> None:
     """Unit test - path handling for collections."""
-    collection_file_path = os.path.join(collection_path, f"collection{index}.sigmf-collection")
-    dir_path = os.path.split(collection_file_path)[0]
-    if not dir_path:
-        dir_path = "."  # sets the correct path in the case collection_path is only a filename
     data_file1_name = f"data{index}_1.sigmf-data"
     data_file2_name = f"data{index}_2.sigmf-data"
     meta_file1_name = f"data{index}_1.sigmf-meta"
     meta_file2_name = f"data{index}_2.sigmf-meta"
+    collection_file_name = f"collection{index}.sigmf-collection"
     data_file1_path = os.path.join(dir_path, data_file1_name)
     data_file2_path = os.path.join(dir_path, data_file2_name)
     meta_file1_path = os.path.join(dir_path, meta_file1_name)
     meta_file2_path = os.path.join(dir_path, meta_file2_name)
+    collection_file_path = os.path.join(dir_path, collection_file_name)
 
-    # create dir
+    # create dir if necessary
     try:
-        os.makedirs(dir_path)
+        if dir_path:
+            os.makedirs(dir_path)
     except FileExistsError:
         pass
 
-    # create datasets
+    # create data files
     data_in1 = np.arange(10, dtype=np.int16)
     data_in2 = np.arange(20, dtype=np.float32)
     data_in1.tofile(data_file1_path)
