@@ -14,37 +14,39 @@ from sigmf.sigmffile import SigMFFile, fromfile
 
 
 @pytest.mark.parametrize(
-    "file_path",
-    [
-        "b1.bin",
-        "./b2.bin",
-        "test_subdir/b3.bin",  # fails in the 1.2.3 version
-        "./test_subdir/b4.bin",  # fails in the 1.2.3 version
-    ],
+    ["index", "dir_path"],
+    enumerate(
+        [
+            "",
+            "./",
+            "test_subdir/",
+            "./test_subdir/",
+        ]
+    ),
 )
-def test_load_ncd(file_path: str) -> None:
+def test_load_ncd(index: int, dir_path: str) -> None:
     """Unit test - loading non-conforming dataset."""
-    dir_path, file_name = os.path.split(file_path)
-    file_name_base = os.path.splitext(file_name)[0]
-    if not dir_path:
-        dir_path = "."  # sets the correct path in the case file is only a filename
-    meta_file_path = f"{dir_path}/{file_name_base}.sigmf-meta"
+    data_file_name = f"data{index}.bin"
+    meta_file_name = f"data{index}.sigmf-meta"
+    data_file_path = f"{dir_path}{data_file_name}"
+    meta_file_path = f"{dir_path}{meta_file_name}"
 
-    # create dir
+    # create dir if necessary
     try:
-        os.makedirs(dir_path)
+        if dir_path:
+         os.makedirs(dir_path)
     except FileExistsError:
         pass
 
-    # create dataset
+    # create data file
     data_in = np.arange(10, dtype=np.int16)
-    data_in.tofile(file_path)
+    data_in.tofile(data_file_path)
 
     # create metadata file
     metadata = {
         SigMFFile.GLOBAL_KEY: {
             SigMFFile.DATATYPE_KEY: "ri16_le",
-            SigMFFile.DATASET_KEY: file_name,
+            SigMFFile.DATASET_KEY: data_file_name,
         },
         SigMFFile.CAPTURE_KEY: [
             {
@@ -53,7 +55,7 @@ def test_load_ncd(file_path: str) -> None:
         ],
         SigMFFile.ANNOTATION_KEY: [],
     }
-    meta_file = SigMFFile(metadata=metadata, data_file=file_path)
+    meta_file = SigMFFile(metadata=metadata, data_file=data_file_path)
     meta_file.tofile(meta_file_path)
 
     # load dataset
