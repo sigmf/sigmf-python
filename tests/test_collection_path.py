@@ -18,15 +18,18 @@ from sigmf.sigmffile import SigMFFile, SigMFCollection, fromfile
     enumerate(
         [
             "",
+            ".",
             "./",
+            "test_subdir",
             "test_subdir/",
+            "./test_subdir",
             "./test_subdir/",
         ]
     ),
 )
 def test_load_collection(index: int, collection_path: str) -> None:
     """Unit test - path handling for collections."""
-    collection_file_path = f"{collection_path}collection{index}.sigmf-collection"
+    collection_file_path = os.path.join(collection_path, f"collection{index}.sigmf-collection")
     dir_path = os.path.split(collection_file_path)[0]
     if not dir_path:
         dir_path = "."  # sets the correct path in the case collection_path is only a filename
@@ -34,10 +37,10 @@ def test_load_collection(index: int, collection_path: str) -> None:
     data_file2_name = f"data{index}_2.sigmf-data"
     meta_file1_name = f"data{index}_1.sigmf-meta"
     meta_file2_name = f"data{index}_2.sigmf-meta"
-    data_file1_path = f"{dir_path}/{data_file1_name}"
-    data_file2_path = f"{dir_path}/{data_file2_name}"
-    meta_file1_path = f"{dir_path}/{meta_file1_name}"
-    meta_file2_path = f"{dir_path}/{meta_file2_name}"
+    data_file1_path = os.path.join(dir_path, data_file1_name)
+    data_file2_path = os.path.join(dir_path, data_file2_name)
+    meta_file1_path = os.path.join(dir_path, meta_file1_name)
+    meta_file2_path = os.path.join(dir_path, meta_file2_name)
 
     # create dir
     try:
@@ -82,7 +85,7 @@ def test_load_collection(index: int, collection_path: str) -> None:
     # create collection
     collection = SigMFCollection(
         metafiles=[meta_file1_name, meta_file2_name],
-        path=dir_path,
+        collection_path=dir_path,
     )
     collection.tofile(collection_file_path)
 
