@@ -14,23 +14,28 @@ from sigmf.sigmffile import SigMFFile, SigMFCollection, fromfile
 
 
 @pytest.mark.parametrize(
-    "collection_path",
+    ["collection_path", "index"],
     [
-        "collection1.sigmf-collection",
-        "./collection2.sigmf-collection",
-        "test_subdir/collection3.sigmf-collection",  # fails in the 1.2.3 version
-        "./test_subdir/collection4.sigmf-collection",  # fails in the 1.2.3 version
+        ["", 0],
+        ["./", 1],
+        ["test_subdir/", 2],
+        ["./test_subdir/", 3],
     ],
 )
-def test_load_collection(collection_path: str) -> None:
+def test_load_collection(collection_path: str, index: int) -> None:
     """Unit test - path handling for collections."""
-    dir_path = os.path.split(collection_path)[0]
+    collection_file_path = f"{collection_path}collection{index}.sigmf-collection"
+    dir_path = os.path.split(collection_file_path)[0]
     if not dir_path:
         dir_path = "."  # sets the correct path in the case file is only a filename
-    data_file1_path = f"{dir_path}/data1.sigmf-data"
-    data_file2_path = f"{dir_path}/data2.sigmf-data"
-    meta_file1_path = f"{dir_path}/data1.sigmf-meta"
-    meta_file2_path = f"{dir_path}/data2.sigmf-meta"
+    data_file1_name = f"data{index}_1.sigmf-data"
+    data_file2_name = f"data{index}_2.sigmf-data"
+    meta_file1_name = f"data{index}_1.sigmf-meta"
+    meta_file2_name = f"data{index}_2.sigmf-meta"
+    data_file1_path = f"{dir_path}/{data_file1_name}"
+    data_file2_path = f"{dir_path}/{data_file2_name}"
+    meta_file1_path = f"{dir_path}/{meta_file1_name}"
+    meta_file2_path = f"{dir_path}/{meta_file2_name}"
 
     # create dir
     try:
@@ -74,13 +79,13 @@ def test_load_collection(collection_path: str) -> None:
 
     # create collection
     collection = SigMFCollection(
-        metafiles=["data1.sigmf-meta", "data2.sigmf-meta"],
+        metafiles=[meta_file1_name, meta_file2_name],
         path=dir_path,
     )
-    collection.tofile(collection_path)
+    collection.tofile(collection_file_path)
 
     # load collection
-    datasets = cast(SigMFCollection, fromfile(collection_path))
+    datasets = cast(SigMFCollection, fromfile(collection_file_path))
     dataset1 = cast(SigMFFile, datasets.get_SigMFFile(stream_index=0))
     dataset2 = cast(SigMFFile, datasets.get_SigMFFile(stream_index=1))
     data_out1 = dataset1.read_samples(autoscale=False)
