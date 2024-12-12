@@ -938,9 +938,6 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     """
     compliant_data_fn = get_sigmf_filenames(meta_fn)["data_fn"]
     noncompliant_data_fn = metadata["global"].get("core:dataset", None)
-    dir_path = path.split(meta_fn)[0]
-    if not dir_path:
-        dir_path = "."  # sets the correct path in the case meta_fn is only a filename
 
     if path.isfile(compliant_data_fn):
         if noncompliant_data_fn:
@@ -951,7 +948,8 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
         return compliant_data_fn
 
     elif noncompliant_data_fn:
-        noncompliant_data_file_path = f"{dir_path}/{noncompliant_data_fn}"
+        dir_path = path.split(meta_fn)[0]
+        noncompliant_data_file_path = path.join(dir_path, noncompliant_data_fn)
         if path.isfile(noncompliant_data_file_path):
             if metadata["global"].get("core:metadata_only", False):
                 warnings.warn(
