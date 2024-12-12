@@ -14,15 +14,17 @@ from sigmf.sigmffile import SigMFFile, SigMFCollection, fromfile
 
 
 @pytest.mark.parametrize(
-    ["collection_path", "index"],
-    [
-        ["", 0],
-        ["./", 1],
-        ["test_subdir/", 2],
-        ["./test_subdir/", 3],
-    ],
+    ["index", "collection_path"],
+    enumerate(
+        [
+            "",
+            "./",
+            "test_subdir/",
+            "./test_subdir/",
+        ]
+    ),
 )
-def test_load_collection(collection_path: str, index: int) -> None:
+def test_load_collection(index: int, collection_path: str) -> None:
     """Unit test - path handling for collections."""
     collection_file_path = f"{collection_path}collection{index}.sigmf-collection"
     dir_path = os.path.split(collection_file_path)[0]
