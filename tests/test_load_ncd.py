@@ -34,7 +34,7 @@ def test_load_ncd(index: int, dir_path: str) -> None:
     # create dir if necessary
     try:
         if dir_path:
-         os.makedirs(dir_path)
+            os.makedirs(dir_path)
     except FileExistsError:
         pass
 
