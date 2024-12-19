@@ -558,6 +558,12 @@ class SigMFFile(SigMFMetafile):
             self._memmap = raveled.reshape(mapped_reshape)
             self.shape = self._memmap.shape if (self._return_type is None) else self._memmap.shape[:-1]
 
+        if self.data_file is not None:
+            file_name = path.split(self.data_file)[1]
+            ext = path.splitext(file_name)[1]
+            if ext.lower() != SIGMF_DATASET_EXT:
+                self.set_global_field(SigMFFile.DATASET_KEY, file_name)
+
         if skip_checksum:
             return None
         return self.calculate_hash()
@@ -937,7 +943,7 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
         3. None (may be a metadata only distribution)
     """
     compliant_filename = get_sigmf_filenames(meta_fn)["data_fn"]
-    noncompliant_filename = metadata["global"].get("core:dataset", None)
+    noncompliant_filename = metadata["global"].get(SigMFFile.DATASET_KEY, None)
 
     if path.isfile(compliant_filename):
         if noncompliant_filename:

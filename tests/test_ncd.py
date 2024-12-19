@@ -47,8 +47,6 @@ class TestNonConformingDataset(unittest.TestCase):
         # create metadata file
         ncd_metadata = copy.deepcopy(TEST_METADATA)
         meta = SigMFFile(metadata=ncd_metadata, data_file=data_path)
-        # tell SigMF that the data is noncompliant
-        meta.set_global_field(SigMFFile.DATASET_KEY, data_path.name)
         meta.validate()
         meta.tofile(meta_path)
 
@@ -57,7 +55,11 @@ class TestNonConformingDataset(unittest.TestCase):
         self.assertTrue(np.array_equal(TEST_FLOAT32_DATA, meta_loopback.read_samples()))
         self.assertTrue(np.array_equal(TEST_FLOAT32_DATA, meta_loopback[:]))
 
-        # delete the non-conforming dataset and ensure error is raised due to missing dataset
+        # delete the non-conforming dataset and ensure error is raised due to missing dataset;
+        # in Windows the SigMFFile instances need to be garbage collected first,
+        # otherwise the np.memmap instances (stored in self._memmap) block the deletion
+        meta = None
+        meta_loopback = None
         os.remove(data_path)
         with self.assertRaises(SigMFFileError):
             _ = fromfile(meta_path)
