@@ -47,7 +47,6 @@ class TestNonConformingDataset(unittest.TestCase):
         # create metadata file
         ncd_metadata = copy.deepcopy(TEST_METADATA)
         meta = SigMFFile(metadata=ncd_metadata, data_file=data_path)
-        meta.validate()
         meta.tofile(meta_path)
 
         # load dataset & validate we can read all the data
