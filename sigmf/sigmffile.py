@@ -282,7 +282,7 @@ class SigMFFile(SigMFMetafile):
         if self.get_global_field(self.NUM_CHANNELS_KEY) is None:
             self.set_global_field(self.NUM_CHANNELS_KEY, 1)
 
-        # set specification version to current implemented version
+        # set version to current implementation
         self.set_global_field(self.VERSION_KEY, __specification__)
 
     def set_global_info(self, new_global):
@@ -757,6 +757,9 @@ class SigMFCollection(SigMFMetafile):
             self.metafiles = []
         else:
             self.set_streams(metafiles)
+
+        # set version to current implementation
+        self.set_collection_field(self.VERSION_KEY, __specification__)
 
         if not self.skip_checksums:
             self.verify_stream_hashes()
