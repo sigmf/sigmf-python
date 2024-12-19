@@ -938,8 +938,8 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     Parse provided metadata and return the expected data filename. In the case of
     a metadata only distribution, or if the file does not exist, this will return
     'None'. The priority for conflicting:
-        1. The file named <METAFILE_BASENAME>.sigmf-data if it exists
-        2. The file in the `core:dataset` field (Non-Compliant Dataset) if it exists
+        1. The file named <stem>.SIGMF_DATASET_EXT if it exists
+        2. The file in the DATASET_KEY field (Non-Compliant Dataset) if it exists
         3. None (may be a metadata only distribution)
     """
     compliant_filename = get_sigmf_filenames(meta_fn)["data_fn"]
