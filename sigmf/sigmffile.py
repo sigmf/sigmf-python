@@ -287,9 +287,9 @@ class SigMFFile(SigMFMetafile):
 
     def set_global_info(self, new_global):
         """
-        Overwrite the global info with a new dictionary.
+        Recursively override existing global metadata with new global metadata.
         """
-        self._metadata[self.GLOBAL_KEY] = new_global.copy()
+        self._metadata[self.GLOBAL_KEY] = dict_merge(self._metadata[self.GLOBAL_KEY], new_global)
 
     def get_global_info(self):
         """
