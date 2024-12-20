@@ -11,6 +11,7 @@ import tempfile
 import pytest
 
 from sigmf import __specification__
+from sigmf.archive import SIGMF_DATASET_EXT
 from sigmf.sigmffile import SigMFFile
 
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
@@ -18,8 +19,8 @@ from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 
 @pytest.fixture
 def test_data_file():
-    """when called, yields temporary file"""
-    with tempfile.NamedTemporaryFile() as temp:
+    """when called, yields temporary dataset"""
+    with tempfile.NamedTemporaryFile(suffix=f".{SIGMF_DATASET_EXT}") as temp:
         TEST_FLOAT32_DATA.tofile(temp.name)
         yield temp
 
