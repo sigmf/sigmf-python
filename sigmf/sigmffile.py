@@ -176,7 +176,7 @@ class SigMFFile(SigMFMetafile):
         map_readonly: bool, default True
             Indicates whether assignments on the numpy.memmap are allowed.
         """
-        super(SigMFFile, self).__init__()
+        super().__init__()
         self.data_file = None
         self.sample_count = 0
         self._memmap = None
@@ -740,7 +740,7 @@ class SigMFCollection(SigMFMetafile):
 
         collection_path -- path of the collection
         """
-        super(SigMFCollection, self).__init__()
+        super().__init__()
         self.skip_checksums = skip_checksums
 
         if collection_path is None:

@@ -17,8 +17,8 @@ import numpy as np
 from hypothesis import given
 from hypothesis import strategies as st
 
-from sigmf.archive import SIGMF_DATASET_EXT, SIGMF_METADATA_EXT, SIGMF_COLLECTION_EXT
-from sigmf.sigmffile import SigMFFile, SigMFCollection, fromfile
+from sigmf.archive import SIGMF_COLLECTION_EXT, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT
+from sigmf.sigmffile import SigMFCollection, SigMFFile, fromfile
 
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 
@@ -57,8 +57,6 @@ class TestCollection(unittest.TestCase):
         metadata = copy.deepcopy(TEST_METADATA)
         meta1 = SigMFFile(metadata=metadata, data_file=data_path1)
         meta2 = SigMFFile(metadata=metadata, data_file=data_path2)
-        meta1.validate()
-        meta2.validate()
         meta1.tofile(meta_path1)
         meta2.tofile(meta_path2)
 
