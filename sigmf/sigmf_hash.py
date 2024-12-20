@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-'''Hashing Functions'''
+"""Hashing Functions"""
 
 import hashlib
 import os
