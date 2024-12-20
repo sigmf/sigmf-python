@@ -11,7 +11,8 @@ SigMF.egg-info/*
 
 # test related
 .coverage
-pytest.xml
-coverage.xml
+.hypothesis/
 .tox/
+coverage.xml
+pytest.xml
 htmlcov/*
