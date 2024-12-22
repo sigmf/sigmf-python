@@ -8,7 +8,6 @@
 
 import copy
 import json
-import os
 import shutil
 import tempfile
 import unittest
@@ -99,7 +98,7 @@ class TestAnnotationHandling(unittest.TestCase):
         smf = SigMFFile(copy.deepcopy(TEST_METADATA))
         smf._metadata[SigMFFile.ANNOTATION_KEY].clear()
         with tempfile.TemporaryDirectory() as tmpdir:
-            temp_path_data = os.path.join(tmpdir, "datafile")
+            temp_path_data = Path.joinpath(tmpdir, "datafile")
             TEST_FLOAT32_DATA.tofile(temp_path_data)
             smf.set_data_file(temp_path_data)
             samples = smf.read_samples()
@@ -114,7 +113,7 @@ class TestAnnotationHandling(unittest.TestCase):
         smf = SigMFFile(copy.deepcopy(TEST_METADATA))
         smf.add_annotation(start_index=0, length=32)
         with tempfile.TemporaryDirectory() as tmpdir:
-            temp_path_data = os.path.join(tmpdir, "datafile")
+            temp_path_data = Path.joinpath(tmpdir, "datafile")
             TEST_FLOAT32_DATA.tofile(temp_path_data)
             with self.assertWarns(Warning):
                 # Issues warning since file ends before the final annotatio
@@ -166,7 +165,7 @@ def test_fromarchive(test_sigmffile):
     archive_path = test_sigmffile.archive(name=tf)
     result = sigmffile.fromarchive(archive_path=archive_path, dir=td)
     assert result._metadata == test_sigmffile._metadata == TEST_METADATA
-    os.remove(tf)
+    Path.unlink(tf)
     shutil.rmtree(td)
 
 

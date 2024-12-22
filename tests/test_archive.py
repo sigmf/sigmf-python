@@ -10,7 +10,7 @@ import codecs
 import json
 import tarfile
 import tempfile
-from os import path
+from pathlib import Path
 
 import jsonschema
 import numpy as np
@@ -61,8 +61,7 @@ def test_name_used_in_fileobj(test_sigmffile):
         assert basedir.name == "testarchive"
 
         def filename(tarinfo):
-            path_root, _ = path.splitext(tarinfo.name)
-            return path.split(path_root)[-1]
+            return Path(tarinfo.name).stem
 
         assert filename(file1) == "testarchive"
         assert filename(file2) == "testarchive"
@@ -102,17 +101,17 @@ def test_tarfile_names_and_extensions(test_sigmffile):
         sigmf_tarfile = create_test_archive(test_sigmffile, temp)
         basedir, file1, file2 = sigmf_tarfile.getmembers()
         archive_name = basedir.name
-        assert archive_name == path.split(temp.name)[-1]
+        assert archive_name == Path(temp.name).name
         file_extensions = {SIGMF_DATASET_EXT, SIGMF_METADATA_EXT}
 
-        file1_name, file1_ext = path.splitext(file1.name)
+        file1_name, file1_ext = Path(file1.name).stem, Path(file1.name).suffix
+        assert file1_name == archive_name
         assert file1_ext in file_extensions
-        assert path.split(file1_name)[-1] == archive_name
 
         file_extensions.remove(file1_ext)
 
-        file2_name, file2_ext = path.splitext(file2.name)
-        assert path.split(file2_name)[-1] == archive_name
+        file2_name, file2_ext = Path(file2.name).stem, Path(file2.name).suffix
+        assert file2_name == archive_name
         assert file2_ext in file_extensions
 
 
