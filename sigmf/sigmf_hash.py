@@ -7,7 +7,7 @@
 """Hashing Functions"""
 
 import hashlib
-import os
+from pathlib import Path
 
 
 def calculate_sha512(filename=None, fileobj=None, offset=None, size=None):
@@ -21,7 +21,8 @@ def calculate_sha512(filename=None, fileobj=None, offset=None, size=None):
     if filename is not None:
         fileobj = open(filename, "rb")
     if size is None:
-        bytes_to_hash = os.path.getsize(filename)
+        bytes_to_hash = Path(filename).stat().st_size
+        # bytes_to_hash = os.path.getsize(filename)
     else:
         fileobj.seek(offset)
 
