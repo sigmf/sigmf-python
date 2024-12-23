@@ -66,10 +66,8 @@ class SigMFArchive:
         tmpdir = tempfile.mkdtemp()
         sigmf_md_filename = archive_name + SIGMF_METADATA_EXT
         sigmf_md_path = Path.joinpath(tmpdir, sigmf_md_filename)
-        # sigmf_md_path = os.path.join(tmpdir, sigmf_md_filename)
         sigmf_data_filename = archive_name + SIGMF_DATASET_EXT
         sigmf_data_path = Path.joinpath(tmpdir, sigmf_data_filename)
-        # sigmf_data_path = os.path.join(tmpdir, sigmf_data_filename)
 
         with open(sigmf_md_path, "w") as mdfile:
             self.sigmffile.dump(mdfile, pretty=True)
@@ -111,7 +109,6 @@ class SigMFArchive:
         has_correct_extension = name.endswith(SIGMF_ARCHIVE_EXT)
         if has_extension and not has_correct_extension:
             apparent_ext = Path(name).suffix
-            # apparent_ext = os.path.splitext(name)[-1]
             err = "extension {} != {}".format(apparent_ext, SIGMF_ARCHIVE_EXT)
             raise SigMFFileError(err)
 
@@ -132,9 +129,7 @@ class SigMFArchive:
             pathname = self.name
 
         filename = Path(pathname).name
-        # filename = os.path.split(pathname)[-1]
         archive_name, archive_ext = Path(filename).stem, Path(filename).suffix
-        # archive_name, archive_ext = os.path.splitext(filename)
         return archive_name
 
     def _get_output_fileobj(self):
