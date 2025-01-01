@@ -259,7 +259,7 @@ class SigMFFile(SigMFMetafile):
             # check for any non-zero `header_bytes` fields in captures segments
             if capture.get(self.HEADER_BYTES_KEY, 0):
                 return False
-        if self.data_file is not None and not Path.is_file(self.data_file):
+        if self.data_file is not None and not self.data_file.is_file:
             return False
         # if we get here, the file exists and is conforming
         return True
@@ -402,7 +402,7 @@ class SigMFFile(SigMFMetafile):
 
         end_byte = start_byte
         if index == len(self.get_captures()) - 1:  # last captures...data is the rest of the file
-            end_byte = Path(self.data_file).stat().st_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
+            end_byte = self.data_file.stat().st_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
         else:
             end_byte += (
                 (self.get_capture_start(index + 1) - self.get_capture_start(index))
@@ -482,7 +482,7 @@ class SigMFFile(SigMFMetafile):
             sample_count = self._get_sample_count_from_annotations()
         else:
             header_bytes = sum([c.get(self.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
-            file_size = Path(self.data_file).stat().st_size if self.data_size_bytes is None else self.data_size_bytes
+            file_size = self.data_file.stat().st_size if self.data_size_bytes is None else self.data_size_bytes
             file_data_size = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes  # bytes
             sample_size = self.get_sample_size()  # size of a sample in bytes
             num_channels = self.get_num_channels()
@@ -554,7 +554,7 @@ class SigMFFile(SigMFMetafile):
         if self.get_global_field(self.DATATYPE_KEY) is None:
             raise SigMFFileError("Error setting data file, the DATATYPE_KEY must be set in the global metadata first.")
 
-        self.data_file = data_file
+        self.data_file = Path(data_file)
         self.data_buffer = data_buffer
         self.data_offset = offset
         self.data_size_bytes = size_bytes
@@ -593,8 +593,8 @@ class SigMFFile(SigMFMetafile):
             self.shape = self._memmap.shape if (self._return_type is None) else self._memmap.shape[:-1]
 
         if self.data_file is not None:
-            file_name = Path(self.data_file).name
-            ext = Path(file_name).suffix
+            file_name = self.data_file.name
+            ext = file_name.suffix
             if ext.lower() != SIGMF_DATASET_EXT:
                 self.set_global_field(SigMFFile.DATASET_KEY, file_name)
 

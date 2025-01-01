@@ -8,12 +8,14 @@
 
 import re
 import sys
+from pathlib import Path
 from copy import deepcopy
 from datetime import datetime, timezone
 
 import numpy as np
 
 from . import error
+from . import __version__
 
 SIGMF_DATETIME_ISO8601_FMT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -71,11 +73,11 @@ def dict_merge(a_dict: dict, b_dict: dict) -> dict:
     return result
 
 
-def get_schema_path(module_path: str) -> str:
+def get_schema_path(version:str = __version__) -> Path:
     """
     TODO: Allow getting different schemas for specific SigMF versions
     """
-    return module_path
+    return Path(__file__)
 
 
 def get_endian_str(ray: np.ndarray) -> str:

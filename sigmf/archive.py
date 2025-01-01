@@ -55,19 +55,19 @@ class SigMFArchive:
 
     def __init__(self, sigmffile, name=None, fileobj=None):
         self.sigmffile = sigmffile
-        self.name = name
-        self.fileobj = fileobj
+        self.name = Path(name)
+        self.fileobj = Path(fileobj)
 
         self._check_input()
 
         archive_name = self._get_archive_name()
         sigmf_fileobj = self._get_output_fileobj()
         sigmf_archive = tarfile.TarFile(mode="w", fileobj=sigmf_fileobj, format=tarfile.PAX_FORMAT)
-        tmpdir = tempfile.mkdtemp()
+        tmpdir = Path(tempfile.mkdtemp())
         sigmf_md_filename = archive_name + SIGMF_METADATA_EXT
-        sigmf_md_path = Path.joinpath(tmpdir, sigmf_md_filename)
-        sigmf_data_filename = archive_name + SIGMF_DATASET_EXT
-        sigmf_data_path = Path.joinpath(tmpdir, sigmf_data_filename)
+        sigmf_md_path = tmpdir/ sigmf_md_filename
+        sigmf_data_filename = Path.joinpath(archive_name, SIGMF_DATASET_EXT)
+        sigmf_data_path = tmpdir/ sigmf_data_filename
 
         with open(sigmf_md_path, "w") as mdfile:
             self.sigmffile.dump(mdfile, pretty=True)
@@ -101,14 +101,14 @@ class SigMFArchive:
         self._validate_sigmffile_metadata()
 
     def _ensure_name_has_correct_extension(self):
-        name = self.name
+        name = Path(self.name)
         if name is None:
             return
 
         has_extension = "." in name
         has_correct_extension = name.endswith(SIGMF_ARCHIVE_EXT)
         if has_extension and not has_correct_extension:
-            apparent_ext = Path(name).suffix
+            apparent_ext = name.suffix
             err = "extension {} != {}".format(apparent_ext, SIGMF_ARCHIVE_EXT)
             raise SigMFFileError(err)
 
@@ -128,8 +128,8 @@ class SigMFArchive:
         else:
             pathname = self.name
 
-        filename = Path(pathname).name
-        archive_name, archive_ext = Path(filename).stem, Path(filename).suffix
+        filename = pathname.name
+        archive_name, archive_ext = filename.stem, filename.suffix
         return archive_name
 
     def _get_output_fileobj(self):

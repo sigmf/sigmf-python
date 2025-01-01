@@ -22,7 +22,6 @@ def calculate_sha512(filename=None, fileobj=None, offset=None, size=None):
         fileobj = open(filename, "rb")
     if size is None:
         bytes_to_hash = Path(filename).stat().st_size
-        # bytes_to_hash = os.path.getsize(filename)
     else:
         fileobj.seek(offset)
 
