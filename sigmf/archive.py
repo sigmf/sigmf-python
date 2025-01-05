@@ -65,9 +65,9 @@ class SigMFArchive:
         sigmf_archive = tarfile.TarFile(mode="w", fileobj=sigmf_fileobj, format=tarfile.PAX_FORMAT)
         tmpdir = Path(tempfile.mkdtemp())
         sigmf_md_filename = archive_name + SIGMF_METADATA_EXT
-        sigmf_md_path = tmpdir/ sigmf_md_filename
+        sigmf_md_path = tmpdir / sigmf_md_filename
         sigmf_data_filename = Path.joinpath(archive_name, SIGMF_DATASET_EXT)
-        sigmf_data_path = tmpdir/ sigmf_data_filename
+        sigmf_data_path = tmpdir / sigmf_data_filename
 
         with open(sigmf_md_path, "w") as mdfile:
             self.sigmffile.dump(mdfile, pretty=True)

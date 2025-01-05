@@ -1010,7 +1010,6 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     noncompliant_filename = metadata["global"].get(SigMFFile.DATASET_KEY, None)
 
     if Path.is_file(compliant_filename):
-    # if path.isfile(compliant_filename):
         if noncompliant_filename:
             warnings.warn(
                 f"Compliant Dataset `{compliant_filename}` exists but "

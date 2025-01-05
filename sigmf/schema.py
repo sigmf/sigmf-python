@@ -21,8 +21,7 @@ def get_schema(version=None, schema_file=SCHEMA_META):
 
     TODO: In the future load specific schema versions.
     """
-    #                  ./sigmf-python/sigmf/utils.py/schema-meta.json
-    schema_path = Path.as_posix(utils.get_schema_path()/ schema_file)
+    schema_path = Path.as_posix(utils.get_schema_path() / schema_file)
     with open(schema_path, 'rb') as handle:
         schema = json.load(handle)
     return schema
