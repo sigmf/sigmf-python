@@ -9,19 +9,20 @@
 import json
 from pathlib import Path
 
+from . import __version__ as toolversion
 from . import utils
 
 SCHEMA_META = "schema-meta.json"
 SCHEMA_COLLECTION = "schema-collection.json"
 
 
-def get_schema(version=None, schema_file=SCHEMA_META):
+def get_schema(version=toolversion, schema_file=SCHEMA_META):
     """
     Load JSON Schema to for either a `sigmf-meta` or `sigmf-collection`.
 
     TODO: In the future load specific schema versions.
     """
-    schema_path = Path.as_posix(utils.get_schema_path() / schema_file)
-    with open(schema_path, 'rb') as handle:
+    schema_dir = Path(__file__).parent
+    with open(schema_dir / schema_file, 'rb') as handle:
         schema = json.load(handle)
     return schema

@@ -73,13 +73,6 @@ def dict_merge(a_dict: dict, b_dict: dict) -> dict:
     return result
 
 
-def get_schema_path(version:str = __version__) -> Path:
-    """
-    TODO: Allow getting different schemas for specific SigMF versions
-    """
-    return Path(__file__)
-
-
 def get_endian_str(ray: np.ndarray) -> str:
     """Return SigMF compatible endianness string for a numpy array"""
     if not isinstance(ray, np.ndarray):

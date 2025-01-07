@@ -594,7 +594,7 @@ class SigMFFile(SigMFMetafile):
 
         if self.data_file is not None:
             file_name = self.data_file.name
-            ext = file_name.suffix
+            ext = self.data_file.suffix
             if ext.lower() != SIGMF_DATASET_EXT:
                 self.set_global_field(SigMFFile.DATASET_KEY, file_name)
 
@@ -1100,16 +1100,21 @@ def fromfile(filename, skip_checksum=False):
 def get_sigmf_filenames(filename):
     """
     Safely returns a set of SigMF file paths given an input filename.
-    Returned as dict with 'data_fn', 'meta_fn', and 'archive_fn' as keys.
 
-    Keyword arguments:
-    filename -- the SigMF filename
+    Parameters
+    ----------
+    filename : str | bytes | PathLike
+        The SigMF filename with any extension.
+
+    Returns
+    -------
+    dict with 'data_fn', 'meta_fn', and 'archive_fn' as keys.
     """
-    filename = Path(filename).stem
+    stem_path = Path(filename).with_suffix("")
     return {
-        "base_fn": filename,
-        "data_fn": filename + SIGMF_DATASET_EXT,
-        "meta_fn": filename + SIGMF_METADATA_EXT,
-        "archive_fn": filename + SIGMF_ARCHIVE_EXT,
-        "collection_fn": filename + SIGMF_COLLECTION_EXT,
+        "base_fn": stem_path,
+        "data_fn": stem_path.with_suffix(SIGMF_DATASET_EXT),
+        "meta_fn": stem_path.with_suffix(SIGMF_METADATA_EXT),
+        "archive_fn": stem_path.with_suffix(SIGMF_ARCHIVE_EXT),
+        "collection_fn": stem_path.with_suffix(SIGMF_COLLECTION_EXT),
     }
