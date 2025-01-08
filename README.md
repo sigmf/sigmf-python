@@ -100,7 +100,7 @@ import datetime as dt
 import numpy as np
 import sigmf
 from sigmf import SigMFFile
-from sigmf.utils import get_data_type_str
+from sigmf.utils import get_data_type_str, get_sigmf_iso8601_datetime_now
 
 # suppose we have an complex timeseries signal
 data = np.zeros(1024, dtype=np.complex64)
@@ -122,7 +122,7 @@ meta = SigMFFile(
 # create a capture key at time index 0
 meta.add_capture(0, metadata={
     SigMFFile.FREQUENCY_KEY: 915000000,
-    SigMFFile.DATETIME_KEY: dt.datetime.utcnow().isoformat()+'Z',
+    SigMFFile.DATETIME_KEY: get_sigmf_iso8601_datetime_now(),
 })
 
 # add an annotation at sample 100 with length 200 & 10 KHz width

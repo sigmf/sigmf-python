@@ -9,7 +9,7 @@
 import re
 import sys
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 
@@ -19,31 +19,34 @@ SIGMF_DATETIME_ISO8601_FMT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
 def get_sigmf_iso8601_datetime_now() -> str:
-    """Get current UTC time as iso8601 string"""
-    return datetime.isoformat(datetime.utcnow()) + "Z"
+    """Get current UTC time as iso8601 string."""
+    return datetime.now(timezone.utc).strftime(SIGMF_DATETIME_ISO8601_FMT)
 
 
-def parse_iso8601_datetime(datestr: str) -> datetime:
+def parse_iso8601_datetime(string: str) -> datetime:
     """
-    Parse an iso8601 string as a datetime
+    Parse an iso8601 string as a datetime struct.
+    Input string (indicated by final Z) is in UTC tz.
 
     Example
     -------
     >>> parse_iso8601_datetime("1955-11-05T06:15:00Z")
-    datetime.datetime(1955, 11, 5, 6, 15)
+    datetime.datetime(1955, 11, 5, 6, 15, tzinfo=datetime.timezone.utc)
     """
-    # provided string exceeds max precision -> truncate to µs
-    match = re.match(r"^(?P<dt>.*)(?P<frac>\.[0-9]{7,})Z$", datestr)
+    match = re.match(r"^(?P<dt>.*)(?P<frac>\.[0-9]{7,})Z$", string)
     if match:
-        md = match.groupdict()
-        length = min(7, len(md["frac"]))
-        datestr = "".join([md["dt"], md["frac"][:length], "Z"])
+        # string exceeds max precision allowed by strptime -> truncate to µs
+        groups = match.groupdict()
+        length = min(7, len(groups["frac"]))
+        string = "".join([groups["dt"], groups["frac"][:length], "Z"])
 
-    try:
-        timestamp = datetime.strptime(datestr, "%Y-%m-%dT%H:%M:%S.%fZ")
-    except ValueError:
-        timestamp = datetime.strptime(datestr, "%Y-%m-%dT%H:%M:%SZ")
-    return timestamp
+    if "." in string:
+        # parse float seconds
+        format_str = SIGMF_DATETIME_ISO8601_FMT
+    else:
+        # parse whole seconds
+        format_str = SIGMF_DATETIME_ISO8601_FMT.replace(".%f", "")
+    return datetime.strptime(string, format_str).replace(tzinfo=timezone.utc)
 
 
 def dict_merge(a_dict: dict, b_dict: dict) -> dict:
@@ -83,11 +86,10 @@ def get_endian_str(ray: np.ndarray) -> str:
 
     if atype.byteorder == "<":
         return "_le"
-    elif atype.byteorder == ">":
+    if atype.byteorder == ">":
         return "_be"
-    else:
-        # endianness is then either '=' (native) or '|' (doesn't matter)
-        return "_le" if sys.byteorder == "little" else "_be"
+    # endianness is then either '=' (native) or '|' (doesn't matter)
+    return "_le" if sys.byteorder == "little" else "_be"
 
 
 def get_data_type_str(ray: np.ndarray) -> str:

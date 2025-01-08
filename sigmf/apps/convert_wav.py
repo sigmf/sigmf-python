@@ -7,24 +7,29 @@
 """converter for wav containers"""
 
 import argparse
-import datetime
 import getpass
 import logging
 import os
 import pathlib
 import tempfile
+from typing import Optional
 
 from scipy.io import wavfile
 
 from .. import SigMFFile, __specification__
 from .. import __version__ as toolversion
 from .. import archive
-from ..utils import get_data_type_str
+from ..utils import get_data_type_str, get_sigmf_iso8601_datetime_now
 
 log = logging.getLogger()
 
 
-def convert_wav(input_wav_filename, archive_filename=None, start_datetime=None, author=None):
+def convert_wav(
+    input_wav_filename: str,
+    archive_filename: Optional[str],
+    start_datetime: Optional[str] = None,
+    author: Optional[str] = None,
+):
     """
     read a .wav and write a .sigmf archive
     """
@@ -43,12 +48,12 @@ def convert_wav(input_wav_filename, archive_filename=None, start_datetime=None, 
     }
 
     if start_datetime is None:
-        mtime = datetime.datetime.fromtimestamp(input_path.stat().st_mtime)
-        start_datetime = mtime.isoformat() + "Z"
+        start_datetime = get_sigmf_iso8601_datetime_now()
 
-    capture_info = {SigMFFile.START_INDEX_KEY: 0}
-    if start_datetime is not None:
-        capture_info[SigMFFile.DATETIME_KEY] = start_datetime
+    capture_info = {
+        SigMFFile.START_INDEX_KEY: 0,
+        SigMFFile.DATETIME_KEY: start_datetime,
+    }
 
     tmpdir = tempfile.mkdtemp()
     sigmf_data_filename = input_stem + archive.SIGMF_DATASET_EXT

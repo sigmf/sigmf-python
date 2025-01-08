@@ -14,6 +14,7 @@ import tempfile
 import warnings
 from collections import OrderedDict
 from os import path
+from pathlib import Path
 
 import numpy as np
 
@@ -210,7 +211,7 @@ class SigMFFile(SigMFMetafile):
         map_readonly: bool, default True
             Indicates whether assignments on the numpy.memmap are allowed.
         """
-        super(SigMFFile, self).__init__()
+        super().__init__()
         self.data_file = None
         self.sample_count = 0
         self._memmap = None
@@ -794,21 +795,35 @@ class SigMFCollection(SigMFMetafile):
     ]
     VALID_KEYS = {COLLECTION_KEY: VALID_COLLECTION_KEYS}
 
-    def __init__(self, metafiles=None, metadata=None, skip_checksums=False):
-        """Create a SigMF Collection object.
-
-        Parameters:
-
-        metafiles -- A list of SigMF metadata filenames objects comprising the Collection,
-                    there must be at least one file. If the files do not exist, this will
-                    raise a SigMFFileError.
-
-        metadata  -- collection metadata to use, if not provided this will populate a
-                    minimal set of default metadata. The core:streams field will be
-                    regenerated automatically
+    def __init__(self, metafiles: list = None, metadata: dict = None, base_path=None, skip_checksums: bool = False) -> None:
         """
-        super(SigMFCollection, self).__init__()
+        Create a SigMF Collection object.
+
+        Parameters
+        ----------
+        metafiles: list, optional
+            A list of SigMF metadata filenames objects comprising the Collection.
+            There should be at least one file.
+        metadata: dict, optional
+            Collection metadata to use, if not provided this will populate a minimal set of default metadata.
+            The `core:streams` field will be regenerated automatically.
+        base_path : str | bytes | PathLike, optional
+            Base path of the collection recordings.
+        skip_checksums : bool, optional
+            If true will skip calculating checksum on datasets.
+
+        Raises
+        ------
+        SigMFError
+            If metadata files do not exist.
+        """
+        super().__init__()
         self.skip_checksums = skip_checksums
+
+        if base_path is None:
+            self.base_path = Path("")
+        else:
+            self.base_path = Path(base_path)
 
         if metadata is None:
             self._metadata = {self.COLLECTION_KEY: {}}
@@ -827,57 +842,64 @@ class SigMFCollection(SigMFMetafile):
         if not self.skip_checksums:
             self.verify_stream_hashes()
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
-        the length of a collection is the number of streams
+        The length of a collection is the number of streams.
         """
         return len(self.get_stream_names())
 
-    def verify_stream_hashes(self):
+    def verify_stream_hashes(self) -> None:
         """
-        compares the stream hashes in the collection metadata to the metadata files
+        Compares the stream hashes in the collection metadata to the metadata files.
+
+        Raises
+        ------
+        SigMFFileError
+            If any dataset checksums do not match saved metadata.
         """
         streams = self.get_collection_field(self.STREAMS_KEY, [])
         for stream in streams:
             old_hash = stream.get("hash")
             metafile_name = get_sigmf_filenames(stream.get("name"))["meta_fn"]
-            if path.isfile(metafile_name):
-                new_hash = sigmf_hash.calculate_sha512(filename=metafile_name)
+            metafile_path = self.base_path / metafile_name
+            if path.isfile(metafile_path):
+                new_hash = sigmf_hash.calculate_sha512(filename=metafile_path)
                 if old_hash != new_hash:
                     raise SigMFFileError(
-                        f"Calculated file hash for {metafile_name} does not match collection metadata."
+                        f"Calculated file hash for {metafile_path} does not match collection metadata."
                     )
 
-    def set_streams(self, metafiles):
+    def set_streams(self, metafiles) -> None:
         """
-        configures the collection `core:streams` field from the specified list of metafiles
+        Configures the collection `core:streams` field from the specified list of metafiles.
         """
         self.metafiles = metafiles
         streams = []
         for metafile in self.metafiles:
-            if metafile.endswith(".sigmf-meta") and path.isfile(metafile):
+            metafile_path = self.base_path / metafile
+            if metafile.endswith(".sigmf-meta") and path.isfile(metafile_path):
                 stream = {
                     "name": get_sigmf_filenames(metafile)["base_fn"],
-                    "hash": sigmf_hash.calculate_sha512(filename=metafile),
+                    "hash": sigmf_hash.calculate_sha512(filename=metafile_path),
                 }
                 streams.append(stream)
             else:
-                raise SigMFFileError(f"Specifed stream file {metafile} is not a valid SigMF Metadata file")
+                raise SigMFFileError(f"Specifed stream file {metafile_path} is not a valid SigMF Metadata file")
         self.set_collection_field(self.STREAMS_KEY, streams)
 
-    def get_stream_names(self):
+    def get_stream_names(self) -> list:
         """
-        returns a list of `name` object(s) from the `collection` level `core:streams` metadata
+        Returns a list of `name` object(s) from the `collection` level `core:streams` metadata.
         """
         return [s.get("name") for s in self.get_collection_field(self.STREAMS_KEY, [])]
 
-    def set_collection_info(self, new_collection):
+    def set_collection_info(self, new_collection: dict) -> None:
         """
         Overwrite the collection info with a new dictionary.
         """
         self._metadata[self.COLLECTION_KEY] = new_collection.copy()
 
-    def get_collection_info(self):
+    def get_collection_info(self) -> dict:
         """
         Returns a dictionary with all the collection info.
         """
@@ -886,19 +908,19 @@ class SigMFCollection(SigMFMetafile):
         except AttributeError:
             return {}
 
-    def set_collection_field(self, key, value):
+    def set_collection_field(self, key: str, value) -> None:
         """
         Inserts a value into the collection field.
         """
         self._metadata[self.COLLECTION_KEY][key] = value
 
-    def get_collection_field(self, key, default=None):
+    def get_collection_field(self, key: str, default=None):
         """
         Return a field from the collection info, or default if the field is not set.
         """
         return self._metadata[self.COLLECTION_KEY].get(key, default)
 
-    def tofile(self, file_path, pretty=True):
+    def tofile(self, file_path, pretty: bool = True) -> None:
         """
         Write metadata file
 
@@ -909,10 +931,10 @@ class SigMFCollection(SigMFMetafile):
         pretty : bool, default True
             When True will write more human-readable output, otherwise will be flat JSON.
         """
-        fns = get_sigmf_filenames(file_path)
-        with open(fns["collection_fn"], "w") as fp:
-            self.dump(fp, pretty=pretty)
-            fp.write("\n")  # text files should end in carriage return
+        filenames = get_sigmf_filenames(file_path)
+        with open(filenames["collection_fn"], "w") as handle:
+            self.dump(handle, pretty=pretty)
+            handle.write("\n")  # text files should end in carriage return
 
     def get_SigMFFile(self, stream_name=None, stream_index=None):
         """
@@ -922,11 +944,11 @@ class SigMFCollection(SigMFMetafile):
         if stream_name is not None:
             if stream_name in self.get_stream_names():
                 metafile = stream_name + ".sigmf_meta"
-        if stream_index is not None and stream_index < self.__len__():
+        if stream_index is not None and stream_index < len(self):
             metafile = self.get_stream_names()[stream_index] + ".sigmf_meta"
-
         if metafile is not None:
-            return fromfile(metafile, skip_checksum=self.skip_checksums)
+            metafile_path = self.base_path / metafile
+            return fromfile(metafile_path, skip_checksum=self.skip_checksums)
 
 
 def dtype_info(datatype):
@@ -1087,7 +1109,8 @@ def fromfile(filename, skip_checksum=False):
         metadata = json.load(mdfile_reader)
         collection_fp.close()
 
-        return SigMFCollection(metadata=metadata, skip_checksums=skip_checksum)
+        dir_path = path.split(meta_fn)[0]
+        return SigMFCollection(metadata=metadata, base_path=dir_path, skip_checksums=skip_checksum)
 
     else:
         meta_fp = open(meta_fn, "rb")
