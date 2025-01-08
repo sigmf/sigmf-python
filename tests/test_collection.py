@@ -63,7 +63,7 @@ class TestCollection(unittest.TestCase):
         # create collection
         collection = SigMFCollection(
             metafiles=[meta_name1, meta_name2],
-            collection_path=str(self.temp_dir / subdir),
+            base_path=str(self.temp_dir / subdir),
         )
         collection.tofile(collection_path)
 
