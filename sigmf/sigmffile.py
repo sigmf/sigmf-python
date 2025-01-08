@@ -853,7 +853,8 @@ class SigMFCollection(SigMFMetafile):
         for metafile in self.metafiles:
             if metafile.endswith(".sigmf-meta") and Path.is_file(metafile):
                 stream = {
-                    "name": get_sigmf_filenames(metafile)["base_fn"],
+                    # name must be string here to be serializable later
+                    "name": str(get_sigmf_filenames(metafile)["base_fn"]),
                     "hash": sigmf_hash.calculate_sha512(filename=metafile_path),
                 }
                 streams.append(stream)
@@ -1054,15 +1055,15 @@ def fromfile(filename, skip_checksum=False):
 
     Parameters
     ----------
-    filename: str
+    filename: str | bytes | PathLike
         Path for SigMF Metadata, Dataset, Archive or Collection (with or without extension).
     skip_checksum: bool, default False
-        When True will not read entire dataset to caculate hash.
+        When True will not read entire dataset to calculate hash.
 
     Returns
     -------
     object
-        SigMFFile object with dataset & metadata or a SigMFCollection depending on the type of file
+        SigMFFile with dataset & metadata or a SigMFCollection depending on file type.
     """
     fns = get_sigmf_filenames(filename)
     meta_fn = fns["meta_fn"]
@@ -1070,7 +1071,8 @@ def fromfile(filename, skip_checksum=False):
     collection_fn = fns["collection_fn"]
 
     # extract the extension to check whether we are dealing with an archive, collection, etc.
-    file_path, ext = Path.joinpath(Path(filename).parent,Path(filename).stem), Path(filename).suffix
+    file_path = Path(filename)
+    ext = file_path.suffix
 
     if (ext.lower().endswith(SIGMF_ARCHIVE_EXT) or not Path.is_file(meta_fn)) and Path.is_file(archive_fn):
         return fromarchive(archive_fn, skip_checksum=skip_checksum)
@@ -1082,7 +1084,7 @@ def fromfile(filename, skip_checksum=False):
         metadata = json.load(mdfile_reader)
         collection_fp.close()
 
-        dir_path = path.split(meta_fn)[0]
+        dir_path = meta_fn.parent
         return SigMFCollection(metadata=metadata, base_path=dir_path, skip_checksums=skip_checksum)
 
     else:
