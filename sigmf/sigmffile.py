@@ -14,6 +14,7 @@ import tempfile
 import warnings
 from collections import OrderedDict
 from os import path
+from pathlib import Path
 
 import numpy as np
 
@@ -750,9 +751,9 @@ class SigMFCollection(SigMFMetafile):
         self.skip_checksums = skip_checksums
 
         if base_path is None:
-            self.base_path = ""
+            self.base_path = Path("")
         else:
-            self.base_path = base_path
+            self.base_path = Path(base_path)
 
         if metadata is None:
             self._metadata = {self.COLLECTION_KEY: {}}
@@ -785,7 +786,7 @@ class SigMFCollection(SigMFMetafile):
         for stream in streams:
             old_hash = stream.get("hash")
             metafile_name = get_sigmf_filenames(stream.get("name"))["meta_fn"]
-            metafile_path = path.join(self.base_path, metafile_name)
+            metafile_path = self.base_path / metafile_name
             if path.isfile(metafile_path):
                 new_hash = sigmf_hash.calculate_sha512(filename=metafile_path)
                 if old_hash != new_hash:
@@ -800,7 +801,7 @@ class SigMFCollection(SigMFMetafile):
         self.metafiles = metafiles
         streams = []
         for metafile in self.metafiles:
-            metafile_path = path.join(self.base_path, metafile)
+            metafile_path = self.base_path / metafile
             if metafile.endswith(".sigmf-meta") and path.isfile(metafile_path):
                 stream = {
                     "name": get_sigmf_filenames(metafile)["base_fn"],
@@ -872,7 +873,7 @@ class SigMFCollection(SigMFMetafile):
             metafile = self.get_stream_names()[stream_index] + ".sigmf_meta"
 
         if metafile is not None:
-            metafile_path = path.join(self.base_path, metafile)
+            metafile_path = self.base_path / metafile
             return fromfile(metafile_path, skip_checksum=self.skip_checksums)
 
 
