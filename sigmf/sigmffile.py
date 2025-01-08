@@ -149,50 +149,16 @@ class SigMFFile(SigMFMetafile):
     CAPTURE_KEY = "captures"
     ANNOTATION_KEY = "annotations"
     VALID_GLOBAL_KEYS = [
-        AUTHOR_KEY,
-        COLLECTION_KEY,
-        DATASET_KEY,
-        DATATYPE_KEY,
-        DATA_DOI_KEY,
-        DESCRIPTION_KEY,
-        EXTENSIONS_KEY,
-        GEOLOCATION_KEY,
-        HASH_KEY,
-        HW_KEY,
-        LICENSE_KEY,
-        META_DOI_KEY,
-        METADATA_ONLY_KEY,
-        NUM_CHANNELS_KEY,
-        RECORDER_KEY,
-        SAMPLE_RATE_KEY,
-        START_OFFSET_KEY,
-        TRAILING_BYTES_KEY,
-        VERSION_KEY,
+        AUTHOR_KEY, COLLECTION_KEY, DATASET_KEY, DATATYPE_KEY, DATA_DOI_KEY, DESCRIPTION_KEY, EXTENSIONS_KEY,
+        GEOLOCATION_KEY, HASH_KEY, HW_KEY, LICENSE_KEY, META_DOI_KEY, METADATA_ONLY_KEY, NUM_CHANNELS_KEY, RECORDER_KEY,
+        SAMPLE_RATE_KEY, START_OFFSET_KEY, TRAILING_BYTES_KEY, VERSION_KEY
     ]
-    VALID_CAPTURE_KEYS = [
-        DATETIME_KEY,
-        FREQUENCY_KEY,
-        HEADER_BYTES_KEY,
-        GLOBAL_INDEX_KEY,
-        START_INDEX_KEY,
-    ]
+    VALID_CAPTURE_KEYS = [DATETIME_KEY, FREQUENCY_KEY, HEADER_BYTES_KEY, GLOBAL_INDEX_KEY, START_INDEX_KEY]
     VALID_ANNOTATION_KEYS = [
-        COMMENT_KEY,
-        FHI_KEY,
-        FLO_KEY,
-        GENERATOR_KEY,
-        LABEL_KEY,
-        LAT_KEY,
-        LENGTH_INDEX_KEY,
-        LON_KEY,
-        START_INDEX_KEY,
-        UUID_KEY,
+        COMMENT_KEY, FHI_KEY, FLO_KEY, GENERATOR_KEY, LABEL_KEY, LAT_KEY, LENGTH_INDEX_KEY, LON_KEY, START_INDEX_KEY,
+        UUID_KEY
     ]
-    VALID_KEYS = {
-        GLOBAL_KEY: VALID_GLOBAL_KEYS,
-        CAPTURE_KEY: VALID_CAPTURE_KEYS,
-        ANNOTATION_KEY: VALID_ANNOTATION_KEYS,
-    }
+    VALID_KEYS = {GLOBAL_KEY: VALID_GLOBAL_KEYS, CAPTURE_KEY: VALID_CAPTURE_KEYS, ANNOTATION_KEY: VALID_ANNOTATION_KEYS}
 
     def __init__(self, metadata=None, data_file=None, global_info=None, skip_checksum=False, map_readonly=True):
         """
@@ -551,7 +517,7 @@ class SigMFFile(SigMFMetafile):
         old_hash = self.get_global_field(self.HASH_KEY)
         if self.data_file is not None:
             new_hash = sigmf_hash.calculate_sha512(
-                self.data_file,
+                filename=self.data_file,
                 offset=self.data_offset,
                 size=self.data_size_bytes,
             )
