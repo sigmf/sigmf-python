@@ -205,7 +205,7 @@ class SigMFFile(SigMFMetafile):
             raise StopIteration
 
     def __getitem__(self, sli):
-        mem = self._memmap[sli] # matches behavior of numpy.ndarray.__getitem__()
+        mem = self._memmap[sli]  # matches behavior of numpy.ndarray.__getitem__()
 
         if self._return_type is None:
             return mem
@@ -334,7 +334,7 @@ class SigMFFile(SigMFMetafile):
         # sort captures by start_index
         self._metadata[self.CAPTURE_KEY] = sorted(
             capture_list,
-            key=lambda item: item[self.START_INDEX_KEY]
+            key=lambda item: item[self.START_INDEX_KEY],
         )
 
     def get_captures(self):
@@ -375,13 +375,17 @@ class SigMFFile(SigMFMetafile):
         compliant or noncompliant SigMF Recordings.
         """
         if index >= len(self.get_captures()):
-            raise SigMFAccessError("Invalid captures index {} (only {} captures in Recording)".format(index, len(self.get_captures())))
+            raise SigMFAccessError(
+                "Invalid captures index {} (only {} captures in Recording)".format(index, len(self.get_captures()))
+            )
 
         start_byte = 0
         prev_start_sample = 0
         for ii, capture in enumerate(self.get_captures()):
             start_byte += capture.get(self.HEADER_BYTES_KEY, 0)
-            start_byte += (self.get_capture_start(ii) - prev_start_sample) * self.get_sample_size() * self.get_num_channels()
+            start_byte += (
+                (self.get_capture_start(ii) - prev_start_sample) * self.get_sample_size() * self.get_num_channels()
+            )
             prev_start_sample = self.get_capture_start(ii)
             if ii >= index:
                 break
@@ -390,7 +394,11 @@ class SigMFFile(SigMFMetafile):
         if index == len(self.get_captures()) - 1:  # last captures...data is the rest of the file
             end_byte = path.getsize(self.data_file) - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
         else:
-            end_byte += (self.get_capture_start(index+1) - self.get_capture_start(index)) * self.get_sample_size() * self.get_num_channels()
+            end_byte += (
+                (self.get_capture_start(index + 1) - self.get_capture_start(index))
+                * self.get_sample_size()
+                * self.get_num_channels()
+            )
         return (start_byte, end_byte)
 
     def add_annotation(self, start_index, length=None, metadata=None):
@@ -409,7 +417,7 @@ class SigMFFile(SigMFMetafile):
         # sort annotations by start_index
         self._metadata[self.ANNOTATION_KEY] = sorted(
             self._metadata[self.ANNOTATION_KEY],
-            key=lambda item: item[self.START_INDEX_KEY]
+            key=lambda item: item[self.START_INDEX_KEY],
         )
 
     def get_annotations(self, index=None):
@@ -466,13 +474,18 @@ class SigMFFile(SigMFMetafile):
             header_bytes = sum([c.get(self.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
             file_size = path.getsize(self.data_file) if self.data_size_bytes is None else self.data_size_bytes
             file_data_size = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes  # bytes
-            sample_size = self.get_sample_size() # size of a sample in bytes
+            sample_size = self.get_sample_size()  # size of a sample in bytes
             num_channels = self.get_num_channels()
             sample_count = file_data_size // sample_size // num_channels
             if file_data_size % (sample_size * num_channels) != 0:
-                warnings.warn(f"File `{self.data_file}` does not contain an integer number of samples across channels. It may be invalid data.")
+                warnings.warn(
+                    f"File `{self.data_file}` does not contain an integer number of samples across channels. "
+                    "It may be invalid data."
+                )
             if self._get_sample_count_from_annotations() > sample_count:
-                warnings.warn(f"File `{self.data_file}` ends before the final annotation in the corresponding SigMF metadata.")
+                warnings.warn(
+                    f"File `{self.data_file}` ends before the final annotation in the corresponding SigMF metadata."
+                )
         self.sample_count = sample_count
         return sample_count
 
@@ -503,9 +516,17 @@ class SigMFFile(SigMFMetafile):
         """
         old_hash = self.get_global_field(self.HASH_KEY)
         if self.data_file is not None:
-            new_hash = sigmf_hash.calculate_sha512(self.data_file, offset=self.data_offset, size=self.data_size_bytes)
+            new_hash = sigmf_hash.calculate_sha512(
+                filename=self.data_file,
+                offset=self.data_offset,
+                size=self.data_size_bytes,
+            )
         else:
-            new_hash = sigmf_hash.calculate_sha512(fileobj=self.data_buffer, offset=self.data_offset, size=self.data_size_bytes)
+            new_hash = sigmf_hash.calculate_sha512(
+                fileobj=self.data_buffer,
+                offset=self.data_offset,
+                size=self.data_size_bytes,
+            )
         if old_hash is not None:
             if old_hash != new_hash:
                 raise SigMFFileError("Calculated file hash does not match associated metadata.")
@@ -513,7 +534,9 @@ class SigMFFile(SigMFMetafile):
         self.set_global_field(self.HASH_KEY, new_hash)
         return new_hash
 
-    def set_data_file(self, data_file=None, data_buffer=None, skip_checksum=False, offset=0, size_bytes=None, map_readonly=True):
+    def set_data_file(
+        self, data_file=None, data_buffer=None, skip_checksum=False, offset=0, size_bytes=None, map_readonly=True
+    ):
         """
         Set the datafile path, then recalculate sample count. If not skipped,
         update the hash and return the hash string.
@@ -728,7 +751,13 @@ class SigMFCollection(SigMFMetafile):
     STREAMS_KEY = "core:streams"
     COLLECTION_KEY = "collection"
     VALID_COLLECTION_KEYS = [
-        AUTHOR_KEY, COLLECTION_DOI_KEY, DESCRIPTION_KEY, EXTENSIONS_KEY, LICENSE_KEY, STREAMS_KEY, VERSION_KEY
+        AUTHOR_KEY,
+        COLLECTION_DOI_KEY,
+        DESCRIPTION_KEY,
+        EXTENSIONS_KEY,
+        LICENSE_KEY,
+        STREAMS_KEY,
+        VERSION_KEY,
     ]
     VALID_KEYS = {COLLECTION_KEY: VALID_COLLECTION_KEYS}
 
