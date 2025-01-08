@@ -554,7 +554,7 @@ class SigMFFile(SigMFMetafile):
         if self.get_global_field(self.DATATYPE_KEY) is None:
             raise SigMFFileError("Error setting data file, the DATATYPE_KEY must be set in the global metadata first.")
 
-        self.data_file = Path(data_file)
+        self.data_file = Path(data_file) if data_file else None
         self.data_buffer = data_buffer
         self.data_offset = offset
         self.data_size_bytes = size_bytes
@@ -1042,7 +1042,6 @@ def fromarchive(archive_path, dir=None, skip_checksum=False):
     access SigMF archives without extracting them.
     """
     from .archivereader import SigMFArchiveReader
-
     return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
 
 

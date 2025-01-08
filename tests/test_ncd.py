@@ -38,7 +38,7 @@ class TestNonConformingDataset(unittest.TestCase):
         """test loading non-conforming dataset"""
         data_path = self.temp_dir / subdir / "dat.bin"
         meta_path = self.temp_dir / subdir / "dat.sigmf-meta"
-        Path.mkdir(data_path.parent, exist_ok=True)
+        Path.mkdir(data_path.parent, parents=True, exist_ok=True)
 
         # create data file
         TEST_FLOAT32_DATA.tofile(data_path)

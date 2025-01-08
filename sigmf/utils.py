@@ -8,14 +8,13 @@
 
 import re
 import sys
-from pathlib import Path
 from copy import deepcopy
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 
 from . import error
-from . import __version__
 
 SIGMF_DATETIME_ISO8601_FMT = "%Y-%m-%dT%H:%M:%S.%fZ"
 

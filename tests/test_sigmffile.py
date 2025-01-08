@@ -98,7 +98,7 @@ class TestAnnotationHandling(unittest.TestCase):
         smf = SigMFFile(copy.deepcopy(TEST_METADATA))
         smf._metadata[SigMFFile.ANNOTATION_KEY].clear()
         with tempfile.TemporaryDirectory() as tmpdir:
-            temp_path_data = Path.joinpath(tmpdir, "datafile")
+            temp_path_data = Path(tmpdir) / "datafile"
             TEST_FLOAT32_DATA.tofile(temp_path_data)
             smf.set_data_file(temp_path_data)
             samples = smf.read_samples()
@@ -113,7 +113,7 @@ class TestAnnotationHandling(unittest.TestCase):
         smf = SigMFFile(copy.deepcopy(TEST_METADATA))
         smf.add_annotation(start_index=0, length=32)
         with tempfile.TemporaryDirectory() as tmpdir:
-            temp_path_data = Path.joinpath(tmpdir, "datafile")
+            temp_path_data = Path(tmpdir) / "datafile"
             TEST_FLOAT32_DATA.tofile(temp_path_data)
             with self.assertWarns(Warning):
                 # Issues warning since file ends before the final annotatio
@@ -159,14 +159,10 @@ def test_add_annotation():
 
 
 def test_fromarchive(test_sigmffile):
-    print("test_sigmffile is:\n", test_sigmffile)
-    tf = tempfile.mkstemp()[1]
-    td = tempfile.mkdtemp()
+    _, tf = tempfile.mkstemp()
     archive_path = test_sigmffile.archive(name=tf)
-    result = sigmffile.fromarchive(archive_path=archive_path, dir=td)
+    result = sigmffile.fromarchive(archive_path=archive_path)
     assert result._metadata == test_sigmffile._metadata == TEST_METADATA
-    Path.unlink(tf)
-    shutil.rmtree(td)
 
 
 def test_add_multiple_captures_and_annotations():
