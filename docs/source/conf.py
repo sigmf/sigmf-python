@@ -7,6 +7,7 @@
 
 import datetime
 import re
+import sys
 from pathlib import Path
 
 # parse info from project files
@@ -16,7 +17,9 @@ with open(root / "sigmf" / "__init__.py", "r") as handle:
     init = handle.read()
     toolversion = re.search(r'__version__\s*=\s*[\'"]([^\'"]*)[\'"]', init).group(1)
     specversion = re.search(r'__specification__\s*=\s*[\'"]([^\'"]*)[\'"]', init).group(1)
-print("DBUG", toolversion, specversion)
+
+# autodoc needs special pathing
+sys.path.append(str(root))
 
 # -- Project information
 
@@ -30,11 +33,12 @@ version = toolversion
 # -- General configuration
 
 extensions = [
-    "sphinx.ext.duration",
-    "sphinx.ext.doctest",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.doctest",
+    "sphinx.ext.duration",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",  # allows numpy-style docstrings
 ]
 
 intersphinx_mapping = {
@@ -48,6 +52,8 @@ templates_path = ["_templates"]
 # -- Options for HTML output
 
 html_theme = "sphinx_rtd_theme"
+html_favicon = "https://raw.githubusercontent.com/wiki/sigmf/SigMF/logo/logo-icon-32-folder.png"
+html_logo = "https://raw.githubusercontent.com/sigmf/SigMF/refs/heads/main/logo/sigmf_logo.svg"
 
 # -- Options for EPUB output
 epub_show_urls = "footnote"

@@ -21,3 +21,4 @@ htmlcov/*
 
 # docs related
 docs/_build/
+docs/source/_autosummary/

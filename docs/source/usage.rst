@@ -29,13 +29,13 @@ Testing can be run locally:
 
    $ coverage run
 
-Run coverage on multiple python versions:
+Run tests within a temporary environment:
 
 .. code-block:: console
 
    $ tox run
 
-Other tools developers may want to use:
+Tools developers may want to use:
 
 .. code-block:: console
 

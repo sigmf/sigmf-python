@@ -7,6 +7,7 @@ classifiers = [
     "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -24,6 +25,12 @@ dependencies = [
 ]
     [project.urls]
     repository = "https://github.com/sigmf/sigmf-python"
+    documentation = "https://sigmf.readthedocs.io/en/latest/"
+    issues = "https://github.com/sigmf/sigmf-python/issues"
+    "Specification (HTML)" = "https://sigmf.org/"
+    "Specification (PDF)" = "https://sigmf.github.io/SigMF/sigmf-spec.pdf"
+    "Specification (Repo)" = "https://github.com/sigmf/SigMF"
+
     [project.scripts]
     sigmf_validate = "sigmf.validate:main"
     sigmf_convert_wav = "sigmf.apps.convert_wav:main [apps]"
