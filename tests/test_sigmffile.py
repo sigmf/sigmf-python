@@ -59,6 +59,14 @@ class TestClassMethods(unittest.TestCase):
             with self.assertRaises(error.SigMFFileError):
                 _ = SigMFFile(bad_checksum_metadata, self.temp_path_data)
 
+    def test_equality(self):
+        """Ensure __eq__ working as expected"""
+        other = SigMFFile(copy.deepcopy(TEST_METADATA))
+        self.assertEqual(self.sigmf_object, other)
+        # different after changing any part of metadata
+        other.add_annotation(start_index=0, metadata={"a": 0})
+        self.assertNotEqual(self.sigmf_object, other)
+
 
 class TestAnnotationHandling(unittest.TestCase):
     def test_get_annotations_with_index(self):
