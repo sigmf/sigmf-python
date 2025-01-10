@@ -192,6 +192,17 @@ class SigMFFile(SigMFMetafile):
     def __len__(self):
         return self._memmap.shape[0]
 
+    def __eq__(self, other):
+        """
+        Define equality between two `SigMFFile`s.
+
+        Rely on the checksum value in the metadata to decide whether `data_file` is the same since the path of the
+        dataset is immaterial to equivalency.
+        """
+        if isinstance(other, SigMFFile):
+            return self._metadata == other._metadata
+        return False
+
     def __next__(self):
         """get next batch of samples"""
         if self.iter_position < len(self):
