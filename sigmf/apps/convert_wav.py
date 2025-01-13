@@ -65,8 +65,8 @@ def convert_wav(
 
     if archive_filename is None:
         archive_filename = input_stem + archive.SIGMF_ARCHIVE_EXT
-    meta.tofile(archive_filename, toarchive=True)
-    return os.path.abspath(archive_filename)
+    out_path = meta.tofile(archive_filename, toarchive=True)
+    return out_path
 
 
 def main():
@@ -87,11 +87,11 @@ def main():
     }
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    out_fname = convert_wav(
+    out_path = convert_wav(
         input_wav_filename=args.input,
         author=args.author,
     )
-    log.info(f"Write {out_fname}")
+    log.info(f"Wrote {out_path}")
 
 
 if __name__ == "__main__":
