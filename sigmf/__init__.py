@@ -7,7 +7,7 @@
 # version of this python module
 __version__ = "1.2.5"
 # matching version of the SigMF specification
-__specification__ = "1.2.0"
+__specification__ = "1.2.3"
 
 from . import archive, archivereader, error, schema, sigmffile, utils, validate
 from .archive import SigMFArchive

@@ -90,12 +90,6 @@ class FailingCases(unittest.TestCase):
         with self.assertRaises(ValidationError):
             SigMFFile(self.metadata).validate()
 
-    def test_extra_top_level_key(self):
-        """label must be less than 20 chars"""
-        self.metadata[SigMFFile.ANNOTATION_KEY][0][SigMFFile.LABEL_KEY] = "a" * 21
-        with self.assertRaises(ValidationError):
-            SigMFFile(self.metadata).validate()
-
     def test_invalid_type(self):
         """license key must be string"""
         self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.LICENSE_KEY] = 1
