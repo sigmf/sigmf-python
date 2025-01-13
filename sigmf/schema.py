@@ -23,6 +23,6 @@ def get_schema(version=toolversion, schema_file=SCHEMA_META):
     TODO: In the future load specific schema versions.
     """
     schema_dir = Path(__file__).parent
-    with open(schema_dir / schema_file, 'rb') as handle:
+    with open(schema_dir / schema_file, "rb") as handle:
         schema = json.load(handle)
     return schema

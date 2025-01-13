@@ -837,8 +837,9 @@ class SigMFCollection(SigMFMetafile):
         for stream in streams:
             old_hash = stream.get("hash")
             metafile_name = get_sigmf_filenames(stream.get("name"))["meta_fn"]
-            if Path.is_file(metafile_name):
-                new_hash = sigmf_hash.calculate_sha512(filename=metafile_name)
+            metafile_path = self.base_path / metafile_name
+            if Path.is_file(metafile_path):
+                new_hash = sigmf_hash.calculate_sha512(filename=metafile_path)
                 if old_hash != new_hash:
                     raise SigMFFileError(
                         f"Calculated file hash for {metafile_path} does not match collection metadata."
@@ -851,7 +852,8 @@ class SigMFCollection(SigMFMetafile):
         self.metafiles = metafiles
         streams = []
         for metafile in self.metafiles:
-            if metafile.endswith(".sigmf-meta") and Path.is_file(metafile):
+            metafile_path = self.base_path / metafile
+            if metafile.endswith(".sigmf-meta") and Path.is_file(metafile_path):
                 stream = {
                     # name must be string here to be serializable later
                     "name": str(get_sigmf_filenames(metafile)["base_fn"]),
