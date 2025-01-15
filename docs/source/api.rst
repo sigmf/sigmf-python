@@ -1,5 +1,6 @@
-API
-===
+=========
+SigMF API
+=========
 
 .. autosummary::
    :toctree: _autosummary

@@ -1,20 +1,40 @@
+=================
 Welcome to SigMF!
 =================
 
-**sigmf** is a Python library for working with radio recordings as specified in the `SigMF <https://sigmf.org/>`_ standard.
-It offers a *simple* and *intuitive* API for python developers.
+**sigmf** is a Python library for working with radio recordings captured in
+``.sigmf`` format according to the `SigMF standard <https://sigmf.org/>`_. It
+offers a *simple* and *intuitive* API for python developers.
 
-Check out the :doc:`usage` section for further information, including
-how to :ref:`installation` the project.
+..
+   Note below toolversion & specversion are replaced dynamically during build.
 
-.. note::
+This version |toolversion| of the library coincides with version |specversion|
+of the specification.
 
-   This project is under active development.
+Check out the :doc:`quickstart` section for further information, including
+how to :ref:`install` the project.
 
-Contents
---------
 
 .. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: SigMF
 
-   usage
+   quickstart
+   advanced
+   developers
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: Community
+
+   faq
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: API Reference
+
    api

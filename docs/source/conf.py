@@ -56,4 +56,16 @@ html_favicon = "https://raw.githubusercontent.com/wiki/sigmf/SigMF/logo/logo-ico
 html_logo = "https://raw.githubusercontent.com/sigmf/SigMF/refs/heads/main/logo/sigmf_logo.svg"
 
 # -- Options for EPUB output
+
 epub_show_urls = "footnote"
+
+# Method to use variables within rst files
+# https://stackoverflow.com/a/69211912/760099
+
+variables_to_export = [
+    "toolversion",
+    "specversion",
+]
+frozen_locals = dict(locals())
+rst_epilog = '\n'.join(map(lambda x: f".. |{x}| replace:: {frozen_locals[x]}", variables_to_export))
+del frozen_locals
