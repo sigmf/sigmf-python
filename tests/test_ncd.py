@@ -7,7 +7,6 @@
 """Tests for Non-Conforming Datasets"""
 
 import copy
-import os
 import shutil
 import tempfile
 import unittest
@@ -39,7 +38,7 @@ class TestNonConformingDataset(unittest.TestCase):
         """test loading non-conforming dataset"""
         data_path = self.temp_dir / subdir / "dat.bin"
         meta_path = self.temp_dir / subdir / "dat.sigmf-meta"
-        os.makedirs(data_path.parent, exist_ok=True)
+        Path.mkdir(data_path.parent, parents=True, exist_ok=True)
 
         # create data file
         TEST_FLOAT32_DATA.tofile(data_path)
@@ -59,6 +58,6 @@ class TestNonConformingDataset(unittest.TestCase):
         # otherwise the np.memmap instances (stored in self._memmap) block the deletion
         meta = None
         meta_loopback = None
-        os.remove(data_path)
+        Path.unlink(data_path)
         with self.assertRaises(SigMFFileError):
             _ = fromfile(meta_path)

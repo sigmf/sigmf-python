@@ -26,28 +26,40 @@ from .utils import dict_merge
 
 
 class SigMFArchiveReader:
-    """Access data within SigMF archive `tar` in-place without extracting.
+    """
+    Access data within SigMF archive `tar` in-place without extracting.
 
-    Parameters:
+    Parameters
+    ----------
+    name : str | bytes | PathLike, optional
+        Optional path to archive file to access.
+    skip_checksum : bool, optional
+        Skip dataset checksum calculation.
+    map_readonly : bool, optional
+        Indicate whether assignments on the numpy.memmap are allowed.
+    archive_buffer : buffer, optional
 
-      name      -- path to archive file to access. If file does not exist,
-                   or if `name` doesn't end in .sigmf, SigMFFileError is raised.
+
+    Raises
+    ------
+    SigMFError
+        Archive file does not exist or is improperly formatted.
     """
 
     def __init__(self, name=None, skip_checksum=False, map_readonly=True, archive_buffer=None):
-        self.name = name
-        if self.name is not None:
-            if not name.endswith(SIGMF_ARCHIVE_EXT):
+        if name is not None:
+            path = Path(name)
+            if path.suffix != SIGMF_ARCHIVE_EXT:
                 err = "archive extension != {}".format(SIGMF_ARCHIVE_EXT)
                 raise SigMFFileError(err)
 
-            tar_obj = tarfile.open(self.name)
+            tar_obj = tarfile.open(path)
 
         elif archive_buffer is not None:
             tar_obj = tarfile.open(fileobj=archive_buffer, mode="r:")
 
         else:
-            raise ValueError("In sigmf.archivereader.__init__(), either `name` or `archive_buffer` must be not None")
+            raise ValueError("Either `name` or `archive_buffer` must be not None.")
 
         json_contents = None
         data_offset = None

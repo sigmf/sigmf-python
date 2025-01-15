@@ -13,7 +13,6 @@ import tarfile
 import tempfile
 import warnings
 from collections import OrderedDict
-from os import path
 from pathlib import Path
 
 import numpy as np
@@ -260,7 +259,7 @@ class SigMFFile(SigMFMetafile):
             # check for any non-zero `header_bytes` fields in captures segments
             if capture.get(self.HEADER_BYTES_KEY, 0):
                 return False
-        if self.data_file is not None and not path.isfile(self.data_file):
+        if self.data_file is not None and not self.data_file.is_file:
             return False
         # if we get here, the file exists and is conforming
         return True
@@ -403,7 +402,7 @@ class SigMFFile(SigMFMetafile):
 
         end_byte = start_byte
         if index == len(self.get_captures()) - 1:  # last captures...data is the rest of the file
-            end_byte = path.getsize(self.data_file) - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
+            end_byte = self.data_file.stat().st_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
         else:
             end_byte += (
                 (self.get_capture_start(index + 1) - self.get_capture_start(index))
@@ -483,7 +482,7 @@ class SigMFFile(SigMFMetafile):
             sample_count = self._get_sample_count_from_annotations()
         else:
             header_bytes = sum([c.get(self.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
-            file_size = path.getsize(self.data_file) if self.data_size_bytes is None else self.data_size_bytes
+            file_size = self.data_file.stat().st_size if self.data_size_bytes is None else self.data_size_bytes
             file_data_size = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes  # bytes
             sample_size = self.get_sample_size()  # size of a sample in bytes
             num_channels = self.get_num_channels()
@@ -555,7 +554,7 @@ class SigMFFile(SigMFMetafile):
         if self.get_global_field(self.DATATYPE_KEY) is None:
             raise SigMFFileError("Error setting data file, the DATATYPE_KEY must be set in the global metadata first.")
 
-        self.data_file = data_file
+        self.data_file = Path(data_file) if data_file else None
         self.data_buffer = data_buffer
         self.data_offset = offset
         self.data_size_bytes = size_bytes
@@ -594,8 +593,8 @@ class SigMFFile(SigMFMetafile):
             self.shape = self._memmap.shape if (self._return_type is None) else self._memmap.shape[:-1]
 
         if self.data_file is not None:
-            file_name = path.split(self.data_file)[1]
-            ext = path.splitext(file_name)[1]
+            file_name = self.data_file.name
+            ext = self.data_file.suffix
             if ext.lower() != SIGMF_DATASET_EXT:
                 self.set_global_field(SigMFFile.DATASET_KEY, file_name)
 
@@ -839,7 +838,7 @@ class SigMFCollection(SigMFMetafile):
             old_hash = stream.get("hash")
             metafile_name = get_sigmf_filenames(stream.get("name"))["meta_fn"]
             metafile_path = self.base_path / metafile_name
-            if path.isfile(metafile_path):
+            if Path.is_file(metafile_path):
                 new_hash = sigmf_hash.calculate_sha512(filename=metafile_path)
                 if old_hash != new_hash:
                     raise SigMFFileError(
@@ -854,9 +853,10 @@ class SigMFCollection(SigMFMetafile):
         streams = []
         for metafile in self.metafiles:
             metafile_path = self.base_path / metafile
-            if metafile.endswith(".sigmf-meta") and path.isfile(metafile_path):
+            if metafile.endswith(".sigmf-meta") and Path.is_file(metafile_path):
                 stream = {
-                    "name": get_sigmf_filenames(metafile)["base_fn"],
+                    # name must be string here to be serializable later
+                    "name": str(get_sigmf_filenames(metafile)["base_fn"]),
                     "hash": sigmf_hash.calculate_sha512(filename=metafile_path),
                 }
                 streams.append(stream)
@@ -1012,7 +1012,7 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     compliant_filename = get_sigmf_filenames(meta_fn)["data_fn"]
     noncompliant_filename = metadata["global"].get(SigMFFile.DATASET_KEY, None)
 
-    if path.isfile(compliant_filename):
+    if Path.is_file(compliant_filename):
         if noncompliant_filename:
             warnings.warn(
                 f"Compliant Dataset `{compliant_filename}` exists but "
@@ -1021,9 +1021,9 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
         return compliant_filename
 
     elif noncompliant_filename:
-        dir_path = path.split(meta_fn)[0]
-        noncompliant_data_file_path = path.join(dir_path, noncompliant_filename)
-        if path.isfile(noncompliant_data_file_path):
+        dir_path = Path(meta_fn).parent
+        noncompliant_data_file_path = Path.joinpath(dir_path, noncompliant_filename)
+        if Path.is_file(noncompliant_data_file_path):
             if metadata["global"].get(SigMFFile.METADATA_ONLY_KEY, False):
                 raise SigMFFileError(
                     f"Schema defines {SigMFFile.DATASET_KEY} "
@@ -1045,7 +1045,6 @@ def fromarchive(archive_path, dir=None, skip_checksum=False):
     access SigMF archives without extracting them.
     """
     from .archivereader import SigMFArchiveReader
-
     return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
 
 
@@ -1058,15 +1057,15 @@ def fromfile(filename, skip_checksum=False):
 
     Parameters
     ----------
-    filename: str
+    filename: str | bytes | PathLike
         Path for SigMF Metadata, Dataset, Archive or Collection (with or without extension).
     skip_checksum: bool, default False
-        When True will not read entire dataset to caculate hash.
+        When True will not read entire dataset to calculate hash.
 
     Returns
     -------
     object
-        SigMFFile object with dataset & metadata or a SigMFCollection depending on the type of file
+        SigMFFile with dataset & metadata or a SigMFCollection depending on file type.
     """
     fns = get_sigmf_filenames(filename)
     meta_fn = fns["meta_fn"]
@@ -1074,19 +1073,20 @@ def fromfile(filename, skip_checksum=False):
     collection_fn = fns["collection_fn"]
 
     # extract the extension to check whether we are dealing with an archive, collection, etc.
-    file_path, ext = path.splitext(filename)  # works with Pathlib - ext contains a dot
+    file_path = Path(filename)
+    ext = file_path.suffix
 
-    if (ext.lower().endswith(SIGMF_ARCHIVE_EXT) or not path.isfile(meta_fn)) and path.isfile(archive_fn):
+    if (ext.lower().endswith(SIGMF_ARCHIVE_EXT) or not Path.is_file(meta_fn)) and Path.is_file(archive_fn):
         return fromarchive(archive_fn, skip_checksum=skip_checksum)
 
-    if (ext.lower().endswith(SIGMF_COLLECTION_EXT) or not path.isfile(meta_fn)) and path.isfile(collection_fn):
+    if (ext.lower().endswith(SIGMF_COLLECTION_EXT) or not Path.is_file(meta_fn)) and Path.is_file(collection_fn):
         collection_fp = open(collection_fn, "rb")
         bytestream_reader = codecs.getreader("utf-8")
         mdfile_reader = bytestream_reader(collection_fp)
         metadata = json.load(mdfile_reader)
         collection_fp.close()
 
-        dir_path = path.split(meta_fn)[0]
+        dir_path = meta_fn.parent
         return SigMFCollection(metadata=metadata, base_path=dir_path, skip_checksums=skip_checksum)
 
     else:
@@ -1103,16 +1103,21 @@ def fromfile(filename, skip_checksum=False):
 def get_sigmf_filenames(filename):
     """
     Safely returns a set of SigMF file paths given an input filename.
-    Returned as dict with 'data_fn', 'meta_fn', and 'archive_fn' as keys.
 
-    Keyword arguments:
-    filename -- the SigMF filename
+    Parameters
+    ----------
+    filename : str | bytes | PathLike
+        The SigMF filename with any extension.
+
+    Returns
+    -------
+    dict with 'data_fn', 'meta_fn', and 'archive_fn' as keys.
     """
-    filename = path.splitext(filename)[0]
+    stem_path = Path(filename).with_suffix("")
     return {
-        "base_fn": filename,
-        "data_fn": filename + SIGMF_DATASET_EXT,
-        "meta_fn": filename + SIGMF_METADATA_EXT,
-        "archive_fn": filename + SIGMF_ARCHIVE_EXT,
-        "collection_fn": filename + SIGMF_COLLECTION_EXT,
+        "base_fn": stem_path,
+        "data_fn": stem_path.with_suffix(SIGMF_DATASET_EXT),
+        "meta_fn": stem_path.with_suffix(SIGMF_METADATA_EXT),
+        "archive_fn": stem_path.with_suffix(SIGMF_ARCHIVE_EXT),
+        "collection_fn": stem_path.with_suffix(SIGMF_COLLECTION_EXT),
     }
