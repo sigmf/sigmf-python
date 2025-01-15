@@ -1,12 +1,14 @@
 # temp files
+__pycache__/
 *.swp
-*.pyc
+*.py[cod]
 .cache
 
-# setuptools related
-dist/*
-build/*
-.eggs/*
+# packaging related
+dist/
+build/
+eggs/
+.eggs/
 SigMF.egg-info/*
 
 # test related
@@ -16,3 +18,7 @@ SigMF.egg-info/*
 coverage.xml
 pytest.xml
 htmlcov/*
+
+# docs related
+docs/_build/
+docs/source/_autosummary/

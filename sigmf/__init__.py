@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 # version of this python module
-__version__ = "1.2.6"
+__version__ = "1.2.7"
 # matching version of the SigMF specification
 __specification__ = "1.2.3"
 
