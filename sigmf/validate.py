@@ -25,6 +25,34 @@ from . import __version__ as toolversion
 from . import error, schema, sigmffile
 
 
+def _get_extension_namespaces(metadata):
+    """Get set of declared extension namespaces from global core:extensions."""
+    extensions = metadata.get("global", {}).get("core:extensions", [])
+    return {ext["name"].split(":")[0] for ext in extensions}
+
+def _get_used_extensions(metadata):
+    """Find all extension namespaces actually used in the metadata."""
+    used = set()
+    
+    # Helper function to check keys in a dictionary
+    def check_dict(d):
+        for key in d:
+            if ":" in key:
+                namespace = key.split(":")[0]
+                if namespace != "core":
+                    used.add(namespace)
+    
+    # Check all sections
+    for section in ["global", "captures", "annotations"]:
+        if section in metadata:
+            if isinstance(metadata[section], dict):
+                check_dict(metadata[section])
+            elif isinstance(metadata[section], list):
+                for item in metadata[section]:
+                    check_dict(item)
+    
+    return used
+
 def validate(metadata, ref_schema=schema.get_schema()) -> None:
     """
     Check that the provided `metadata` dict is valid according to the `ref_schema` dict.
@@ -45,6 +73,17 @@ def validate(metadata, ref_schema=schema.get_schema()) -> None:
         If metadata is invalid.
     """
     jsonschema.validators.validate(instance=metadata, schema=ref_schema)
+
+    # Check extensions
+    declared_extensions = _get_extension_namespaces(metadata)
+    used_extensions = _get_used_extensions(metadata)
+    
+    undeclared = used_extensions - declared_extensions
+    if undeclared:
+        raise jsonschema.exceptions.ValidationError(
+            f"Found undeclared extensions in use: {', '.join(sorted(undeclared))}. "
+            "All extensions must be declared in global:core:extensions."
+        )
 
     # ensure captures and annotations have monotonically increasing sample_start
     for key in ["captures", "annotations"]:
