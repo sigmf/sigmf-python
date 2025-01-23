@@ -9,72 +9,78 @@
 import argparse
 import getpass
 import logging
-import os
-import pathlib
 import tempfile
+from datetime import datetime, timezone
+from os import PathLike
+from pathlib import Path
 from typing import Optional
 
 from scipy.io import wavfile
 
-from .. import SigMFFile, __specification__
+from .. import SigMFFile
 from .. import __version__ as toolversion
-from .. import archive
-from ..utils import get_data_type_str, get_sigmf_iso8601_datetime_now
+from ..sigmffile import get_sigmf_filenames
+from ..utils import SIGMF_DATETIME_ISO8601_FMT, get_data_type_str
 
 log = logging.getLogger()
 
 
 def convert_wav(
-    input_wav_filename: str,
-    archive_filename: Optional[str],
-    start_datetime: Optional[str] = None,
+    wav_path: str,
+    out_path: Optional[str] = None,
     author: Optional[str] = None,
-):
+) -> PathLike:
     """
-    read a .wav and write a .sigmf archive
+    Read a wav and write a sigmf archive.
     """
-    input_path = pathlib.Path(input_wav_filename)
-    input_stem = input_path.stem
-    samp_rate, wav_data = wavfile.read(input_wav_filename)
+    wav_path = Path(wav_path)
+    wav_stem = wav_path.stem
+    samp_rate, wav_data = wavfile.read(wav_path)
 
     global_info = {
         SigMFFile.AUTHOR_KEY: getpass.getuser() if author is None else author,
         SigMFFile.DATATYPE_KEY: get_data_type_str(wav_data),
-        SigMFFile.DESCRIPTION_KEY: f"Converted from {input_wav_filename}",
+        SigMFFile.DESCRIPTION_KEY: f"converted from {wav_path.name}",
         SigMFFile.NUM_CHANNELS_KEY: 1 if len(wav_data.shape) < 2 else wav_data.shape[1],
-        SigMFFile.RECORDER_KEY: os.path.basename(__file__),
+        SigMFFile.RECORDER_KEY: "Official SigMF wav converter",
         SigMFFile.SAMPLE_RATE_KEY: samp_rate,
-        SigMFFile.VERSION_KEY: __specification__,
     }
 
-    if start_datetime is None:
-        start_datetime = get_sigmf_iso8601_datetime_now()
+    modify_time = wav_path.lstat().st_mtime
+    wav_datetime = datetime.fromtimestamp(modify_time, tz=timezone.utc)
 
     capture_info = {
         SigMFFile.START_INDEX_KEY: 0,
-        SigMFFile.DATETIME_KEY: start_datetime,
+        SigMFFile.DATETIME_KEY: wav_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT),
     }
 
-    tmpdir = tempfile.mkdtemp()
-    sigmf_data_filename = input_stem + archive.SIGMF_DATASET_EXT
-    sigmf_data_path = os.path.join(tmpdir, sigmf_data_filename)
-    wav_data.tofile(sigmf_data_path)
+    temp_dir = Path(tempfile.mkdtemp())
+    if out_path is None:
+        # extension will be changed
+        out_path = Path(wav_stem)
+    else:
+        out_path = Path(out_path)
+    filenames = get_sigmf_filenames(out_path)
 
-    meta = SigMFFile(data_file=sigmf_data_path, global_info=global_info)
+    data_path = temp_dir / filenames["data_fn"]
+    wav_data.tofile(data_path)
+
+    meta = SigMFFile(data_file=data_path, global_info=global_info)
     meta.add_capture(0, metadata=capture_info)
+    log.debug("created %r", meta)
 
-    if archive_filename is None:
-        archive_filename = input_stem + archive.SIGMF_ARCHIVE_EXT
-    out_path = meta.tofile(archive_filename, toarchive=True)
-    return out_path
+    arc_path = filenames["archive_fn"]
+    meta.tofile(arc_path, toarchive=True)
+    log.info("wrote %s", arc_path)
+    return arc_path
 
 
-def main():
+def main() -> None:
     """
     entry-point for sigmf_convert_wav
     """
-    parser = argparse.ArgumentParser(description="Convert .wav to .sigmf container.")
-    parser.add_argument("input", type=str, help="Wavfile path")
+    parser = argparse.ArgumentParser(description="Convert wav to sigmf archive.")
+    parser.add_argument("input", type=str, help="wav path")
     parser.add_argument("--author", type=str, default=None, help=f"set {SigMFFile.AUTHOR_KEY} metadata")
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
@@ -87,11 +93,10 @@ def main():
     }
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    out_path = convert_wav(
-        input_wav_filename=args.input,
+    _ = convert_wav(
+        wav_path=args.input,
         author=args.author,
     )
-    log.info(f"Wrote {out_path}")
 
 
 if __name__ == "__main__":
