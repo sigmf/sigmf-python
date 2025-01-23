@@ -10,6 +10,7 @@ import re
 import sys
 from copy import deepcopy
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 
@@ -69,13 +70,6 @@ def dict_merge(a_dict: dict, b_dict: dict) -> dict:
         else:
             result[key] = deepcopy(value)
     return result
-
-
-def get_schema_path(module_path: str) -> str:
-    """
-    TODO: Allow getting different schemas for specific SigMF versions
-    """
-    return module_path
 
 
 def get_endian_str(ray: np.ndarray) -> str:
