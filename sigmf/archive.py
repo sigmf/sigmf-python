@@ -129,10 +129,10 @@ class SigMFArchive:
                     arcname = path.stem
                 else:
                     arcname = name
-            except io.UnsupportedOperation:
-                raise SigMFFileError(f"fileobj {fileobj} is not byte-writable.")
-            except AttributeError:
-                raise SigMFFileError(f"fileobj {fileobj} is invalid.")
+            except io.UnsupportedOperation as exc:
+                raise SigMFFileError(f"fileobj {fileobj} is not byte-writable.") from exc
+            except AttributeError as exc:
+                raise SigMFFileError(f"fileobj {fileobj} is invalid.") from exc
         elif name:
             path = Path(name)
             # ensure name has correct suffix if it exists
@@ -146,8 +146,8 @@ class SigMFArchive:
 
             try:
                 fileobj = open(path, "wb")
-            except (OSError, IOError):
-                raise SigMFFileError(f"Can't open {name} for writing.")
+            except (OSError, IOError) as exc:
+                raise SigMFFileError(f"Can't open {name} for writing.") from exc
         else:
             raise SigMFFileError("Either `name` or `fileobj` needs to be defined.")
 

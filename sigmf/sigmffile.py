@@ -9,8 +9,6 @@
 import codecs
 import io
 import json
-import tarfile
-import tempfile
 import warnings
 from collections import OrderedDict
 from pathlib import Path
@@ -229,7 +227,7 @@ class SigMFFile(SigMFMetafile):
             ray = mem[:, :, 0].astype(self._return_type) + 1.0j * mem[:, :, 1].astype(self._return_type)
         else:
             raise ValueError("unhandled ndim in SigMFFile.__getitem__(); this shouldn't happen")
-        return ray[0] if type(sli) is int else ray  # return element instead of 1-element array
+        return ray[0] if isinstance(sli, int) else ray  # return element instead of 1-element array
 
     def _get_start_offset(self):
         """

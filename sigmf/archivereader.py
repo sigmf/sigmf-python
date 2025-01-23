@@ -7,27 +7,18 @@
 """Access SigMF archives without extracting them."""
 
 import io
-import os
-import shutil
 import tarfile
-import tempfile
 from pathlib import Path
 
 from . import __version__
-from .archive import (
-    SIGMF_ARCHIVE_EXT,
-    SIGMF_DATASET_EXT,
-    SIGMF_METADATA_EXT,
-    SigMFArchive,
-)
+from .archive import SIGMF_ARCHIVE_EXT, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT
 from .error import SigMFFileError
 from .sigmffile import SigMFFile
-from .utils import dict_merge
 
 
 class SigMFArchiveReader:
     """
-    Access data within SigMF archive `tar` in-place without extracting.
+    Access data within SigMF archive tarball in-place without extracting.
 
     Parameters
     ----------
@@ -44,6 +35,10 @@ class SigMFArchiveReader:
     ------
     SigMFError
         Archive file does not exist or is improperly formatted.
+    ValueError
+        If invalid arguments.
+    ValidationError
+        If metadata is invalid.
     """
 
     def __init__(self, name=None, skip_checksum=False, map_readonly=True, archive_buffer=None):
@@ -96,7 +91,7 @@ class SigMFArchiveReader:
             raise SigMFFileError("No .sigmf-data file found in archive!")
 
         self.sigmffile = SigMFFile(metadata=json_contents)
-        valid_md = self.sigmffile.validate()
+        self.sigmffile.validate()
 
         self.sigmffile.set_data_file(
             data_buffer=data_buffer,
