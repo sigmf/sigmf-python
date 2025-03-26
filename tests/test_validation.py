@@ -123,8 +123,9 @@ class FailingCases(unittest.TestCase):
         SigMFFile(self.metadata).validate()
 
     def test_invalid_hash(self):
-        _, temp_path = tempfile.mkstemp()
-        TEST_FLOAT32_DATA.tofile(temp_path)
-        self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.HASH_KEY] = "derp"
-        with self.assertRaises(sigmf.error.SigMFFileError):
-            SigMFFile(metadata=self.metadata, data_file=temp_path)
+        """wrong hash raises error on creation"""
+        with tempfile.NamedTemporaryFile() as temp_file:
+            TEST_FLOAT32_DATA.tofile(temp_file.name)
+            self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.HASH_KEY] = "derp"
+            with self.assertRaises(sigmf.error.SigMFFileError):
+                SigMFFile(metadata=self.metadata, data_file=temp_file.name)

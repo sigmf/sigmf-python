@@ -6,8 +6,8 @@
 
 """Tests for SigMFArchiveReader"""
 
-import tempfile
 import unittest
+from tempfile import NamedTemporaryFile
 
 import numpy as np
 
@@ -33,29 +33,28 @@ class TestArchiveReader(unittest.TestCase):
 
     def test_access_data_without_untar(self):
         """iterate through datatypes and verify IO is correct"""
-        _, temp_path = tempfile.mkstemp()
-        _, temp_archive = tempfile.mkstemp(suffix=".sigmf")
+        temp_data = NamedTemporaryFile()
+        temp_archive = NamedTemporaryFile(suffix=".sigmf")
 
         for key, dtype in self.lut.items():
             # for each type of storage
             temp_samples = np.arange(self.raw_count, dtype=dtype)
-            temp_samples.tofile(temp_path)
+            temp_samples.tofile(temp_data.name)
             for num_channels in [1, 4, 8]:
                 # for single or 8 channel
                 for complex_prefix in ["r", "c"]:
                     # for real or complex
                     target_count = self.raw_count
                     temp_meta = SigMFFile(
-                        data_file=temp_path,
+                        data_file=temp_data.name,
                         global_info={
                             SigMFFile.DATATYPE_KEY: f"{complex_prefix}{key}_le",
                             SigMFFile.NUM_CHANNELS_KEY: num_channels,
-                            SigMFFile.VERSION_KEY: __specification__,
                         },
                     )
-                    temp_meta.tofile(temp_archive, toarchive=True)
+                    temp_meta.tofile(temp_archive.name, toarchive=True)
 
-                    readback = SigMFArchiveReader(temp_archive)
+                    readback = SigMFArchiveReader(temp_archive.name)
                     readback_samples = readback[:]
 
                     if complex_prefix == "c":
@@ -84,10 +83,10 @@ class TestArchiveReader(unittest.TestCase):
 
 
 def test_archiveread_data_file_unchanged(test_sigmffile):
-    with tempfile.NamedTemporaryFile(suffix=".sigmf") as temp:
+    with NamedTemporaryFile(suffix=".sigmf") as temp_file:
         input_samples = test_sigmffile.read_samples()
-        test_sigmffile.archive(temp.name)
-        arc = sigmf.sigmffile.fromfile(temp.name)
+        test_sigmffile.archive(temp_file.name)
+        arc = sigmf.sigmffile.fromfile(temp_file.name)
         output_samples = arc.read_samples()
 
         assert np.array_equal(input_samples, output_samples)

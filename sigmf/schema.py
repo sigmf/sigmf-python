@@ -10,7 +10,6 @@ import json
 from pathlib import Path
 
 from . import __version__ as toolversion
-from . import utils
 
 SCHEMA_META = "schema-meta.json"
 SCHEMA_COLLECTION = "schema-collection.json"

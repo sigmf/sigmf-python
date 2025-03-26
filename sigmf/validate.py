@@ -136,10 +136,10 @@ def main(arg_tuple: Optional[Tuple[str, ...]] = None) -> None:
         log.error("No paths to validate.")
         sys.exit(1)
     elif n_completed != n_total:
-        log.info(f"Validated {n_completed} of {n_total} files OK")
+        log.info("Validated %d of %d files OK", n_completed, n_total)
         sys.exit(1)
     else:
-        log.info(f"Validated all {n_total} files OK!")
+        log.info("Validated all %d files OK!", n_total)
 
 
 if __name__ == "__main__":

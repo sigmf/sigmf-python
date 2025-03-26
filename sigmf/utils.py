@@ -10,11 +10,10 @@ import re
 import sys
 from copy import deepcopy
 from datetime import datetime, timezone
-from pathlib import Path
 
 import numpy as np
 
-from . import error
+from .error import SigMFError
 
 SIGMF_DATETIME_ISO8601_FMT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -75,7 +74,7 @@ def dict_merge(a_dict: dict, b_dict: dict) -> dict:
 def get_endian_str(ray: np.ndarray) -> str:
     """Return SigMF compatible endianness string for a numpy array"""
     if not isinstance(ray, np.ndarray):
-        raise error.SigMFError("Argument must be a numpy array")
+        raise SigMFError("Argument must be a numpy array")
     atype = ray.dtype
 
     if atype.byteorder == "<":
@@ -94,10 +93,10 @@ def get_data_type_str(ray: np.ndarray) -> str:
     integer types are not supported.
     """
     if not isinstance(ray, np.ndarray):
-        raise error.SigMFError("Argument must be a numpy array")
+        raise SigMFError("Argument must be a numpy array")
     atype = ray.dtype
     if atype.kind not in ("u", "i", "f", "c"):
-        raise error.SigMFError("Unsupported data type:", atype)
+        raise SigMFError("Unsupported data type:", atype)
     data_type_str = ""
     if atype.kind == "c":
         data_type_str += "cf"
