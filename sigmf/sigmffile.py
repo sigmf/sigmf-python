@@ -915,13 +915,13 @@ class SigMFCollection(SigMFMetafile):
         """
         Returns the SigMFFile instance of the specified stream if it exists
         """
-        metafile = None
-        if stream_name is not None:
-            if stream_name in self.get_stream_names():
-                metafile = stream_name + ".sigmf_meta"
+        if stream_name is not None and stream_name not in self.get_stream_names():
+            # invalid stream name
+            return
         if stream_index is not None and stream_index < len(self):
-            metafile = self.get_stream_names()[stream_index] + ".sigmf_meta"
-        if metafile is not None:
+            stream_name = self.get_stream_names()[stream_index]
+        if stream_name is not None:
+            metafile = get_sigmf_filenames(stream_name)["meta_fn"]
             metafile_path = self.base_path / metafile
             return fromfile(metafile_path, skip_checksum=self.skip_checksums)
 
