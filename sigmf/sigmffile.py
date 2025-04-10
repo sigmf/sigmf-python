@@ -915,13 +915,13 @@ class SigMFCollection(SigMFMetafile):
         """
         Returns the SigMFFile instance of the specified stream if it exists
         """
-        metafile = None
-        if stream_name is not None:
-            if stream_name in self.get_stream_names():
-                metafile = stream_name + ".sigmf_meta"
+        if stream_name is not None and stream_name not in self.get_stream_names():
+            # invalid stream name
+            return
         if stream_index is not None and stream_index < len(self):
-            metafile = self.get_stream_names()[stream_index] + ".sigmf_meta"
-        if metafile is not None:
+            stream_name = self.get_stream_names()[stream_index]
+        if stream_name is not None:
+            metafile = get_sigmf_filenames(stream_name)["meta_fn"]
             metafile_path = self.base_path / metafile
             return fromfile(metafile_path, skip_checksum=self.skip_checksums)
 
@@ -1111,11 +1111,26 @@ def get_sigmf_filenames(filename):
     -------
     dict with 'data_fn', 'meta_fn', and 'archive_fn' as keys.
     """
-    stem_path = Path(filename).with_suffix("")
+    stem_path = Path(filename)
+    # If the path has a sigmf suffix, remove it. Otherwise do not remove the
+    # suffix, because the filename might contain '.' characters which are part
+    # of the filename rather than an extension.
+    sigmf_suffixes = [
+        SIGMF_DATASET_EXT, SIGMF_METADATA_EXT,
+        SIGMF_ARCHIVE_EXT, SIGMF_COLLECTION_EXT,
+    ]
+    if stem_path.suffix in sigmf_suffixes:
+        with_suffix_path = stem_path
+        stem_path = stem_path.with_suffix("")
+    else:
+        # Add a dummy suffix to prevent the .with_suffix() calls below from
+        # overriding part of the filename which is interpreted as a suffix
+        with_suffix_path = stem_path.with_name(f"{stem_path.name}{SIGMF_DATASET_EXT}")
+
     return {
         "base_fn": stem_path,
-        "data_fn": stem_path.with_suffix(SIGMF_DATASET_EXT),
-        "meta_fn": stem_path.with_suffix(SIGMF_METADATA_EXT),
-        "archive_fn": stem_path.with_suffix(SIGMF_ARCHIVE_EXT),
-        "collection_fn": stem_path.with_suffix(SIGMF_COLLECTION_EXT),
+        "data_fn": with_suffix_path.with_suffix(SIGMF_DATASET_EXT),
+        "meta_fn": with_suffix_path.with_suffix(SIGMF_METADATA_EXT),
+        "archive_fn": with_suffix_path.with_suffix(SIGMF_ARCHIVE_EXT),
+        "collection_fn": with_suffix_path.with_suffix(SIGMF_COLLECTION_EXT),
     }
