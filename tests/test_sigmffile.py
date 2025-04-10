@@ -44,7 +44,7 @@ class TestClassMethods(unittest.TestCase):
         obj_pth.validate()
 
     def test_filenames_with_dots(self):
-        """test that filenames with . characters are handled correctly"""
+        """test that filenames with non-extension . characters are handled correctly"""
         filenames = ["a", "b.c", "d.e.f"]
         for filename in filenames:
             temp_path_data = self.temp_dir / f"{filename}.sigmf-data"
@@ -52,10 +52,9 @@ class TestClassMethods(unittest.TestCase):
             TEST_FLOAT32_DATA.tofile(temp_path_data)
             self.sigmf_object = SigMFFile(TEST_METADATA, data_file=temp_path_data)
             self.sigmf_object.tofile(temp_path_meta)
-            files = [str(temp_path_data), temp_path_data,
-                     str(temp_path_meta), temp_path_meta]
-            for f in files:
-                obj = sigmffile.fromfile(f)
+            files = [str(temp_path_data), temp_path_data, str(temp_path_meta), temp_path_meta]
+            for filename in files:
+                obj = sigmffile.fromfile(filename)
                 obj.validate()
 
     def test_iterator_basic(self):
