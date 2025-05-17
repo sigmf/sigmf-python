@@ -21,6 +21,7 @@ dynamic = ["version", "readme"]
 requires-python = ">=3.7"
 dependencies = [
     "numpy",        # for vector math
+    "scipy",        # used in sigmf.apps.convert_wav
     "jsonschema",   # for spec validation
 ]
     [project.urls]
