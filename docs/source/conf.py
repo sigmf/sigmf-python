@@ -10,15 +10,13 @@ import re
 import sys
 from pathlib import Path
 
-# parse info from project files
+import sigmf
 
-root = Path(__file__).parent.parent.parent
-with open(root / "sigmf" / "__init__.py", "r") as handle:
-    init = handle.read()
-    toolversion = re.search(r'__version__\s*=\s*[\'"]([^\'"]*)[\'"]', init).group(1)
-    specversion = re.search(r'__specification__\s*=\s*[\'"]([^\'"]*)[\'"]', init).group(1)
+toolversion = sigmf.__version__
+specversion = sigmf.__specification__
 
 # autodoc needs special pathing
+root = Path(__file__).parent.parent.parent
 sys.path.append(str(root))
 
 # -- Project information
