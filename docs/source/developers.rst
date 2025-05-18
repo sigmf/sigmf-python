@@ -51,9 +51,22 @@ To autoformat the entire project according to our coding standard:
    $ black sigmf tests # autoformat entire project
    $ isort sigmf tests # format imports for entire project
 
-------
-Issues
-------
+----
+Docs
+----
+
+To build the docs and host locally:
+
+.. code-block:: console
+
+   $ cd docs
+   $ make html
+   $ cd build/html/
+   $ python3 -m http.server
+
+--------------
+Find an Issue?
+--------------
 
 Issues can be addressed by opening an `issue
 <https://github.com/sigmf/sigmf-python/issues>`_ or by forking the project and
