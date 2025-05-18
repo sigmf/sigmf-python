@@ -19,8 +19,7 @@ from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 
 
 def test_valid_data():
-    """assure the supplied metadata is OK"""
-    invalid_metadata = dict(TEST_METADATA)
+    """ensure the default metadata is OK"""
     SigMFFile(TEST_METADATA).validate()
 
 
@@ -73,7 +72,7 @@ class CommandLineValidator(unittest.TestCase):
 
 
 class FailingCases(unittest.TestCase):
-    """Cases where the validator should throw an exception."""
+    """Cases where the validator should raise an exception."""
 
     def setUp(self):
         self.metadata = dict(TEST_METADATA)
