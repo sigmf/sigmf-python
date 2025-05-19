@@ -1000,12 +1000,16 @@ def dtype_info(datatype):
 
 def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     """
-    Parse provided metadata and return the expected data filename. In the case of
-    a metadata only distribution, or if the file does not exist, this will return
-    'None'. The priority for conflicting:
-        1. The file named <stem>.SIGMF_DATASET_EXT if it exists
-        2. The file in the DATASET_KEY field (Non-Compliant Dataset) if it exists
-        3. None (may be a metadata only distribution)
+    Parse provided metadata and return the expected data filename.
+
+    In the case of a metadata-only distribution, or if the file does not exist,
+    this will return ``None``.
+
+    Priority for conflicting datasets:
+
+    1. Use the file named ``<stem>.SIGMF_DATASET_EXT`` if it exists.
+    2. Use the file in the ``DATASET_KEY`` field (non-compliant dataset) if it exists.
+    3. Return ``None`` (may be a metadata-only distribution).
     """
     compliant_filename = get_sigmf_filenames(meta_fn)["data_fn"]
     noncompliant_filename = metadata["global"].get(SigMFFile.DATASET_KEY, None)
