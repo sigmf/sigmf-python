@@ -6,6 +6,7 @@
 
 """Tests for Validator"""
 
+import copy
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,9 +19,12 @@ from sigmf import SigMFFile
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 
 
-def test_valid_data():
-    """ensure the default metadata is OK"""
-    SigMFFile(TEST_METADATA).validate()
+class NominalCases(unittest.TestCase):
+    """Cases where the validator should succeed."""
+
+    def test_nominal(self):
+        """nominal case should pass"""
+        SigMFFile(TEST_METADATA).validate()
 
 
 class CommandLineValidator(unittest.TestCase):
@@ -75,7 +79,7 @@ class FailingCases(unittest.TestCase):
     """Cases where the validator should raise an exception."""
 
     def setUp(self):
-        self.metadata = dict(TEST_METADATA)
+        self.metadata = copy.deepcopy(TEST_METADATA)
 
     def test_no_version(self):
         """core:version must be present"""
@@ -128,3 +132,15 @@ class FailingCases(unittest.TestCase):
             self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.HASH_KEY] = "derp"
             with self.assertRaises(sigmf.error.SigMFFileError):
                 SigMFFile(metadata=self.metadata, data_file=temp_file.name)
+
+class CheckNamespace(unittest.TestCase):
+    """Cases where namespace issues are involved"""
+
+    def setUp(self):
+        self.metadata = copy.deepcopy(TEST_METADATA)
+
+    def test_raises_warning(self):
+        """unknown namespace should raise a warning"""
+        self.metadata["global"]["other_namespace:key"] = 0
+        with self.assertWarns(Warning):
+            SigMFFile(self.metadata).validate()

@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import sys
+import warnings
 
 # multi-threading library - should work well as I/O will be the primary
 # cost for small SigMF files. Swap to ProcessPool if files are large.
@@ -30,18 +31,19 @@ def _get_extension_namespaces(metadata):
     extensions = metadata.get("global", {}).get("core:extensions", [])
     return {ext["name"].split(":")[0] for ext in extensions}
 
+
 def _get_used_extensions(metadata):
     """Find all extension namespaces actually used in the metadata."""
     used = set()
-    
-    # Helper function to check keys in a dictionary
-    def check_dict(d):
-        for key in d:
+
+    def check_dict(ddd):
+        """Recursively check keys in a dictionary for namespaces."""
+        for key in ddd:
             if ":" in key:
                 namespace = key.split(":")[0]
                 if namespace != "core":
                     used.add(namespace)
-    
+
     # Check all sections
     for section in ["global", "captures", "annotations"]:
         if section in metadata:
@@ -50,8 +52,9 @@ def _get_used_extensions(metadata):
             elif isinstance(metadata[section], list):
                 for item in metadata[section]:
                     check_dict(item)
-    
+
     return used
+
 
 def validate(metadata, ref_schema=schema.get_schema()) -> None:
     """
@@ -74,15 +77,18 @@ def validate(metadata, ref_schema=schema.get_schema()) -> None:
     """
     jsonschema.validators.validate(instance=metadata, schema=ref_schema)
 
-    # Check extensions
+    # Check for namespace extensions
     declared_extensions = _get_extension_namespaces(metadata)
     used_extensions = _get_used_extensions(metadata)
-    
+
     undeclared = used_extensions - declared_extensions
     if undeclared:
-        raise jsonschema.exceptions.ValidationError(
+        warnings.warn(
             f"Found undeclared extensions in use: {', '.join(sorted(undeclared))}. "
-            "All extensions must be declared in global:core:extensions."
+            "All extensions should be declared in core:extensions. "
+            "This will raise a ValidationError in future versions.",
+            DeprecationWarning,
+            stacklevel=2,
         )
 
     # ensure captures and annotations have monotonically increasing sample_start
