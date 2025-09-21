@@ -12,4 +12,4 @@ __specification__ = "1.2.5"
 from . import archive, archivereader, error, schema, sigmffile, utils, validate
 from .archive import SigMFArchive
 from .archivereader import SigMFArchiveReader
-from .sigmffile import SigMFCollection, SigMFFile
+from .sigmffile import SigMFCollection, SigMFFile, fromarchive, fromfile

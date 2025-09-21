@@ -23,7 +23,7 @@ Read a SigMF Recording
 .. code-block:: python
 
     import sigmf
-    handle = sigmf.sigmffile.fromfile("example.sigmf")
+    handle = sigmf.fromfile("example.sigmf")
     handle.read_samples() # returns all timeseries data
     handle.get_global_info() # returns 'global' dictionary
     handle.get_captures() # returns list of 'captures' dictionaries
