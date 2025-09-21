@@ -82,10 +82,11 @@ class FailingCases(unittest.TestCase):
         self.metadata = copy.deepcopy(TEST_METADATA)
 
     def test_no_version(self):
-        """core:version must be present"""
-        del self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.VERSION_KEY]
+        """version key must be present"""
+        meta = SigMFFile(copy.deepcopy(self.metadata))
+        del meta._metadata[SigMFFile.GLOBAL_KEY][SigMFFile.VERSION_KEY]
         with self.assertRaises(ValidationError):
-            SigMFFile(self.metadata).validate()
+            meta.validate()
 
     def test_extra_top_level_key(self):
         """no extra keys allowed on the top level"""
@@ -133,6 +134,7 @@ class FailingCases(unittest.TestCase):
             with self.assertRaises(sigmf.error.SigMFFileError):
                 SigMFFile(metadata=self.metadata, data_file=temp_file.name)
 
+
 class CheckNamespace(unittest.TestCase):
     """Cases where namespace issues are involved"""
 
@@ -145,13 +147,15 @@ class CheckNamespace(unittest.TestCase):
         with self.assertWarns(Warning):
             SigMFFile(self.metadata).validate()
 
-    def test_undeclared_namespace(self):
+    def test_declared_namespace(self):
         """known namespace should not raise a warning"""
         self.metadata[SigMFFile.GLOBAL_KEY]["other_namespace:key"] = 0
         # define other_namespace
-        self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.EXTENSIONS_KEY] = [{
-            "name": "other_namespace",
-            "version": "0.0.1",
-            "optional": True,
-        }]
+        self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.EXTENSIONS_KEY] = [
+            {
+                "name": "other_namespace",
+                "version": "0.0.1",
+                "optional": False,
+            }
+        ]
         SigMFFile(self.metadata).validate()

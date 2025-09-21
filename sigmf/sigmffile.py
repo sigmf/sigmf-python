@@ -604,7 +604,6 @@ class SigMFFile(SigMFMetafile):
         """
         Check schema and throw error if issue.
         """
-        version = self.get_global_field(self.VERSION_KEY)
         validate.validate(self._metadata, self.get_schema())
 
     def archive(self, name=None, fileobj=None):

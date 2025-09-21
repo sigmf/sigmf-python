@@ -166,7 +166,7 @@ def main(arg_tuple: Optional[Tuple[str, ...]] = None) -> None:
     n_total = len(paths)
     # estimate number of CPU cores
     # https://stackoverflow.com/questions/1006289/how-to-find-out-the-number-of-cpus-using-python
-    est_num_workers = len(os.sched_getaffinity(0)) if os.name == 'posix' else os.cpu_count()
+    est_num_workers = len(os.sched_getaffinity(0)) if os.name == "posix" else os.cpu_count()
     # create a thread pool
     # https://docs.python.org/3.7/library/concurrent.futures.html#threadpoolexecutor
     with ThreadPoolExecutor(max_workers=est_num_workers) as executor:
