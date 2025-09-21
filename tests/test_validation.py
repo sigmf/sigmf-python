@@ -24,7 +24,7 @@ class NominalCases(unittest.TestCase):
 
     def test_nominal(self):
         """nominal case should pass"""
-        SigMFFile(TEST_METADATA).validate()
+        SigMFFile(copy.deepcopy(TEST_METADATA)).validate()
 
 
 class CommandLineValidator(unittest.TestCase):
@@ -36,7 +36,7 @@ class CommandLineValidator(unittest.TestCase):
         self.tmp_path = tmp_path = Path(self.tmp_dir.name)
         junk_path = tmp_path / "junk"
         TEST_FLOAT32_DATA.tofile(junk_path)
-        some_meta = SigMFFile(TEST_METADATA, data_file=junk_path)
+        some_meta = SigMFFile(copy.deepcopy(TEST_METADATA), data_file=junk_path)
         some_meta.tofile(tmp_path / "a")
         some_meta.tofile(tmp_path / "b")
         some_meta.tofile(tmp_path / "c", toarchive=True)
@@ -139,8 +139,19 @@ class CheckNamespace(unittest.TestCase):
     def setUp(self):
         self.metadata = copy.deepcopy(TEST_METADATA)
 
-    def test_raises_warning(self):
+    def test_undeclared_namespace(self):
         """unknown namespace should raise a warning"""
-        self.metadata["global"]["other_namespace:key"] = 0
+        self.metadata[SigMFFile.GLOBAL_KEY]["other_namespace:key"] = 0
         with self.assertWarns(Warning):
             SigMFFile(self.metadata).validate()
+
+    def test_undeclared_namespace(self):
+        """known namespace should not raise a warning"""
+        self.metadata[SigMFFile.GLOBAL_KEY]["other_namespace:key"] = 0
+        # define other_namespace
+        self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.EXTENSIONS_KEY] = [{
+            "name": "other_namespace",
+            "version": "0.0.1",
+            "optional": True,
+        }]
+        SigMFFile(self.metadata).validate()
