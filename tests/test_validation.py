@@ -6,6 +6,7 @@
 
 """Tests for Validator"""
 
+import copy
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,9 +19,12 @@ from sigmf import SigMFFile
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 
 
-def test_valid_data():
-    """ensure the default metadata is OK"""
-    SigMFFile(TEST_METADATA).validate()
+class NominalCases(unittest.TestCase):
+    """Cases where the validator should succeed."""
+
+    def test_nominal(self):
+        """nominal case should pass"""
+        SigMFFile(copy.deepcopy(TEST_METADATA)).validate()
 
 
 class CommandLineValidator(unittest.TestCase):
@@ -32,7 +36,7 @@ class CommandLineValidator(unittest.TestCase):
         self.tmp_path = tmp_path = Path(self.tmp_dir.name)
         junk_path = tmp_path / "junk"
         TEST_FLOAT32_DATA.tofile(junk_path)
-        some_meta = SigMFFile(TEST_METADATA, data_file=junk_path)
+        some_meta = SigMFFile(copy.deepcopy(TEST_METADATA), data_file=junk_path)
         some_meta.tofile(tmp_path / "a")
         some_meta.tofile(tmp_path / "b")
         some_meta.tofile(tmp_path / "c", toarchive=True)
@@ -75,13 +79,14 @@ class FailingCases(unittest.TestCase):
     """Cases where the validator should raise an exception."""
 
     def setUp(self):
-        self.metadata = dict(TEST_METADATA)
+        self.metadata = copy.deepcopy(TEST_METADATA)
 
     def test_no_version(self):
-        """core:version must be present"""
-        del self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.VERSION_KEY]
+        """version key must be present"""
+        meta = SigMFFile(copy.deepcopy(self.metadata))
+        del meta._metadata[SigMFFile.GLOBAL_KEY][SigMFFile.VERSION_KEY]
         with self.assertRaises(ValidationError):
-            SigMFFile(self.metadata).validate()
+            meta.validate()
 
     def test_extra_top_level_key(self):
         """no extra keys allowed on the top level"""
@@ -128,3 +133,29 @@ class FailingCases(unittest.TestCase):
             self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.HASH_KEY] = "derp"
             with self.assertRaises(sigmf.error.SigMFFileError):
                 SigMFFile(metadata=self.metadata, data_file=temp_file.name)
+
+
+class CheckNamespace(unittest.TestCase):
+    """Cases where namespace issues are involved"""
+
+    def setUp(self):
+        self.metadata = copy.deepcopy(TEST_METADATA)
+
+    def test_undeclared_namespace(self):
+        """unknown namespace should raise a warning"""
+        self.metadata[SigMFFile.GLOBAL_KEY]["other_namespace:key"] = 0
+        with self.assertWarns(Warning):
+            SigMFFile(self.metadata).validate()
+
+    def test_declared_namespace(self):
+        """known namespace should not raise a warning"""
+        self.metadata[SigMFFile.GLOBAL_KEY]["other_namespace:key"] = 0
+        # define other_namespace
+        self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.EXTENSIONS_KEY] = [
+            {
+                "name": "other_namespace",
+                "version": "0.0.1",
+                "optional": False,
+            }
+        ]
+        SigMFFile(self.metadata).validate()

@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import sys
+import warnings
 
 # multi-threading library - should work well as I/O will be the primary
 # cost for small SigMF files. Swap to ProcessPool if files are large.
@@ -23,6 +24,34 @@ import jsonschema
 
 from . import __version__ as toolversion
 from . import error, schema, sigmffile
+
+
+def _get_namespaces_declared(metadata: dict) -> set:
+    """Get set of declared extension namespaces."""
+    extensions = metadata.get("global", {}).get(sigmffile.SigMFFile.EXTENSIONS_KEY, [])
+    return {ext["name"].split(":")[0] for ext in extensions}
+
+
+def _get_namespaces_used(metadata: dict) -> set:
+    """Get set of used extension namespaces."""
+    used = set()
+
+    def check_dict(ddd: dict):
+        """Check keys for non-core namespaces."""
+        for key in ddd:
+            if ":" in key:
+                namespace = key.split(":")[0]
+                if namespace != "core":
+                    used.add(namespace)
+
+    for section in metadata:
+        if isinstance(metadata[section], dict):
+            check_dict(metadata[section])
+        elif isinstance(metadata[section], list):
+            for item in metadata[section]:
+                check_dict(item)
+
+    return used
 
 
 def validate(metadata, ref_schema=schema.get_schema()) -> None:
@@ -46,11 +75,22 @@ def validate(metadata, ref_schema=schema.get_schema()) -> None:
     """
     jsonschema.validators.validate(instance=metadata, schema=ref_schema)
 
+    # check namespaces
+    undeclared = _get_namespaces_used(metadata) - _get_namespaces_declared(metadata)
+    if undeclared:
+        warnings.warn(
+            f"Found undeclared extensions in use: {', '.join(sorted(undeclared))}. "
+            f"All extensions should be declared in {sigmffile.SigMFFile.EXTENSIONS_KEY}. "
+            "This will raise a ValidationError in future versions.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
     # ensure captures and annotations have monotonically increasing sample_start
     for key in ["captures", "annotations"]:
         count = -1
         for item in metadata[key]:
-            new_count = item["core:sample_start"]
+            new_count = item[sigmffile.SigMFFile.START_INDEX_KEY]
             if new_count < count:
                 raise jsonschema.exceptions.ValidationError(f"{key} has incorrect sample start ordering.")
             count = new_count
@@ -121,7 +161,7 @@ def main(arg_tuple: Optional[Tuple[str, ...]] = None) -> None:
     n_total = len(paths)
     # estimate number of CPU cores
     # https://stackoverflow.com/questions/1006289/how-to-find-out-the-number-of-cpus-using-python
-    est_num_workers = len(os.sched_getaffinity(0)) if os.name == 'posix' else os.cpu_count()
+    est_num_workers = len(os.sched_getaffinity(0)) if os.name == "posix" else os.cpu_count()
     # create a thread pool
     # https://docs.python.org/3.7/library/concurrent.futures.html#threadpoolexecutor
     with ThreadPoolExecutor(max_workers=est_num_workers) as executor:
