@@ -26,32 +26,30 @@ from . import __version__ as toolversion
 from . import error, schema, sigmffile
 
 
-def _get_extension_namespaces(metadata):
-    """Get set of declared extension namespaces from global core:extensions."""
-    extensions = metadata.get("global", {}).get("core:extensions", [])
+def _get_namespaces_declared(metadata: dict) -> set:
+    """Get set of declared extension namespaces."""
+    extensions = metadata.get("global", {}).get(sigmffile.SigMFFile.EXTENSIONS_KEY, [])
     return {ext["name"].split(":")[0] for ext in extensions}
 
 
-def _get_used_extensions(metadata):
-    """Find all extension namespaces actually used in the metadata."""
+def _get_namespaces_used(metadata: dict) -> set:
+    """Get set of used extension namespaces."""
     used = set()
 
-    def check_dict(ddd):
-        """Recursively check keys in a dictionary for namespaces."""
+    def check_dict(ddd: dict):
+        """Check keys for non-core namespaces."""
         for key in ddd:
             if ":" in key:
                 namespace = key.split(":")[0]
                 if namespace != "core":
                     used.add(namespace)
 
-    # Check all sections
-    for section in ["global", "captures", "annotations"]:
-        if section in metadata:
-            if isinstance(metadata[section], dict):
-                check_dict(metadata[section])
-            elif isinstance(metadata[section], list):
-                for item in metadata[section]:
-                    check_dict(item)
+    for section in metadata:
+        if isinstance(metadata[section], dict):
+            check_dict(metadata[section])
+        elif isinstance(metadata[section], list):
+            for item in metadata[section]:
+                check_dict(item)
 
     return used
 
@@ -77,15 +75,12 @@ def validate(metadata, ref_schema=schema.get_schema()) -> None:
     """
     jsonschema.validators.validate(instance=metadata, schema=ref_schema)
 
-    # Check for namespace extensions
-    declared_extensions = _get_extension_namespaces(metadata)
-    used_extensions = _get_used_extensions(metadata)
-
-    undeclared = used_extensions - declared_extensions
+    # check namespaces
+    undeclared = _get_namespaces_used(metadata) - _get_namespaces_declared(metadata)
     if undeclared:
         warnings.warn(
             f"Found undeclared extensions in use: {', '.join(sorted(undeclared))}. "
-            "All extensions should be declared in core:extensions. "
+            f"All extensions should be declared in {sigmffile.SigMFFile.EXTENSIONS_KEY}. "
             "This will raise a ValidationError in future versions.",
             DeprecationWarning,
             stacklevel=2,
@@ -95,7 +90,7 @@ def validate(metadata, ref_schema=schema.get_schema()) -> None:
     for key in ["captures", "annotations"]:
         count = -1
         for item in metadata[key]:
-            new_count = item["core:sample_start"]
+            new_count = item[sigmffile.SigMFFile.START_INDEX_KEY]
             if new_count < count:
                 raise jsonschema.exceptions.ValidationError(f"{key} has incorrect sample start ordering.")
             count = new_count
