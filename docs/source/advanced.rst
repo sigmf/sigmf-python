@@ -99,7 +99,7 @@ Now lets add another SigMF Recording and associate them with a SigMF Collection:
 
 .. code-block:: python
 
-    from sigmf import SigMFCollection
+    from sigmf import SigMFFile, SigMFCollection
 
     data_ci16 = np.zeros(1024, dtype=np.complex64)
 
@@ -134,8 +134,8 @@ The SigMF Collection and its associated Recordings can now be loaded like this:
 
 .. code-block:: python
 
-    from sigmf import sigmffile
-    collection = sigmffile.fromfile('example_zeros')
+    import sigmf
+    collection = sigmf.fromfile('example_zeros')
     ci16_sigmffile = collection.get_SigMFFile(stream_name='example_ci16')
     cf32_sigmffile = collection.get_SigMFFile(stream_name='example_cf32')
 
