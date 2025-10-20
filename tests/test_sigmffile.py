@@ -15,8 +15,8 @@ from pathlib import Path
 
 import numpy as np
 
-from sigmf import error, sigmffile, utils
-from sigmf.sigmffile import SigMFFile
+import sigmf
+from sigmf import SigMFFile, error, utils
 
 from .testdata import *
 
@@ -38,9 +38,9 @@ class TestClassMethods(unittest.TestCase):
     def test_pathlib_handle(self):
         """ensure file can be a string or a pathlib object"""
         self.assertTrue(self.temp_path_data.exists())
-        obj_str = sigmffile.fromfile(str(self.temp_path_data))
+        obj_str = sigmf.fromfile(str(self.temp_path_data))
         obj_str.validate()
-        obj_pth = sigmffile.fromfile(self.temp_path_data)
+        obj_pth = sigmf.fromfile(self.temp_path_data)
         obj_pth.validate()
 
     def test_filenames_with_dots(self):
@@ -54,7 +54,7 @@ class TestClassMethods(unittest.TestCase):
             self.sigmf_object.tofile(temp_path_meta)
             files = [str(temp_path_data), temp_path_data, str(temp_path_meta), temp_path_meta]
             for filename in files:
-                obj = sigmffile.fromfile(filename)
+                obj = sigmf.fromfile(filename)
                 obj.validate()
 
     def test_iterator_basic(self):
@@ -245,7 +245,7 @@ class TestCaptures(unittest.TestCase):
         np.array(data, dtype=dtype).tofile(self.temp_path_data)
         with open(self.temp_path_meta, "w") as handle:
             json.dump(meta, handle)
-        meta = sigmffile.fromfile(self.temp_path_meta, skip_checksum=True)
+        meta = sigmf.fromfile(self.temp_path_meta, skip_checksum=True)
         return meta
 
     def test_000(self) -> None:
@@ -367,7 +367,7 @@ def test_add_annotation():
 def test_fromarchive(test_sigmffile):
     with tempfile.NamedTemporaryFile(suffix=".sigmf") as temp_file:
         archive_path = test_sigmffile.archive(name=temp_file.name)
-        result = sigmffile.fromarchive(archive_path=archive_path)
+        result = sigmf.fromarchive(archive_path=archive_path)
         assert result._metadata == test_sigmffile._metadata == TEST_METADATA
 
 
