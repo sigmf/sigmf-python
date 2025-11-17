@@ -6,12 +6,28 @@
 
 """Shared test data for tests."""
 
+import os
+import unittest
+from pathlib import Path
+
 import numpy as np
 
 from sigmf import SigMFFile, __specification__, __version__
 
-TEST_FLOAT32_DATA = np.arange(16, dtype=np.float32)
 
+def get_nonsigmf_path(test: unittest.TestCase) -> Path:
+    """Get path to example_nonsigmf_recordings repo or skip test"""
+    nonsigmf_env = "EXAMPLE_NONSIGMF_RECORDINGS_PATH"
+    recordings_path = Path(os.getenv(nonsigmf_env, "nopath"))
+    if not recordings_path.is_dir():
+        test.skipTest(
+            f"Set {nonsigmf_env} environment variable to path non-SigMF recordings repository to run test."
+            f" Available at https://github.com/sigmf/example_nonsigmf_recordings"
+        )
+    return recordings_path
+
+
+TEST_FLOAT32_DATA = np.arange(16, dtype=np.float32)
 TEST_METADATA = {
     SigMFFile.ANNOTATION_KEY: [{SigMFFile.LENGTH_INDEX_KEY: 16, SigMFFile.START_INDEX_KEY: 0}],
     SigMFFile.CAPTURE_KEY: [{SigMFFile.START_INDEX_KEY: 0}],
