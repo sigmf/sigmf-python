@@ -34,6 +34,7 @@ dependencies = [
     [project.scripts]
     sigmf_validate = "sigmf.validate:main"
     sigmf_convert_wav = "sigmf.apps.convert_wav:main [apps]"
+    sigmf_convert_blue = "sigmf.apps.convert_blue:main [apps]"
     [project.optional-dependencies]
     test = [
         "pylint",

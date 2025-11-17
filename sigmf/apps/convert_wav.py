@@ -77,9 +77,9 @@ def convert_wav(
 
 def main() -> None:
     """
-    entry-point for sigmf_convert_wav
+    Entry-point for sigmf_convert_wav
     """
-    parser = argparse.ArgumentParser(description="Convert wav to sigmf archive.")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=str, help="wav path")
     parser.add_argument("--author", type=str, default=None, help=f"set {SigMFFile.AUTHOR_KEY} metadata")
     parser.add_argument("-v", "--verbose", action="count", default=0)
@@ -97,7 +97,3 @@ def main() -> None:
         wav_path=args.input,
         author=args.author,
     )
-
-
-if __name__ == "__main__":
-    main()
