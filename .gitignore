@@ -3,6 +3,7 @@ __pycache__/
 *.swp
 *.py[cod]
 .cache
+.vscode
 
 # packaging related
 dist/
