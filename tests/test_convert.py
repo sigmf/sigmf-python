@@ -6,10 +6,11 @@
 
 """Tests for Converters"""
 
-import unittest
 import os
 import tempfile
+import unittest
 from pathlib import Path
+
 import numpy as np
 
 try:
@@ -20,11 +21,15 @@ except ImportError:
     SCIPY_AVAILABLE = False
 
 import sigmf
+from sigmf.apps.convert_blue import convert_blue
 from sigmf.apps.convert_wav import convert_wav
 
+BLUE_ENV_VAR = "NONSIGMF_RECORDINGS_PATH"
 
-@unittest.skipUnless(SCIPY_AVAILABLE, "scipy is required for WAV file tests")
+
 class TestWAVConverter(unittest.TestCase):
+    """wav loopback test"""
+
     def setUp(self) -> None:
         """create temp wav file for testing"""
         if not SCIPY_AVAILABLE:
@@ -52,11 +57,47 @@ class TestWAVConverter(unittest.TestCase):
 
 
 class TestBlueConverter(unittest.TestCase):
-    def setUp(self) -> None:
-        # skip test if environment variable not set
-        if not os.getenv("NONSIGMF_RECORDINGS_PATH"):
-            self.skipTest("NONSIGMF_RECORDINGS_PATH environment variable needed for Bluefile tests.")
+    """As we have no blue files in the repository, test only when env path specified."""
 
-    def test_blue_to_sigmffile(self):
-        # Placeholder for actual test implementation
-        self.assertTrue(True)
+    def setUp(self) -> None:
+        blue_path = Path(os.getenv(BLUE_ENV_VAR, "nopath"))
+        if not blue_path or blue_path == Path("nopath"):
+            # skip test if environment variable not set
+            self.skipTest(f"Set {BLUE_ENV_VAR} environment variable to location with .cdif files to run test.")
+        if not blue_path.is_dir():
+            self.fail(f"{blue_path} is not a valid directory.")
+        self.bluefiles = list(blue_path.glob("*.cdif"))
+        if not self.bluefiles:
+            self.fail(f"No .cdif files found in {BLUE_ENV_VAR}.")
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def tearDown(self) -> None:
+        """clean up temporary directory"""
+        self.tmp_dir.cleanup()
+
+    def test_blue_to_sigmf(self):
+        for bdx, bluefile in enumerate(self.bluefiles):
+            sigmf_path = self.tmp_path / f"converted_{bdx}"
+            _ = convert_blue(blue_path=bluefile, out_path=sigmf_path)
+            meta = sigmf.fromfile(sigmf_path)
+
+            ### EVERYTHING BELOW HERE IS FOR DEBUGGING ONLY _ REMOVE LATER ###
+            # plot stft of RF data for visual inspection
+            from scipy.signal import spectrogram
+
+            samples = meta.read_samples()
+            freqs, times, spec = spectrogram(samples, fs=meta.get_global_field("core:sample_rate"), nperseg=1024)
+            # use imshow to plot spectrogram
+            import matplotlib.pyplot as plt
+
+            plt.figure()
+            plt.imshow(
+                10 * np.log10(spec), aspect="auto", extent=[times[0], times[-1], freqs[0], freqs[-1]], origin="lower"
+            )
+            plt.colorbar(label="Intensity [dB]")
+            plt.ylabel("Frequency [Hz]")
+            plt.xlabel("Time [s]")
+            plt.title(f"Spectrogram of {bluefile.name}")
+            plt.show()
+            self.assertIsInstance(meta, sigmf.SigMFFile)

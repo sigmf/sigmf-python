@@ -18,6 +18,8 @@ import logging
 import os
 import struct
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
 
 import numpy as np
 
@@ -242,14 +244,16 @@ def parse_extended_header(file_path, hcb, endian="<"):
     return entries
 
 
-def parse_data_values(file_path, hcb, endianness):
+def parse_data_values(blue_path: Path, out_path: Path, hcb: dict, endianness: str):
     """
     Parse key HCB values used for further processing.
 
     Parameters
     ----------
-    file_path : str
+    blue_path : Path
         Path to the Blue file.
+    out_path : Path
+        Path to output SigMF metadata file.
     hcb : dict
         Header Control Block dictionary.
     endianness : str
@@ -261,13 +265,12 @@ def parse_data_values(file_path, hcb, endianness):
         Parsed samples.
     """
     log.info("parsing blue file data values")
-    with open(file_path, "rb") as handle:
+    with open(blue_path, "rb") as handle:
         data = handle.read(HEADER_SIZE_BYTES)
         if len(data) < HEADER_SIZE_BYTES:
             raise ValueError("Incomplete header")
         dtype = data[52:54].decode("utf-8")  # eg 'CI', 'CF', 'SD'
         log.debug(f"data type: {dtype}")
-
 
         time_interval = np.frombuffer(data[264:272], dtype=np.float64)[0]
         if time_interval <= 0:
@@ -275,11 +278,11 @@ def parse_data_values(file_path, hcb, endianness):
         sample_rate_hz = 1 / time_interval
         log.info(f"sample rate: {sample_rate_hz/1e6:.3f} MHz")
         extended_header_data_size = int.from_bytes(data[28:32], byteorder="little")
-        file_size_bytes = os.path.getsize(file_path)
+        file_size_bytes = os.path.getsize(blue_path)
         log.debug(f"file size: {file_size_bytes} bytes")
 
     # Determine destination path for SigMF data file
-    dest_path = file_path.rsplit(".", 1)[0]
+    dest_path = out_path.with_suffix(".sigmf-data")
 
     ### complex data parsing
 
@@ -287,25 +290,25 @@ def parse_data_values(file_path, hcb, endianness):
     if dtype == "CI":
         elem_size = np.dtype(np.int16).itemsize
         elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        raw_samples = np.fromfile(file_path, dtype=np.int16, offset=HEADER_SIZE_BYTES, count=elem_count)
+        raw_samples = np.fromfile(blue_path, dtype=np.int16, offset=HEADER_SIZE_BYTES, count=elem_count)
         # reassemble interleaved IQ samples
         samples = raw_samples[::2] + 1j * raw_samples[1::2]  # convert to IQIQIQ...
         # normalize samples to -1.0 to +1.0 range
         samples = samples.astype(np.float32) / 32767.0
         # save out as SigMF IQ data file
-        samples.tofile(f"{dest_path}.sigmf-data")
+        samples.tofile(dest_path)
 
     # complex 32-bit integer  IQ data > ci32_le in SigMF
     elif dtype == "CL":
         elem_size = np.dtype(np.int32).itemsize
         elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        raw_samples = np.fromfile(file_path, dtype=np.int32, offset=HEADER_SIZE_BYTES, count=elem_count)
+        raw_samples = np.fromfile(blue_path, dtype=np.int32, offset=HEADER_SIZE_BYTES, count=elem_count)
         # reassemble interleaved IQ samples
         samples = raw_samples[::2] + 1j * raw_samples[1::2]  # convert to IQIQIQ...
         # normalize samples to -1.0 to +1.0 range
         samples = samples.astype(np.float32) / 2147483647.0
         # save out as SigMF IQ data file
-        samples.tofile(f"{dest_path}.sigmf-data")
+        samples.tofile(dest_path)
 
     # complex 32-bit float  IQ data > cf32_le in SigMF
     elif dtype == "CF":
@@ -313,9 +316,9 @@ def parse_data_values(file_path, hcb, endianness):
         # no need to reassemble IQ — already complex
         elem_size = np.dtype(np.complex64).itemsize  # will be 8 bytes
         elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(file_path, dtype=np.complex64, offset=HEADER_SIZE_BYTES, count=elem_count)
+        samples = np.fromfile(blue_path, dtype=np.complex64, offset=HEADER_SIZE_BYTES, count=elem_count)
         # save out as SigMF IQ data file
-        samples.tofile(f"{dest_path}.sigmf-data")
+        samples.tofile(dest_path)
 
     ### scalar data parsing
 
@@ -323,64 +326,94 @@ def parse_data_values(file_path, hcb, endianness):
     elif dtype == "SB":
         elem_size = np.dtype(np.int8).itemsize
         elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(file_path, dtype=np.int8, offset=HEADER_SIZE_BYTES, count=elem_count)
+        samples = np.fromfile(blue_path, dtype=np.int8, offset=HEADER_SIZE_BYTES, count=elem_count)
         # normalize samples to -1.0 to +1.0 range
         samples = samples.astype(np.float32) / 127.0
         # save out as SigMF IQ data file
-        samples.tofile(f"{dest_path}.sigmf-data")
+        samples.tofile(dest_path)
 
     # scalar data parsing > ri16_le in SigMF
     elif dtype == "SI":
         elem_size = np.dtype(np.int16).itemsize
         elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(file_path, dtype=np.int16, offset=HEADER_SIZE_BYTES, count=elem_count)
+        samples = np.fromfile(blue_path, dtype=np.int16, offset=HEADER_SIZE_BYTES, count=elem_count)
         # normalize samples to -1.0 to +1.0 range
         samples = samples / 32767.0
         # save out as SigMF IQ data file
-        samples.tofile(f"{dest_path}.sigmf-data")
+        samples.tofile(dest_path)
 
     # scalar data parsing > ri32_le in SigMF
     elif dtype == "SL":
         elem_size = np.dtype(np.int32).itemsize
         elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(file_path, dtype=np.int32, offset=HEADER_SIZE_BYTES, count=elem_count)
+        samples = np.fromfile(blue_path, dtype=np.int32, offset=HEADER_SIZE_BYTES, count=elem_count)
         # normalize samples to -1.0 to +1.0 range
         samples = samples / 2147483647.0
         # save out as SigMF IQ data file
-        samples.tofile(f"{dest_path}.sigmf-data")
+        samples.tofile(dest_path)
 
     # scalar data parsing > ri64_le in SigMF
     elif dtype == "SX":
         elem_size = np.dtype(np.int64).itemsize
         elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(file_path, dtype=np.int64, offset=HEADER_SIZE_BYTES, count=elem_count)
+        samples = np.fromfile(blue_path, dtype=np.int64, offset=HEADER_SIZE_BYTES, count=elem_count)
         # save out as SigMF IQ data file
-        samples.tofile(f"{dest_path}.sigmf-data")
+        samples.tofile(dest_path)
 
     # scalar data parsing > rf32_le in SigMF
     elif dtype == "SF":
         elem_size = np.dtype(np.float32).itemsize
         elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(file_path, dtype=np.float32, offset=HEADER_SIZE_BYTES, count=elem_count)
+        samples = np.fromfile(blue_path, dtype=np.float32, offset=HEADER_SIZE_BYTES, count=elem_count)
         # save out as SigMF IQ data file
-        samples.tofile(f"{dest_path}.sigmf-data")
+        samples.tofile(dest_path)
 
     # scalar data parsing > rf64_le in SigMF
     elif dtype == "SD":
         elem_size = np.dtype(np.float64).itemsize
         elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(file_path, dtype=np.float64, offset=HEADER_SIZE_BYTES, count=elem_count)
+        samples = np.fromfile(blue_path, dtype=np.float64, offset=HEADER_SIZE_BYTES, count=elem_count)
         # save out as SigMF IQ data file
-        samples.astype(np.complex64).tofile(f"{dest_path}.sigmf-data")
+        samples.astype(np.complex64).tofile(dest_path)
     else:
         raise ValueError(f"Unsupported data type: {dtype}")
 
-    # TODO: validate handling of scalar types - reshape per mathlab port shown here?
+    # TODO: validate handling of scalar types - Reshape per mathlab port shown here?
+
+    """
+    # Save out as SigMF IQ data file
+    if dtype in ("CI", "CL", "CF"):
+        # Complex IQ data → save as cf32_le
+        samples.astype(np.complex64).tofile(dest_path)
+    else:
+        # Scalar data → save in native dtype
+        samples.tofile(dest_path)
+    """
+
+    # TODO: validate handling of scalar types - Reshape per mathlab port shown here?
+
+    """
+    fmt_size_char = self.hcb["format"][0]
+    fmt_type_char = self.hcb["format"][1]
+
+    elementsPerSample = self.FormatSize(fmt_size_char)
+    print('Elements Per Sample', elementsPerSample/1e6)
+    elem_count_per_sample = (
+        np.prod(elementsPerSample) if isinstance(elementsPerSample, (tuple, list)) else elementsPerSample
+    )
+
+    dtype_str, elem_bytes = self.FormatType(fmt_type_char)
+    bytesPerSample = int(elem_bytes) * int(elem_count_per_sample)
+
+    bytesRead = int(self.dataOffset - self.hcb["data_start"])
+    bytes_remaining = int(self.hcb["data_size"] - bytesRead)
+    """
+
     # return the IQ data if needed for further processing if needed
     return samples
 
 
-def blue_to_sigmf(hcb, ext_entries, file_path):
+def construct_sigmf(hcb: dict, ext_entries: list, blue_path: Path, out_path: Path):
     """
     Build a SigMF metadata dict from parsed Bluefile HCB and extended header.
 
@@ -390,8 +423,10 @@ def blue_to_sigmf(hcb, ext_entries, file_path):
         Header Control Block from read_hcb().
     ext_entries : list of dict
         Parsed extended header entries from parse_extended_header().
-    file_path : str
+    blue_path : Path
         Path to the original blue file.
+    out_path : Path
+        Path to output SigMF metadata file.
 
     Returns
     -------
@@ -556,14 +591,12 @@ def blue_to_sigmf(hcb, ext_entries, file_path):
                 chunk = handle.read(bufsize)
         return hash_obj.hexdigest()
 
-    # strip the extension from the original file path
-    base_file_name = os.path.splitext(file_path)[0]
-
     # build the .sigmf-data path
-    data_file_path = base_file_name + ".sigmf-data"
+    data_path = out_path.with_suffix(".sigmf-data")
+    meta_path = out_path.with_suffix(".sigmf-meta")
 
     # compute SHA-512 of the data file
-    data_sha512 = compute_sha512(data_file_path)  # path to the .sigmf-data file
+    data_sha512 = compute_sha512(data_path)  # path to the .sigmf-data file
     global_md["core:sha512"] = data_sha512
 
     # annotations array
@@ -615,10 +648,6 @@ def blue_to_sigmf(hcb, ext_entries, file_path):
         "annotations": annotations,
     }
 
-    # write .sigmf-meta file
-    base_file_name = os.path.splitext(file_path)[0]
-    meta_path = base_file_name + ".sigmf-meta"
-
     with open(meta_path, "w") as meta_handle:
         json.dump(sigmf_metadata, meta_handle, indent=2)
     log.info(f"wrote SigMF metadata to {meta_path}")
@@ -626,25 +655,36 @@ def blue_to_sigmf(hcb, ext_entries, file_path):
     return sigmf_metadata
 
 
-def blue_file_to_sigmf(file_path):
+def convert_blue(
+    blue_path: str,
+    out_path: Optional[str] = None,
+) -> np.ndarray:
     """
     Convert a MIDIS Bluefile to SigMF metadata and data.
 
     Parameters
     ----------
-    file_path : str
+    blue_path : str
         Path to the Blue file.
+    out_path : str
+        Path to the output SigMF metadata file.
 
     Returns
     -------
     numpy.ndarray
         IQ Data.
     """
-    log.info("starting blue file processing")
+    log.debug("starting blue file processing")
+
+    blue_path = Path(blue_path)
+    if out_path is None:
+        # extension will be changed later
+        out_path = Path(blue_path)
+    else:
+        out_path = Path(out_path)
 
     # read Header control block (HCB) from blue file to determine how to process the rest of the file
-    hcb = read_hcb(file_path)
-
+    hcb = read_hcb(blue_path)
     log.debug("Header Control Block (HCB) Fields")
     for name, _, _, _, desc in HCB_LAYOUT:
         log.debug(f"{name:10s}: {hcb[name]!r}  # {desc}")
@@ -663,7 +703,7 @@ def blue_file_to_sigmf(file_path):
         raise ValueError(f"Unknown head_rep value: {extended_header_endianness}")
 
     # parse extended header entries
-    ext_entries = parse_extended_header(file_path, hcb, ext_endianness)
+    ext_entries = parse_extended_header(blue_path, hcb, ext_endianness)
     log.debug("Extended Header Keywords")
     for entry in ext_entries:
         log.debug(f"{entry['tag']:20s}:{entry['value']}")
@@ -676,12 +716,12 @@ def blue_file_to_sigmf(file_path):
     # parse key data values
     # iq_data will be available if needed for further processing.
     try:
-        iq_data = parse_data_values(file_path, hcb, data_endianness)
+        iq_data = parse_data_values(blue_path, out_path, hcb, data_endianness)
     except Exception as error:
         raise RuntimeError(f"Failed to parse data values: {error}") from error
 
     # call the SigMF conversion for metadata generation
-    blue_to_sigmf(hcb, ext_entries, file_path)
+    construct_sigmf(hcb, ext_entries, blue_path, out_path)
 
     # return the IQ data if needed for further processing if needed
     return iq_data
@@ -704,4 +744,4 @@ def main() -> None:
     }
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    blue_file_to_sigmf(args.input)
+    convert_blue(args.input)
