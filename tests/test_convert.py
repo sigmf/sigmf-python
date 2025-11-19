@@ -49,7 +49,8 @@ class TestWAVConverter(unittest.TestCase):
         self.tmp_dir.cleanup()
 
     def test_wav_to_sigmf(self):
-        sigmf_path = convert_wav(wav_path=self.wav_path, out_path=str(self.tmp_path / "bar"))
+        sigmf_path = self.tmp_path / "bar"
+        _ = convert_wav(wav_path=self.wav_path, out_path=sigmf_path)
         meta = sigmf.fromfile(sigmf_path)
         data = meta.read_samples()
         # allow small numerical differences due to data type conversions

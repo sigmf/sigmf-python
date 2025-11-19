@@ -28,6 +28,7 @@ log = logging.getLogger()
 def convert_wav(
     wav_path: str,
     out_path: Optional[str] = None,
+    to_archive: bool = True,
     author: Optional[str] = None,
 ) -> PathLike:
     """
@@ -42,7 +43,7 @@ def convert_wav(
         SigMFFile.DATATYPE_KEY: get_data_type_str(wav_data),
         SigMFFile.DESCRIPTION_KEY: f"converted from {wav_path.name}",
         SigMFFile.NUM_CHANNELS_KEY: 1 if len(wav_data.shape) < 2 else wav_data.shape[1],
-        SigMFFile.RECORDER_KEY: "Official SigMF wav converter",
+        SigMFFile.RECORDER_KEY: "Official SigMF WAV converter",
         SigMFFile.SAMPLE_RATE_KEY: samp_rate,
     }
 
@@ -50,7 +51,6 @@ def convert_wav(
     wav_datetime = datetime.fromtimestamp(modify_time, tz=timezone.utc)
 
     capture_info = {
-        SigMFFile.START_INDEX_KEY: 0,
         SigMFFile.DATETIME_KEY: wav_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT),
     }
 
@@ -72,7 +72,7 @@ def convert_wav(
     arc_path = filenames["archive_fn"]
     meta.tofile(arc_path, toarchive=True)
     log.info("wrote %s", arc_path)
-    return arc_path
+    return meta
 
 
 def main() -> None:

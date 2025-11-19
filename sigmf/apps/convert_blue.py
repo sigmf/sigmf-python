@@ -5,14 +5,14 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 """
-Blue File converter with HCB and Extended Header Parsing
-This script reads and parses the HCB (Header Control Block) and extended header keywords from a Blue file format.
+X-Midas BLUE File converter.
+This script reads and parses the HCB (Header Control Block) and Extended Headers.
 It supports different file types and extracts metadata accordingly.
 Converts the extracted metadata into SigMF format.
 """
 
 import argparse
-import hashlib
+import getpass
 import json
 import logging
 import os
@@ -23,8 +23,11 @@ from typing import Optional
 
 import numpy as np
 
+from .. import SigMFFile
 from .. import __version__ as toolversion
 from ..error import SigMFConversionError
+from ..sigmffile import get_sigmf_filenames
+from ..utils import SIGMF_DATETIME_ISO8601_FMT
 
 log = logging.getLogger()
 
@@ -42,7 +45,7 @@ HCB_LAYOUT = [
     ("data_start",32,  8,  "d",    "Data start in bytes"),
     ("data_size", 40,  8,  "d",    "Data size in bytes"),
     ("type",      48,  4,  "i",    "File type code"),
-    ("format",    52,  2,  "2s",   "Data format code"),
+    ("format",    52,  2,  "2s",   "2 Letter data format code"),
     ("flagmask",  54,  2,  "h",    "16-bit flagmask"),
     ("timecode",  56,  8,  "d",    "Time code field"),
     ("inlet",     64,  2,  "h",    "Inlet owner"),
@@ -55,7 +58,7 @@ HCB_LAYOUT = [
     ("outbytes",  96,  64, "8d",   "Next out byte (each outlet)"),
     ("keylength", 160, 4,  "i",    "Length of keyword string"),
     ("keywords",  164, 92, "92s",  "User defined keyword string"),
-    # Adjunct starts at 256
+    # Adjunct starts at 256 after this
 ]
 # fmt: on
 
@@ -70,9 +73,51 @@ TYPE_MAP = {
     "A": (np.dtype("S1"), 1),
 }
 
-
 HEADER_SIZE_BYTES = 512
 BLOCK_SIZE_BYTES = 512
+
+NORMALIZATION_FACTORS = {
+    # format : normalization factor
+    "SB": 2**7 - 1,  # scalar 8-bit integer
+    "SI": 2**15 - 1,  # scalar 16-bit integer
+    "SL": 2**31 - 1,  # scalar 32-bit integer
+    "CB": 2**7 - 1,  # complex 8-bit integer
+    "CI": 2**15 - 1,  # complex 16-bit integer
+    "CL": 2**31 - 1,  # complex 32-bit integer
+}
+
+# Data type configurations
+DATA_TYPE_CONFIGS = {
+    "CB": {"dtype": np.int8, "complex": True, "normalize": True},
+    "CI": {"dtype": np.int16, "complex": True, "normalize": True},
+    "CL": {"dtype": np.int32, "complex": True, "normalize": True},
+    "CF": {"dtype": np.complex64, "complex": True, "normalize": False},
+    "SB": {"dtype": np.int8, "complex": False, "normalize": True},
+    "SI": {"dtype": np.int16, "complex": False, "normalize": True},
+    "SL": {"dtype": np.int32, "complex": False, "normalize": True},
+    "SX": {"dtype": np.int64, "complex": False, "normalize": False},
+    "SF": {"dtype": np.float32, "complex": False, "normalize": False},
+    "SD": {"dtype": np.float64, "complex": False, "normalize": False},
+}
+
+DATATYPE_MAP_BASE = {
+    # S = Scalar
+    "SB": "ri8",
+    "SI": "ri16",
+    "SL": "ri32",
+    "SX": "ri64",
+    "SF": "rf32",
+    "SD": "rf64",
+    # C = Complex
+    "CB": "ci8",
+    "CI": "ci16",
+    "CL": "ci32",
+    "CX": "ci64",
+    "CF": "cf32",
+    "CD": "cf32",  # FIXME: should be cf64? D should be double.
+    # V = Vector (not supported)
+    # Q = Quad (not supported)
+}
 
 
 def detect_endian(data, layout, probe_fields=("data_size", "version")):
@@ -131,7 +176,7 @@ def detect_endian(data, layout, probe_fields=("data_size", "version")):
 
 def read_hcb(file_path):
     """
-    Read HCB fields and adjunct block from a Blue file.
+    Read Header Control Block (HCB) and adjunct block from a Blue file.
 
     Parameters
     ----------
@@ -147,6 +192,8 @@ def read_hcb(file_path):
     hcb = {}
     with open(file_path, "rb") as handle:
         data = handle.read(HEADER_SIZE_BYTES)
+        if len(data) < HEADER_SIZE_BYTES:
+            raise SigMFConversionError("Incomplete header")
         endian = detect_endian(data, HCB_LAYOUT)
 
         # fixed fields
@@ -155,7 +202,7 @@ def read_hcb(file_path):
             try:
                 val = struct.unpack(endian + fmt, raw)[0]
             except struct.error:
-                raise ValueError(f"Failed to unpack field {name} with endian {endian}")
+                raise SigMFConversionError(f"Failed to unpack field {name} with endian {endian}")
             if isinstance(val, bytes):
                 val = val.decode("ascii", errors="replace").strip("\x00 ")
             hcb[name] = val
@@ -182,17 +229,19 @@ def read_hcb(file_path):
         else:
             hcb["adjunct_raw"] = handle.read(adjunct_offset_bytes)
 
+    validate_hcb(hcb)
+
     return hcb
 
 
-def parse_extended_header(file_path, hcb, endian="<"):
+def read_extended_header(file_path, hcb, endian="<"):
     """
-    Parse extended header keyword records.
+    Read Extended Header from a BLUE file.
 
     Parameters
     ----------
     file_path : str
-        Path to the Bluefile.
+        Path to the BLUE file.
     hcb : dict
         Header Control Block containing 'ext_size' and 'ext_start'.
     endian : str, optional
@@ -222,7 +271,7 @@ def parse_extended_header(file_path, hcb, endian="<"):
             if type_char == "A":
                 raw = handle.read(val_len)
                 if len(raw) < val_len:
-                    raise ValueError("Unexpected end of extended header")
+                    raise SigMFConversionError("Unexpected end of extended header")
                 value = raw.rstrip(b"\x00").decode("ascii", errors="replace")
             else:
                 value = np.frombuffer(handle.read(val_len), dtype=dtype, count=val_count)
@@ -241,188 +290,84 @@ def parse_extended_header(file_path, hcb, endian="<"):
             entries.append({"tag": tag, "type": type_char, "value": value, "lkey": lkey, "lext": lext, "ltag": ltag})
             bytes_remaining -= lkey
 
+    validate_extended_header(entries)
+
     return entries
 
 
-def parse_data_values(blue_path: Path, out_path: Path, hcb: dict, endianness: str):
+def parse_data_values(blue_path: Path, out_path: Path, hcb: dict) -> np.ndarray:
     """
     Parse key HCB values used for further processing.
 
     Parameters
     ----------
     blue_path : Path
-        Path to the Blue file.
+        Path to the BLUE file.
     out_path : Path
         Path to output SigMF metadata file.
     hcb : dict
         Header Control Block dictionary.
-    endianness : str
-        Endianness ('<' for little-endian, '>' for big-endian).
 
     Returns
     -------
     numpy.ndarray
         Parsed samples.
     """
-    log.info("parsing blue file data values")
-    with open(blue_path, "rb") as handle:
-        data = handle.read(HEADER_SIZE_BYTES)
-        if len(data) < HEADER_SIZE_BYTES:
-            raise ValueError("Incomplete header")
-        dtype = data[52:54].decode("utf-8")  # eg 'CI', 'CF', 'SD'
-        log.debug(f"data type: {dtype}")
+    log.info("parsing BLUE file data values")
 
-        time_interval = np.frombuffer(data[264:272], dtype=np.float64)[0]
-        if time_interval <= 0:
-            raise ValueError(f"Invalid time interval: {time_interval}")
-        sample_rate_hz = 1 / time_interval
-        log.info(f"sample rate: {sample_rate_hz/1e6:.3f} MHz")
-        extended_header_data_size = int.from_bytes(data[28:32], byteorder="little")
-        file_size_bytes = os.path.getsize(blue_path)
-        log.debug(f"file size: {file_size_bytes} bytes")
+    file_size_bytes = os.path.getsize(blue_path)
+    extended_header_data_size = hcb.get("ext_size")
+    format = hcb.get("format")
 
     # Determine destination path for SigMF data file
     dest_path = out_path.with_suffix(".sigmf-data")
 
-    ### complex data parsing
+    config = DATA_TYPE_CONFIGS[format]
+    np_dtype = config["dtype"]
+    is_complex = config["complex"]
+    should_normalize = config["normalize"]
 
-    # complex 16-bit integer  IQ data > ci16_le in SigMF
-    if dtype == "CI":
-        elem_size = np.dtype(np.int16).itemsize
-        elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        raw_samples = np.fromfile(blue_path, dtype=np.int16, offset=HEADER_SIZE_BYTES, count=elem_count)
-        # reassemble interleaved IQ samples
-        samples = raw_samples[::2] + 1j * raw_samples[1::2]  # convert to IQIQIQ...
-        # normalize samples to -1.0 to +1.0 range
-        samples = samples.astype(np.float32) / 32767.0
-        # save out as SigMF IQ data file
-        samples.tofile(dest_path)
+    # calculate element size and count
+    elem_size = np.dtype(np_dtype).itemsize
+    elem_count = (file_size_bytes - extended_header_data_size) // elem_size
 
-    # complex 32-bit integer  IQ data > ci32_le in SigMF
-    elif dtype == "CL":
-        elem_size = np.dtype(np.int32).itemsize
-        elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        raw_samples = np.fromfile(blue_path, dtype=np.int32, offset=HEADER_SIZE_BYTES, count=elem_count)
-        # reassemble interleaved IQ samples
-        samples = raw_samples[::2] + 1j * raw_samples[1::2]  # convert to IQIQIQ...
-        # normalize samples to -1.0 to +1.0 range
-        samples = samples.astype(np.float32) / 2147483647.0
-        # save out as SigMF IQ data file
-        samples.tofile(dest_path)
+    # read raw samples
+    raw_samples = np.fromfile(blue_path, dtype=np_dtype, offset=HEADER_SIZE_BYTES, count=elem_count)
 
-    # complex 32-bit float  IQ data > cf32_le in SigMF
-    elif dtype == "CF":
-        # each complex sample is 8 bytes total (2 × float32), so np.complex64 is appropriate
-        # no need to reassemble IQ — already complex
-        elem_size = np.dtype(np.complex64).itemsize  # will be 8 bytes
-        elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(blue_path, dtype=np.complex64, offset=HEADER_SIZE_BYTES, count=elem_count)
-        # save out as SigMF IQ data file
-        samples.tofile(dest_path)
-
-    ### scalar data parsing
-
-    # scalar data parsing > ri8_le in SigMF
-    elif dtype == "SB":
-        elem_size = np.dtype(np.int8).itemsize
-        elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(blue_path, dtype=np.int8, offset=HEADER_SIZE_BYTES, count=elem_count)
-        # normalize samples to -1.0 to +1.0 range
-        samples = samples.astype(np.float32) / 127.0
-        # save out as SigMF IQ data file
-        samples.tofile(dest_path)
-
-    # scalar data parsing > ri16_le in SigMF
-    elif dtype == "SI":
-        elem_size = np.dtype(np.int16).itemsize
-        elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(blue_path, dtype=np.int16, offset=HEADER_SIZE_BYTES, count=elem_count)
-        # normalize samples to -1.0 to +1.0 range
-        samples = samples / 32767.0
-        # save out as SigMF IQ data file
-        samples.tofile(dest_path)
-
-    # scalar data parsing > ri32_le in SigMF
-    elif dtype == "SL":
-        elem_size = np.dtype(np.int32).itemsize
-        elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(blue_path, dtype=np.int32, offset=HEADER_SIZE_BYTES, count=elem_count)
-        # normalize samples to -1.0 to +1.0 range
-        samples = samples / 2147483647.0
-        # save out as SigMF IQ data file
-        samples.tofile(dest_path)
-
-    # scalar data parsing > ri64_le in SigMF
-    elif dtype == "SX":
-        elem_size = np.dtype(np.int64).itemsize
-        elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(blue_path, dtype=np.int64, offset=HEADER_SIZE_BYTES, count=elem_count)
-        # save out as SigMF IQ data file
-        samples.tofile(dest_path)
-
-    # scalar data parsing > rf32_le in SigMF
-    elif dtype == "SF":
-        elem_size = np.dtype(np.float32).itemsize
-        elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(blue_path, dtype=np.float32, offset=HEADER_SIZE_BYTES, count=elem_count)
-        # save out as SigMF IQ data file
-        samples.tofile(dest_path)
-
-    # scalar data parsing > rf64_le in SigMF
-    elif dtype == "SD":
-        elem_size = np.dtype(np.float64).itemsize
-        elem_count = (file_size_bytes - extended_header_data_size) // elem_size
-        samples = np.fromfile(blue_path, dtype=np.float64, offset=HEADER_SIZE_BYTES, count=elem_count)
-        # save out as SigMF IQ data file
-        samples.astype(np.complex64).tofile(dest_path)
+    if is_complex:
+        # complex data: already in IQIQIQ... format or native complex
+        if np_dtype == np.complex64:
+            # already complex, no reassembly needed
+            samples = raw_samples
+        else:
+            # reassemble interleaved IQ samples
+            samples = raw_samples[::2] + 1j * raw_samples[1::2]
+            # normalize if needed
+            if should_normalize:
+                samples = samples.astype(np.float32) / NORMALIZATION_FACTORS[format]
     else:
-        raise ValueError(f"Unsupported data type: {dtype}")
+        # scalar data
+        samples = raw_samples
+        if should_normalize:
+            samples = samples.astype(np.float32) / NORMALIZATION_FACTORS[format]
 
-    # TODO: validate handling of scalar types - Reshape per mathlab port shown here?
-
-    """
-    # Save out as SigMF IQ data file
-    if dtype in ("CI", "CL", "CF"):
-        # Complex IQ data → save as cf32_le
-        samples.astype(np.complex64).tofile(dest_path)
-    else:
-        # Scalar data → save in native dtype
-        samples.tofile(dest_path)
-    """
-
-    # TODO: validate handling of scalar types - Reshape per mathlab port shown here?
-
-    """
-    fmt_size_char = self.hcb["format"][0]
-    fmt_type_char = self.hcb["format"][1]
-
-    elementsPerSample = self.FormatSize(fmt_size_char)
-    print('Elements Per Sample', elementsPerSample/1e6)
-    elem_count_per_sample = (
-        np.prod(elementsPerSample) if isinstance(elementsPerSample, (tuple, list)) else elementsPerSample
-    )
-
-    dtype_str, elem_bytes = self.FormatType(fmt_type_char)
-    bytesPerSample = int(elem_bytes) * int(elem_count_per_sample)
-
-    bytesRead = int(self.dataOffset - self.hcb["data_start"])
-    bytes_remaining = int(self.hcb["data_size"] - bytesRead)
-    """
+    # save out as SigMF IQ data file
+    samples.tofile(dest_path)
 
     # return the IQ data if needed for further processing if needed
     return samples
 
 
-def construct_sigmf(hcb: dict, ext_entries: list, blue_path: Path, out_path: Path):
+def construct_sigmf(hcb: dict, ext_entries: list, blue_path: Path, out_path: Path) -> SigMFFile:
     """
-    Build a SigMF metadata dict from parsed Bluefile HCB and extended header.
+    Built & write a SigMF object from BLUE metadata.
 
     Parameters
     ----------
     hcb : dict
         Header Control Block from read_hcb().
     ext_entries : list of dict
-        Parsed extended header entries from parse_extended_header().
+        Parsed extended header entries from read_extended_header().
     blue_path : Path
         Path to the original blue file.
     out_path : Path
@@ -435,7 +380,7 @@ def construct_sigmf(hcb: dict, ext_entries: list, blue_path: Path, out_path: Pat
 
     Raises
     ------
-    ValueError
+    SigMFConversionError
         If required fields are missing or invalid.
     """
     # helper to look up extended header values by tag
@@ -445,79 +390,24 @@ def construct_sigmf(hcb: dict, ext_entries: list, blue_path: Path, out_path: Pat
                 return entry["value"]
         return None
 
-    # s - scalar
-    # c - complex
-    # v - vector
-    # q - quad - TODO: pri 2 - add support for other types if they are commonly used.
-    #
-    # b: 8-bit integer
-    # i: 16-bit integer
-    # l: 32-bit integer
-    # x: 64-bit integer
-    # f: 32-bit float
-    # d: 64-bit float
-
-    # global datatype object - little endian
-    datatype_map_le = {
-        "SB": "ri8_le",
-        "SI": "ri16_le",
-        "SL": "ri32_le",
-        "SX": "ri64_le",
-        "SF": "rf32_le",
-        "SD": "rf64_le",
-        "CB": "ci8_le",
-        "CI": "ci16_le",
-        "CL": "ci32_le",
-        "CX": "ci64_le",
-        "CF": "cf32_le",
-        "CD": "cf32_le",
-    }
-
-    # global datatype object - big endian
-    datatype_map_be = {
-        "SB": "ri8_be",
-        "SI": "ri16_be",
-        "SL": "ri32_be",
-        "SX": "ri64_be",
-        "SF": "rf32_be",
-        "SD": "rf64_be",
-        "CB": "ci8_be",
-        "CI": "ci16_be",
-        "CL": "ci32_be",
-        "CX": "ci64_be",
-        "CF": "cf32_be",
-        "CD": "cf32_be",
-    }
-
-    # header data representation: 'EEEI' or 'IEEE' (little or big data endianess representation)
-    header_rep = hcb.get("head_rep")
-
     # data_rep: 'EEEI' or 'IEEE' (little or big data endianess representation)
     data_rep = hcb.get("data_rep")
 
     # data_format: for example 'CI' or 'SD' (data format code - real or complex, int or float)
     data_format = hcb.get("format")
+    endian_suffix = "_le" if data_rep == "EEEI" else "_be"
 
-    if data_rep == "EEEI":  # little endian
-        data_map = datatype_map_le.get(data_format)
-    elif data_rep == "IEEE":  # big endian
-        data_map = datatype_map_be.get(data_format)
-
-    datatype = data_map if data_map is not None else "unknown"
+    # get base datatype and add endianness
+    base_datatype = DATATYPE_MAP_BASE.get(data_format)
+    datatype = base_datatype + endian_suffix
 
     log.info(f"determined SigMF datatype: {datatype} and data representation: {data_rep}")
 
     # sample rate: prefer adjunct.xdelta, else extended header SAMPLE_RATE
     if "adjunct" in hcb and "xdelta" in hcb["adjunct"]:
-        sample_rate_hz = 1.0 / hcb["adjunct"]["xdelta"]
+        sample_rate_hz = 1 / hcb["adjunct"]["xdelta"]
     else:
-        sample_rate_tag = get_tag("SAMPLE_RATE")
-        sample_rate_hz = float(sample_rate_tag) if sample_rate_tag is not None else None
-
-    # for now define static values. perhaps take as JSON input
-    hardware_description = "Blue File Conversion - Unknown Hardware"
-    blue_author = "Blue File Conversion - Unknown Author"
-    blue_license = "Blue File Conversion - Unknown License"
+        sample_rate_hz = float(get_tag("SAMPLE_RATE"))
 
     if "outlets" in hcb and hcb["outlets"] > 0:
         num_channels = int(hcb["outlets"])
@@ -525,134 +415,122 @@ def construct_sigmf(hcb: dict, ext_entries: list, blue_path: Path, out_path: Pat
         num_channels = 1
 
     # base global metadata
-    global_md = {
-        "core:author": blue_author,
-        "core:datatype": datatype,
-        "core:description": hcb.get("keywords", ""),
-        "core:hw": hardware_description,
-        "core:license": blue_license,
-        "core:num_channels": num_channels,
-        "core:sample_rate": sample_rate_hz,
-        "core:version": "1.0.0",
+    global_info = {
+        # FIXME: what common fields are in hcb?
+        "core:author": getpass.getuser(),
+        SigMFFile.DATATYPE_KEY: datatype,
+        # FIXME: is this the most apt description?
+        SigMFFile.DESCRIPTION_KEY: hcb.get("keywords", ""),
+        SigMFFile.RECORDER_KEY: "Official SigMF BLUE converter",
+        SigMFFile.NUM_CHANNELS_KEY: num_channels,
+        SigMFFile.SAMPLE_RATE_KEY: sample_rate_hz,
+        SigMFFile.EXTENSIONS_KEY: [{"name": "blue", "version": "0.0.1", "optional": True}],
     }
 
-    for name, _, _, _, desc in HCB_LAYOUT:
-        value = hcb.get(name)  # safe access
-        if value is None:
-            continue  # or set a default
-        global_md[f"core:blue_hcb_{name}"] = value
+    global_info["blue:hcb"] = hcb
 
     # merge adjunct fields
-    adjunct = hcb.get("adjunct", {})
-    for key, value in adjunct.items():
-        global_md[f"core:blue_adjunct_header_{key}"] = value
+    if "adjunct" in hcb:
+        global_info["blue:adjunct"] = hcb["adjunct"]
 
     # merge extended header fields
-    for entry in ext_entries:
-        name = entry.get("tag")
-        if name is None:
-            continue
-        key = f"core:blue_extended_header_{name}"
-        value = entry.get("value")
-        if hasattr(value, "item"):
-            value = value.item()
-        global_md[key] = value
+    if ext_entries:
+        extended = {}
+        for entry in ext_entries:
+            key = entry.get("tag")
+            value = entry.get("value")
+            if hasattr(value, "item"):
+                value = value.item()
+            extended[key] = value
+        global_info["blue:extended"] = extended
 
-    # convert the datetime object to an ISO 8601 formatted string
-    epoch_time_raw = int(hcb.get("timecode", 0))
+    # BLUE uses 1950-01-01 as epoch, UNIX uses 1970-01-01
+    blue_timecode = int(hcb.get("timecode", 0))
+    blue_epoch = blue_timecode - 631152000  # seconds between 1950 and 1970
+    blue_datetime = datetime.fromtimestamp(blue_epoch, tz=timezone.utc)
 
-    # adjust for Bluefile POSIX epoch (1950 vs 1970)
-    bluefile_epoch_offset = 631152000  # seconds between 1950 and 1970
-    epoch_time = epoch_time_raw - bluefile_epoch_offset
-
-    dt_object_utc = datetime.fromtimestamp(epoch_time, tz=timezone.utc)
-    # format with milliseconds and Zulu suffix
-    iso_8601_string = dt_object_utc.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-    log.debug(f"epoch time: {epoch_time}")
-    log.info(f"ISO 8601 time: {iso_8601_string}")
-
-    # captures array
-    captures = [
-        {
-            "core:datetime": iso_8601_string,
-            "core:frequency": float(get_tag("RF_FREQ") or 0.0),
-            "core:sample_start": 0,
-        }
-    ]
-
-    # compute SHA‑512 hash of data file
-    def compute_sha512(path, bufsize=1024 * 1024):
-        """Compute SHA-512 hash of a file in chunks."""
-        hash_obj = hashlib.sha512()
-        with open(path, "rb") as handle:
-            chunk = handle.read(bufsize)
-            while chunk:
-                hash_obj.update(chunk)
-                chunk = handle.read(bufsize)
-        return hash_obj.hexdigest()
-
-    # build the .sigmf-data path
-    data_path = out_path.with_suffix(".sigmf-data")
-    meta_path = out_path.with_suffix(".sigmf-meta")
-
-    # compute SHA-512 of the data file
-    data_sha512 = compute_sha512(data_path)  # path to the .sigmf-data file
-    global_md["core:sha512"] = data_sha512
-
-    # annotations array
-    datatype_sizes_bytes = {
-        "ri8_le": 1,
-        "ri16_le": 2,
-        "ri32_le": 4,
-        "ci16_le": 4,
-        "ci32_le": 8,
-        "cf32_le": 8,
-        "rf32_le": 4,
-        "rf64_le": 8,
-        "ri64_le": 8,
-        "ri8_be": 1,
-        "ri16_be": 2,
-        "ri32_be": 4,
-        "ci16_be": 4,
-        "ci32_be": 8,
-        "cf32_be": 8,
-        "rf32_be": 4,
-        "rf64_be": 8,
-        "ri64_be": 8,
+    capture_info = {
+        SigMFFile.DATETIME_KEY: blue_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT),
     }
 
-    # calculate sample count
-    data_size_bytes = int(hcb.get("data_size", 0))
-    if datatype not in datatype_sizes_bytes:
-        raise ValueError(f"Unsupported datatype {datatype}")
-    bytes_per_sample = datatype_sizes_bytes[datatype]
-    sample_count = int(data_size_bytes // bytes_per_sample)
+    if get_tag("RF_FREQ") is not None:
+        # FIXME: I believe there are many possible keys related to tune frequency
+        capture_info[SigMFFile.FREQUENCY_KEY] = float(get_tag("RF_FREQ"))
 
-    rf_freq_hz = float(get_tag("RF_FREQ") or 0.0)
-    bandwidth_hz = float(get_tag("SBT_BANDWIDTH") or 0.0)
+    # actually write to SigMF
+    filenames = get_sigmf_filenames(out_path)
 
-    annotations = [
-        {
-            "core:sample_start": 0,
-            "core:sample_count": sample_count,
-            "core:freq_upper_edge": rf_freq_hz + bandwidth_hz,
-            "core:freq_lower_edge": rf_freq_hz,
-            "core:label": "Sceptere",
-        }
-    ]
+    meta = SigMFFile(
+        data_file=filenames["data_fn"],
+        global_info=global_info,
+    )
+    meta.add_capture(0, metadata=capture_info)
+    log.debug("created %r", meta)
 
-    # final SigMF object
-    sigmf_metadata = {
-        "global": global_md,
-        "captures": captures,
-        "annotations": annotations,
-    }
+    meta.tofile(filenames["meta_fn"], toarchive=False)
+    log.info("wrote %s", filenames["meta_fn"])
 
-    with open(meta_path, "w") as meta_handle:
-        json.dump(sigmf_metadata, meta_handle, indent=2)
-    log.info(f"wrote SigMF metadata to {meta_path}")
+    return meta
 
-    return sigmf_metadata
+
+def validate_hcb(hcb: dict) -> None:
+    """
+    Check that BLUE Header Control Block (HCB) contains minimum required fields.
+
+    Parameters
+    ----------
+    hcb : dict
+        Header Control Block dictionary.
+
+    Raises
+    ------
+    SigMFConversionError
+        If required fields are missing or invalid.
+    """
+    required = ["version", "data_start", "data_size", "data_rep", "head_rep", "detached", "format", "type"]
+    for field in required:
+        if field not in hcb:
+            raise SigMFConversionError(f"Missing required HCB field: {field}")
+        if hcb[field] is None:
+            raise SigMFConversionError(f"Required HCB field {field} is None")
+        log.debug(f"HCB field {field}: {hcb[field]!r}")
+
+    for rep_field in ["data_rep", "head_rep"]:
+        if hcb[rep_field] not in ("EEEI", "IEEE"):
+            raise SigMFConversionError(f"Invalid value for {rep_field}: {hcb[rep_field]}")
+
+    if hcb["format"] not in DATATYPE_MAP_BASE:
+        raise SigMFConversionError(f"Unsupported data format: {hcb['format']}")
+    if hcb["format"] not in DATA_TYPE_CONFIGS:
+        raise SigMFConversionError(f"Unsupported data format: {hcb['format']}")
+
+    # validate xdelta (1 / samp_rate) if present
+    if "adjunct" in hcb and "xdelta" in hcb["adjunct"]:
+        xdelta = hcb["adjunct"]["xdelta"]
+        if xdelta <= 0:
+            raise SigMFConversionError(f"Invalid adjunct xdelta time interval: {xdelta}")
+
+
+def validate_extended_header(entries: list) -> None:
+    """
+    Check that BLUE Extended Header contains minimum required fields.
+
+    Parameters
+    ----------
+    entries : list of dict
+        List of extended header entries.
+
+    Raises
+    ------
+    SigMFConversionError
+        If required fields are missing or invalid.
+    """
+    # check for SAMPLE_RATE if present
+    for entry in entries:
+        if entry["tag"] == "SAMPLE_RATE":
+            sample_rate = float(entry["value"])
+            if sample_rate <= 0:
+                raise SigMFConversionError(f"Invalid SAMPLE_RATE in extended header: {sample_rate}")
 
 
 def convert_blue(
@@ -673,6 +551,12 @@ def convert_blue(
     -------
     numpy.ndarray
         IQ Data.
+
+    Notes
+    -----
+    This function currently reads BLUE then writes a SigMF pair. We could also
+    implement a function that instead writes metadata only for a non-conforming
+    dataset using the HEADER_BYTES_KEY and TRAILING_BYTES_KEY in most cases.
     """
     log.debug("starting blue file processing")
 
@@ -685,6 +569,7 @@ def convert_blue(
 
     # read Header control block (HCB) from blue file to determine how to process the rest of the file
     hcb = read_hcb(blue_path)
+
     log.debug("Header Control Block (HCB) Fields")
     for name, _, _, _, desc in HCB_LAYOUT:
         log.debug(f"{name:10s}: {hcb[name]!r}  # {desc}")
@@ -694,37 +579,22 @@ def convert_blue(
 
     # data_rep: 'EEEI' or 'IEEE' (little or big extended header endianness representation)
     extended_header_endianness = hcb.get("head_rep")
+    ext_endianness = "<" if extended_header_endianness == "EEEI" else ">"
 
-    if extended_header_endianness == "EEEI":
-        ext_endianness = "<"  # little-endian
-    elif extended_header_endianness == "IEEE":
-        ext_endianness = ">"  # big-endian
-    else:
-        raise ValueError(f"Unknown head_rep value: {extended_header_endianness}")
-
-    # parse extended header entries
-    ext_entries = parse_extended_header(blue_path, hcb, ext_endianness)
+    # read extended header entries
+    ext_entries = read_extended_header(blue_path, hcb, ext_endianness)
     log.debug("Extended Header Keywords")
     for entry in ext_entries:
         log.debug(f"{entry['tag']:20s}:{entry['value']}")
     log.info(f"total extended header entries: {len(ext_entries)}")
 
-    # data_rep: 'EEEI' or 'IEEE' (little or big data endianness representation)
-    data_rep_endianness = hcb.get("data_rep")
-    data_endianness = "<" if data_rep_endianness == "EEEI" else ">"
-
     # parse key data values
-    # iq_data will be available if needed for further processing.
-    try:
-        iq_data = parse_data_values(blue_path, out_path, hcb, data_endianness)
-    except Exception as error:
-        raise RuntimeError(f"Failed to parse data values: {error}") from error
+    _ = parse_data_values(blue_path, out_path, hcb)
 
     # call the SigMF conversion for metadata generation
-    construct_sigmf(hcb, ext_entries, blue_path, out_path)
+    meta = construct_sigmf(hcb, ext_entries, blue_path, out_path)
 
-    # return the IQ data if needed for further processing if needed
-    return iq_data
+    return meta
 
 
 def main() -> None:
