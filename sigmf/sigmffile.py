@@ -146,14 +146,38 @@ class SigMFFile(SigMFMetafile):
     CAPTURE_KEY = "captures"
     ANNOTATION_KEY = "annotations"
     VALID_GLOBAL_KEYS = [
-        AUTHOR_KEY, COLLECTION_KEY, DATASET_KEY, DATATYPE_KEY, DATA_DOI_KEY, DESCRIPTION_KEY, EXTENSIONS_KEY,
-        GEOLOCATION_KEY, HASH_KEY, HW_KEY, LICENSE_KEY, META_DOI_KEY, METADATA_ONLY_KEY, NUM_CHANNELS_KEY, RECORDER_KEY,
-        SAMPLE_RATE_KEY, START_OFFSET_KEY, TRAILING_BYTES_KEY, VERSION_KEY
+        AUTHOR_KEY,
+        COLLECTION_KEY,
+        DATASET_KEY,
+        DATATYPE_KEY,
+        DATA_DOI_KEY,
+        DESCRIPTION_KEY,
+        EXTENSIONS_KEY,
+        GEOLOCATION_KEY,
+        HASH_KEY,
+        HW_KEY,
+        LICENSE_KEY,
+        META_DOI_KEY,
+        METADATA_ONLY_KEY,
+        NUM_CHANNELS_KEY,
+        RECORDER_KEY,
+        SAMPLE_RATE_KEY,
+        START_OFFSET_KEY,
+        TRAILING_BYTES_KEY,
+        VERSION_KEY,
     ]
     VALID_CAPTURE_KEYS = [DATETIME_KEY, FREQUENCY_KEY, HEADER_BYTES_KEY, GLOBAL_INDEX_KEY, START_INDEX_KEY]
     VALID_ANNOTATION_KEYS = [
-        COMMENT_KEY, FHI_KEY, FLO_KEY, GENERATOR_KEY, LABEL_KEY, LAT_KEY, LENGTH_INDEX_KEY, LON_KEY, START_INDEX_KEY,
-        UUID_KEY
+        COMMENT_KEY,
+        FHI_KEY,
+        FLO_KEY,
+        GENERATOR_KEY,
+        LABEL_KEY,
+        LAT_KEY,
+        LENGTH_INDEX_KEY,
+        LON_KEY,
+        START_INDEX_KEY,
+        UUID_KEY,
     ]
     VALID_KEYS = {GLOBAL_KEY: VALID_GLOBAL_KEYS, CAPTURE_KEY: VALID_CAPTURE_KEYS, ANNOTATION_KEY: VALID_ANNOTATION_KEYS}
 
@@ -261,6 +285,96 @@ class SigMFFile(SigMFMetafile):
             return False
         # if we get here, the file exists and is conforming
         return True
+
+    @property
+    def datatype(self) -> str:
+        """Fetches the datatype."""
+        return self.get_global_field("core:datatype")
+
+    @property
+    def sample_rate(self) -> float:
+        """Fetches the sample_rate in Hz."""
+        return float(self.get_global_field("core:sample_rate"))
+
+    @property
+    def version(self) -> str:
+        """Fetches the version."""
+        return self.get_global_field("core:version")
+
+    @property
+    def author(self) -> str | None:
+        """Fetches the author."""
+        return self.get_global_field("core:author")
+
+    @property
+    def collection(self) -> str | None:
+        """Fetches the collection."""
+        return self.get_global_field("core:collection")
+
+    @property
+    def dataset(self) -> str | None:
+        """Fetches the dataset."""
+        return self.get_global_field("core:dataset")
+
+    @property
+    def data_doi(self) -> str | None:
+        """Fetches the author."""
+        return self.get_global_field("core:data_doi")
+
+    @property
+    def description(self) -> str | None:
+        """Fetches the description."""
+        return self.get_global_field("core:description")
+
+    @property
+    def hw(self) -> str | None:
+        """Fetches the author."""
+        return self.get_global_field("core:hw")
+
+    @property
+    def license(self) -> str | None:
+        """Fetches the license."""
+        return self.get_global_field("core:license")
+
+    @property
+    def metadata_only(self) -> bool | None:
+        """Fetches the metadata_only."""
+        return self.get_global_field("core:metadata_only")
+
+    @property
+    def meta_doi(self) -> str | None:
+        """Fetches the author."""
+        return self.get_global_field("core:meta_doi")
+
+    @property
+    def num_channels(self) -> int | None:
+        """Fetches the num_channels."""
+        return self.get_global_field("core:num_channels", 1)
+
+    @property
+    def offset(self) -> int | None:
+        """Fetches the offset."""
+        return self.get_global_field("core:offset", 0)
+
+    @property
+    def recorder(self) -> str | None:
+        """Fetches the recorder."""
+        return self.get_global_field("core:recorder")
+
+    @property
+    def sha512(self) -> str | None:
+        """Fetches the sha512."""
+        return self.get_global_field("core:sha512")
+
+    @property
+    def trailing_bytes(self) -> int | None:
+        """Fetches the trailing bytes."""
+        return self.get_global_field("core:trailing_bytes")
+
+    @property
+    def geolocation(self):
+        """Fetches the geolocation."""
+        return self.get_global_field("core:geolocation")
 
     def get_schema(self):
         """
@@ -768,7 +882,9 @@ class SigMFCollection(SigMFMetafile):
     ]
     VALID_KEYS = {COLLECTION_KEY: VALID_COLLECTION_KEYS}
 
-    def __init__(self, metafiles: list = None, metadata: dict = None, base_path=None, skip_checksums: bool = False) -> None:
+    def __init__(
+        self, metafiles: list = None, metadata: dict = None, base_path=None, skip_checksums: bool = False
+    ) -> None:
         """
         Create a SigMF Collection object.
 
@@ -1046,6 +1162,7 @@ def fromarchive(archive_path, dir=None, skip_checksum=False):
     access SigMF archives without extracting them.
     """
     from .archivereader import SigMFArchiveReader
+
     return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
 
 
@@ -1119,8 +1236,10 @@ def get_sigmf_filenames(filename):
     # suffix, because the filename might contain '.' characters which are part
     # of the filename rather than an extension.
     sigmf_suffixes = [
-        SIGMF_DATASET_EXT, SIGMF_METADATA_EXT,
-        SIGMF_ARCHIVE_EXT, SIGMF_COLLECTION_EXT,
+        SIGMF_DATASET_EXT,
+        SIGMF_METADATA_EXT,
+        SIGMF_ARCHIVE_EXT,
+        SIGMF_COLLECTION_EXT,
     ]
     if stem_path.suffix in sigmf_suffixes:
         with_suffix_path = stem_path
