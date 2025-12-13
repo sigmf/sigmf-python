@@ -6,6 +6,7 @@
 
 """SigMFFile Object"""
 
+from typing import Union
 import codecs
 import io
 import json
@@ -31,7 +32,7 @@ class SigMFMetafile:
     VALID_KEYS = {}
 
     def __init__(self):
-        self.version = None
+        self._version = None
         self.schema = None
         self._metadata = None
         self.shape = None
@@ -301,73 +302,77 @@ class SigMFFile(SigMFMetafile):
         """Fetches the version."""
         return self.get_global_field("core:version")
 
+    @version.setter
+    def version(self, v):
+        self.set_global_field("core:version", v)
+
     @property
-    def author(self) -> str | None:
+    def author(self) -> Union[str, None]:
         """Fetches the author."""
         return self.get_global_field("core:author")
 
     @property
-    def collection(self) -> str | None:
+    def collection(self) -> Union[str, None]:
         """Fetches the collection."""
         return self.get_global_field("core:collection")
 
     @property
-    def dataset(self) -> str | None:
+    def dataset(self) -> Union[str, None]:
         """Fetches the dataset."""
         return self.get_global_field("core:dataset")
 
     @property
-    def data_doi(self) -> str | None:
+    def data_doi(self) -> Union[str, None]:
         """Fetches the author."""
         return self.get_global_field("core:data_doi")
 
     @property
-    def description(self) -> str | None:
+    def description(self) -> Union[str, None]:
         """Fetches the description."""
         return self.get_global_field("core:description")
 
     @property
-    def hw(self) -> str | None:
+    def hw(self) -> Union[str, None]:
         """Fetches the author."""
         return self.get_global_field("core:hw")
 
     @property
-    def license(self) -> str | None:
+    def license(self) -> Union[str, None]:
         """Fetches the license."""
         return self.get_global_field("core:license")
 
     @property
-    def metadata_only(self) -> bool | None:
+    def metadata_only(self) -> Union[bool, None]:
         """Fetches the metadata_only."""
         return self.get_global_field("core:metadata_only")
 
     @property
-    def meta_doi(self) -> str | None:
+    def meta_doi(self) -> Union[str, None]:
         """Fetches the author."""
         return self.get_global_field("core:meta_doi")
 
     @property
-    def num_channels(self) -> int | None:
+    def num_channels(self) -> Union[int, None]:
         """Fetches the num_channels."""
         return self.get_global_field("core:num_channels", 1)
 
     @property
-    def offset(self) -> int | None:
+    def offset(self) -> Union[int, None]:
         """Fetches the offset."""
         return self.get_global_field("core:offset", 0)
 
     @property
-    def recorder(self) -> str | None:
+    def recorder(self) -> Union[str, None]:
         """Fetches the recorder."""
         return self.get_global_field("core:recorder")
 
     @property
-    def sha512(self) -> str | None:
+    def sha512(self) -> Union[str, None]:
         """Fetches the sha512."""
         return self.get_global_field("core:sha512")
 
     @property
-    def trailing_bytes(self) -> int | None:
+    def trailing_bytes(self) -> Union[int, None]:
         """Fetches the trailing bytes."""
         return self.get_global_field("core:trailing_bytes")
 
