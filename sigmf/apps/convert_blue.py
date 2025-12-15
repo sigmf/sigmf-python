@@ -369,14 +369,13 @@ def write_data(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
         else:
             # reassemble interleaved IQ samples
             samples = raw_samples[::2] + 1j * raw_samples[1::2]
-            # normalize if needed
-            if should_normalize:
-                samples = samples.astype(np.float32) / NORMALIZATION_FACTORS[fmt]
     else:
         # scalar data
         samples = raw_samples
-        if should_normalize:
-            samples = samples.astype(np.float32) / NORMALIZATION_FACTORS[fmt]
+
+    # normalize if needed
+    if should_normalize:
+        samples /= NORMALIZATION_FACTORS[fmt]
 
     # save out as SigMF IQ data file
     samples.tofile(dest_path)
@@ -468,11 +467,10 @@ def construct_sigmf(out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: 
             extended[key] = value
         global_info["blue:extended"] = extended
 
-    # BLUE uses 1950-01-01 as epoch, UNIX uses 1970-01-01
     blue_start_time = float(h_fixed.get("timecode", 0))
     blue_start_time += h_adjunct.get("xstart", 0)
     blue_start_time += float(h_keywords.get("TC_PREC", 0))
-
+    # timecode uses 1950-01-01 as epoch, datetime uses 1970-01-01
     blue_epoch = blue_start_time - 631152000  # seconds between 1950 and 1970
     # FIXME: I am unsure if the timezone is always UTC in these files
     blue_datetime = datetime.fromtimestamp(blue_epoch, tz=timezone.utc)
@@ -609,6 +607,8 @@ def convert_blue(
     implement a function that instead writes metadata only for a non-conforming
     dataset using the HEADER_BYTES_KEY and TRAILING_BYTES_KEY in most cases.
     """
+    log.debug(f"convert {blue_path}")
+
     blue_path = Path(blue_path)
     if out_path is None:
         # extension will be changed later
