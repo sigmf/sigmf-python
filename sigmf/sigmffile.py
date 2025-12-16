@@ -324,15 +324,15 @@ class SigMFFile(SigMFMetafile):
             raise ValueError("unhandled ndim in SigMFFile.__getitem__(); this shouldn't happen")
         return ray[0] if isinstance(sli, int) else ray  # return element instead of 1-element array
 
-    def _get_start_offset(self):
-        """
-        Return the offset of the first sample.
-        """
-        return self.get_global_field(self.START_OFFSET_KEY, 0)
-
     def get_num_channels(self):
-        """Returns integer number of channels if present, otherwise 1"""
-        return self.get_global_field(self.NUM_CHANNELS_KEY, 1)
+        """Return integer number of channels."""
+        warnings.warn(
+            "get_num_channels() is deprecated and will be removed in a future version of sigmf. "
+            "Use the 'num_channels' attribute instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.num_channels
 
     def _is_conforming_dataset(self):
         """
@@ -383,9 +383,11 @@ class SigMFFile(SigMFMetafile):
         else:
             raise SigMFError("Unable to interpret provided metadata.")
 
-        # if num_channels missing, default to 1
+        # ensure fields required for parsing are present or use defaults
         if self.get_global_field(self.NUM_CHANNELS_KEY) is None:
             self.set_global_field(self.NUM_CHANNELS_KEY, 1)
+        if self.get_global_field(self.START_OFFSET_KEY) is None:
+            self.set_global_field(self.START_OFFSET_KEY, 0)
 
         # set version to current implementation
         self.set_global_field(self.VERSION_KEY, __specification__)
@@ -423,10 +425,8 @@ class SigMFFile(SigMFMetafile):
         If there is already capture info for this index, metadata will be merged
         with the existing metadata, overwriting keys if they were previously set.
         """
-        if start_index < self._get_start_offset():
-            raise SigMFAccessError(
-                "`start_index` {} must be >= the global start index {}".format(start_index, self._get_start_offset())
-            )
+        if start_index < self.offset:
+            raise SigMFAccessError("Capture start_index cannot be less than dataset start offset.")
         capture_list = self._metadata[self.CAPTURE_KEY]
         new_capture = metadata or {}
         new_capture[self.START_INDEX_KEY] = start_index
@@ -452,16 +452,13 @@ class SigMFFile(SigMFMetafile):
 
     def get_capture_info(self, index):
         """
-        Returns a dictionary containing all the capture information at sample
-        'index'.
+        Returns a dictionary containing all the capture information at sample index.
         """
-        if index < self._get_start_offset():
-            raise SigMFAccessError(
-                "`start_index` {} must be >= the global start index {}".format(index, self._get_start_offset())
-            )
+        if index < self.offset:
+            raise SigMFAccessError("Sample index cannot be less than dataset start offset.")
         captures = self._metadata.get(self.CAPTURE_KEY, [])
         if len(captures) == 0:
-            raise SigMFAccessError("No captures are present!")
+            raise SigMFAccessError("No captures in metadata.")
         cap_info = captures[0]
         for capture in captures:
             if capture[self.START_INDEX_KEY] > index:
@@ -494,9 +491,7 @@ class SigMFFile(SigMFMetafile):
         prev_start_sample = 0
         for ii, capture in enumerate(self.get_captures()):
             start_byte += capture.get(self.HEADER_BYTES_KEY, 0)
-            start_byte += (
-                (self.get_capture_start(ii) - prev_start_sample) * self.get_sample_size() * self.get_num_channels()
-            )
+            start_byte += (self.get_capture_start(ii) - prev_start_sample) * self.get_sample_size() * self.num_channels
             prev_start_sample = self.get_capture_start(ii)
             if ii >= index:
                 break
@@ -508,7 +503,7 @@ class SigMFFile(SigMFMetafile):
             end_byte += (
                 (self.get_capture_start(index + 1) - self.get_capture_start(index))
                 * self.get_sample_size()
-                * self.get_num_channels()
+                * self.num_channels
             )
         return (start_byte, end_byte)
 
@@ -516,11 +511,8 @@ class SigMFFile(SigMFMetafile):
         """
         Insert annotation at start_index with length (if != None).
         """
-
-        if start_index < self._get_start_offset():
-            raise SigMFAccessError(
-                "`start_index` {} must be >= the global start index {}".format(start_index, self._get_start_offset())
-            )
+        if start_index < self.offset:
+            raise SigMFAccessError("Annotation start_index cannot be less than dataset start offset.")
 
         new_annot = metadata or {}
         new_annot[self.START_INDEX_KEY] = start_index
@@ -574,7 +566,7 @@ class SigMFFile(SigMFMetafile):
         Determines the size of a sample, in bytes, from the datatype of this set.
         For complex data, a 'sample' includes both the real and imaginary part.
         """
-        return dtype_info(self.get_global_field(self.DATATYPE_KEY))["sample_size"]
+        return dtype_info(self.datatype)["sample_size"]
 
     def _count_samples(self):
         """
@@ -595,18 +587,14 @@ class SigMFFile(SigMFMetafile):
             else:
                 file_bytes = 0
             sample_bytes = file_bytes - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes
-            sample_size = self.get_sample_size()  # size of a sample in bytes
-            num_channels = self.get_num_channels()
-            sample_count = sample_bytes // sample_size // num_channels
-            if sample_bytes % (sample_size * num_channels) != 0:
+            total_sample_size = self.get_sample_size() * self.num_channels
+            sample_count, remainder = divmod(sample_bytes, total_sample_size)
+            if remainder:
                 warnings.warn(
-                    f"Data source does not contain an integer number of samples across channels. "
-                    "It may be invalid data."
+                    "Data source does not contain an integer number of samples across channels, it may be invalid."
                 )
             if self._get_sample_count_from_annotations() > sample_count:
-                warnings.warn(
-                    f"Data source ends before the final annotation in the corresponding SigMF metadata."
-                )
+                warnings.warn("Data source ends before the final annotation in the corresponding SigMF metadata.")
         self.sample_count = sample_count
         return sample_count
 
@@ -673,7 +661,7 @@ class SigMFFile(SigMFMetafile):
 
         dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
         self.is_complex_data = dtype["is_complex"]
-        num_channels = self.get_num_channels()
+        num_channels = self.num_channels
         self.ndim = 1 if (num_channels < 2) else 2
 
         complex_int_separates = dtype["is_complex"] and dtype["is_fixedpoint"]
@@ -769,7 +757,7 @@ class SigMFFile(SigMFMetafile):
             Samples are returned as an array of float or complex, with number of dimensions equal to NUM_CHANNELS_KEY.
         """
         cb = self.get_capture_byte_boundarys(index)
-        if (cb[1] - cb[0]) % (self.get_sample_size() * self.get_num_channels()):
+        if (cb[1] - cb[0]) % (self.get_sample_size() * self.num_channels):
             warnings.warn(
                 f"Capture `{index}` in `{self.data_file}` does not contain "
                 "an integer number of samples across channels. It may be invalid."
@@ -808,11 +796,11 @@ class SigMFFile(SigMFMetafile):
                 raise SigMFFileError("Cannot read samples from a metadata only distribution.")
             else:
                 raise SigMFFileError("No signal data file has been associated with the metadata.")
-        first_byte = start_index * self.get_sample_size() * self.get_num_channels()
+        first_byte = start_index * self.get_sample_size() * self.num_channels
 
         if not self._is_conforming_dataset():
             warnings.warn(f"Recording dataset appears non-compliant, resulting data may be erroneous")
-        return self._read_datafile(first_byte, count * self.get_num_channels(), autoscale, False)
+        return self._read_datafile(first_byte, count * self.num_channels, autoscale, False)
 
     def _read_datafile(self, first_byte, nitems, autoscale, raw_components):
         """
@@ -827,7 +815,7 @@ class SigMFFile(SigMFMetafile):
         component_size = dtype["component_size"]
 
         data_type_out = np.dtype("f4") if not self.is_complex_data else np.dtype("f4, f4")
-        num_channels = self.get_num_channels()
+        num_channels = self.num_channels
 
         if self.data_file is not None:
             fp = open(self.data_file, "rb")
