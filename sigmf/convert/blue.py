@@ -322,7 +322,7 @@ def read_extended_header(file_path, h_fixed):
     return entries
 
 
-def write_data(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
+def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
     """
     Write SigMF data file from BLUE file samples.
 
@@ -342,12 +342,17 @@ def write_data(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
     """
     log.debug("parsing BLUE file data values")
 
-    file_size_bytes = os.path.getsize(blue_path)
-    extended_header_data_size = h_fixed.get("ext_size")
+    # use header data_size field instead of file size calculation
+    data_size_bytes = int(h_fixed.get("data_size", 0))
     fmt = h_fixed.get("format")
+
+    log.debug(f"format: {fmt}, data_size from header: {data_size_bytes} bytes")
 
     # Determine destination path for SigMF data file
     dest_path = out_path.with_suffix(".sigmf-data")
+    print("#" * 80)
+    print("Writing SigMF data to:", dest_path)
+    print("#" * 80)
 
     config = DATA_TYPE_CONFIGS[fmt]
     np_dtype = config["dtype"]
@@ -356,7 +361,9 @@ def write_data(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
 
     # calculate element size and count
     elem_size = np.dtype(np_dtype).itemsize
-    elem_count = (file_size_bytes - extended_header_data_size) // elem_size
+    elem_count = data_size_bytes // elem_size
+
+    log.debug(f"elem_size: {elem_size}, elem_count: {elem_count}, is_complex: {is_complex}")
 
     # read raw samples
     raw_samples = np.fromfile(blue_path, dtype=np_dtype, offset=HEADER_SIZE_BYTES, count=elem_count)
@@ -369,6 +376,7 @@ def write_data(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
         else:
             # reassemble interleaved IQ samples
             samples = raw_samples[::2] + 1j * raw_samples[1::2]
+            log.debug(f"Deinterleaved {len(raw_samples)} samples into {len(samples)} complex samples")
     else:
         # scalar data
         samples = raw_samples
@@ -470,21 +478,27 @@ def construct_sigmf(out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: 
     blue_start_time = float(h_fixed.get("timecode", 0))
     blue_start_time += h_adjunct.get("xstart", 0)
     blue_start_time += float(h_keywords.get("TC_PREC", 0))
-    # timecode uses 1950-01-01 as epoch, datetime uses 1970-01-01
-    blue_epoch = blue_start_time - 631152000  # seconds between 1950 and 1970
-    # FIXME: I am unsure if the timezone is always UTC in these files
-    blue_datetime = datetime.fromtimestamp(blue_epoch, tz=timezone.utc)
 
-    capture_info = {
-        SigMFFile.DATETIME_KEY: blue_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT),
-    }
+    if blue_start_time == 0:
+        log.warning("BLUE timecode is zero or missing; datetime metadata will be absent.")
+        capture_info = {}
+    else:
+        # timecode uses 1950-01-01 as epoch, datetime uses 1970-01-01
+        blue_epoch = blue_start_time - 631152000  # seconds between 1950 and 1970
+        # FIXME: I am unsure if the timezone is always UTC in these files
+        blue_datetime = datetime.fromtimestamp(blue_epoch, tz=timezone.utc)
+
+        capture_info = {
+            SigMFFile.DATETIME_KEY: blue_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT),
+        }
 
     if get_tag("RF_FREQ") is not None:
         # FIXME: I believe there are many possible keys related to tune frequency
         capture_info[SigMFFile.FREQUENCY_KEY] = float(get_tag("RF_FREQ"))
 
     # actually write to SigMF
-    filenames = get_sigmf_filenames(out_path)
+    filenames = get_sigmf_filenames(out_path.stem)
+    print("dbug", filenames)
 
     meta = SigMFFile(
         data_file=filenames["data_fn"],
@@ -582,12 +596,12 @@ def validate_extended_header(entries: list) -> None:
                 raise SigMFConversionError(f"Invalid SAMPLE_RATE in extended header: {sample_rate}")
 
 
-def convert_blue(
+def blue_to_sigmf(
     blue_path: str,
     out_path: Optional[str] = None,
-) -> np.ndarray:
+) -> SigMFFile:
     """
-    Convert a MIDIS Bluefile to SigMF metadata and data.
+    Read a MIDAS Bluefile, write to SigMF, return SigMFFile object.
 
     Parameters
     ----------
@@ -625,7 +639,7 @@ def convert_blue(
     h_extended = read_extended_header(blue_path, h_fixed)
 
     # write to SigMF data file
-    _ = write_data(blue_path, out_path, h_fixed)
+    _ = data_loopback(blue_path, out_path, h_fixed)
 
     log.debug(">>>>>>>>> Fixed Header")
     for key, _, _, _, desc in FIXED_LAYOUT:
@@ -652,7 +666,8 @@ def main() -> None:
     Entry-point for sigmf_convert_blue
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input", type=str, help="Blue (cdif) file path")
+    parser.add_argument("-i", "--input", type=str, required=True, help="BLUE file path")
+    parser.add_argument("-o", "--output", type=str, default=None, help="SigMF path")
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
     args = parser.parse_args()
@@ -664,4 +679,8 @@ def main() -> None:
     }
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    convert_blue(args.input)
+    _ = blue_to_sigmf(blue_path=args.input, out_path=args.output)
+
+
+if __name__ == "__main__":
+    main()

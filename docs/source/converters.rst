@@ -24,15 +24,15 @@ Converters can be used from the command line after ``pip install sigmf``:
 
 .. code-block:: bash
 
-    sigmf_convert_blue input.cdif
-    sigmf_convert_wav input.wav
+    sigmf_convert_blue recording.cdif
+    sigmf_convert_wav recording.wav
 
 or by using module syntax:
 
 .. code-block:: bash
 
-    python3 -m sigmf.convert.blue input.cdif
-    python3 -m sigmf.convert.wav input.wav
+    python3 -m sigmf.convert.blue recording.cdif
+    python3 -m sigmf.convert.wav recording.wav
 
 
 BLUE Converter

@@ -54,7 +54,7 @@ class TestWAVConverter(unittest.TestCase):
         sigmf_path = self.tmp_path / "bar"
         meta = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path)
         data = meta.read_samples()
-        # allow numerical differences due to PCM conversion
+        # allow numerical differences due to PCM quantization
         self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
 
 

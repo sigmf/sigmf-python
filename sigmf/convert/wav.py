@@ -29,7 +29,6 @@ def wav_to_sigmf(
     wav_path: str,
     out_path: Optional[str] = None,
     to_archive: bool = True,
-    author: Optional[str] = None,
 ) -> SigMFFile:
     """
     Read a wav, write a sigmf, return SigMFFile object.
@@ -47,7 +46,6 @@ def wav_to_sigmf(
     np_dtype = f"int{samp_width * 8}"
     wav_data = np.frombuffer(raw_data, dtype=np_dtype).reshape(-1, n_channels)
     global_info = {
-        SigMFFile.AUTHOR_KEY: getpass.getuser() if author is None else author,
         SigMFFile.DATATYPE_KEY: get_data_type_str(wav_data),
         SigMFFile.DESCRIPTION_KEY: f"converted from {wav_path.name}",
         SigMFFile.NUM_CHANNELS_KEY: 1 if len(wav_data.shape) < 2 else wav_data.shape[1],
@@ -88,8 +86,8 @@ def main() -> None:
     Entry-point for sigmf_convert_wav
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input", type=str, help="wav path")
-    parser.add_argument("--author", type=str, default=None, help=f"set {SigMFFile.AUTHOR_KEY} metadata")
+    parser.add_argument("-i", "--input", type=str, required=True, help="WAV path")
+    parser.add_argument("-o", "--output", type=str, default=None, help="SigMF path")
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
     args = parser.parse_args()
@@ -101,10 +99,7 @@ def main() -> None:
     }
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    _ = wav_to_sigmf(
-        wav_path=args.input,
-        author=args.author,
-    )
+    _ = wav_to_sigmf(wav_path=args.input, out_path=args.output)
 
 
 if __name__ == "__main__":
