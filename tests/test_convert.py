@@ -9,20 +9,14 @@
 import os
 import tempfile
 import unittest
+import wave
 from pathlib import Path
 
 import numpy as np
 
-try:
-    from scipy.io import wavfile
-
-    SCIPY_AVAILABLE = True
-except ImportError:
-    SCIPY_AVAILABLE = False
-
 import sigmf
-from sigmf.apps.convert_blue import convert_blue
-from sigmf.apps.convert_wav import convert_wav
+from sigmf.convert.blue import blue_to_sigmf
+from sigmf.convert.wav import wav_to_sigmf
 
 BLUE_ENV_VAR = "NONSIGMF_RECORDINGS_PATH"
 
@@ -32,8 +26,6 @@ class TestWAVConverter(unittest.TestCase):
 
     def setUp(self) -> None:
         """create temp wav file for testing"""
-        if not SCIPY_AVAILABLE:
-            self.skipTest("scipy is required for WAV file tests")
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.tmp_path = Path(self.tmp_dir.name)
         self.wav_path = self.tmp_path / "foo.wav"
@@ -42,7 +34,17 @@ class TestWAVConverter(unittest.TestCase):
         ttt = np.linspace(0, duration_s, int(samp_rate * duration_s), endpoint=False)
         freq = 440  # A4 note
         self.audio_data = 0.5 * np.sin(2 * np.pi * freq * ttt)
-        wavfile.write(self.wav_path, samp_rate, self.audio_data.astype(np.float32))
+        # note scipy could write float wav files directly,
+        # but to avoid adding scipy as a dependency for sigmf-python,
+        # convert float audio to 16-bit PCM integer format
+        audio_int16 = (self.audio_data * 32767).astype(np.int16)
+
+        # write wav file using built-in wave module
+        with wave.open(str(self.wav_path), "wb") as wav_file:
+            wav_file.setnchannels(1)  # mono
+            wav_file.setsampwidth(2)  # 16-bit = 2 bytes
+            wav_file.setframerate(samp_rate)
+            wav_file.writeframes(audio_int16.tobytes())
 
     def tearDown(self) -> None:
         """clean up temporary directory"""
@@ -50,11 +52,10 @@ class TestWAVConverter(unittest.TestCase):
 
     def test_wav_to_sigmf(self):
         sigmf_path = self.tmp_path / "bar"
-        _ = convert_wav(wav_path=self.wav_path, out_path=sigmf_path)
-        meta = sigmf.fromfile(sigmf_path)
+        meta = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path)
         data = meta.read_samples()
-        # allow small numerical differences due to data type conversions
-        self.assertTrue(np.allclose(self.audio_data, data, atol=1e-8))
+        # allow numerical differences due to PCM conversion
+        self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
 
 
 class TestBlueConverter(unittest.TestCase):
@@ -79,18 +80,24 @@ class TestBlueConverter(unittest.TestCase):
 
     def test_blue_to_sigmf(self):
         for bdx, bluefile in enumerate(self.bluefiles):
-            sigmf_path = self.tmp_path / f"converted_{bdx}"
-            _ = convert_blue(blue_path=bluefile, out_path=sigmf_path)
-            meta = sigmf.fromfile(sigmf_path)
+            sigmf_path = self.tmp_path / bluefile.stem
+            meta = blue_to_sigmf(blue_path=bluefile, out_path=sigmf_path)
 
             ### EVERYTHING BELOW HERE IS FOR DEBUGGING ONLY _ REMOVE LATER ###
             # plot stft of RF data for visual inspection
+            import matplotlib.pyplot as plt
             from scipy.signal import spectrogram
+            from swiftfox import summary
 
             samples = meta.read_samples()
+            plt.figure(figsize=(10, 10))
+            summary(samples, detail=0.1, samp_rate=meta.get_global_field("core:sample_rate"))
+            plt.figure()
+            plt.plot(samples.real)
+            plt.plot(samples.imag)
+
             freqs, times, spec = spectrogram(samples, fs=meta.get_global_field("core:sample_rate"), nperseg=1024)
             # use imshow to plot spectrogram
-            import matplotlib.pyplot as plt
 
             plt.figure()
             plt.imshow(

@@ -7,9 +7,10 @@ SigMF API
    :template: custom-module-template.rst
    :recursive:
 
-   sigmf.apps.convert_wav
    sigmf.archive
    sigmf.archivereader
+   sigmf.convert.blue
+   sigmf.convert.wav
    sigmf.error
    sigmf.schema
    sigmf.sigmf_hash

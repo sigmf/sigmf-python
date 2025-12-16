@@ -33,17 +33,14 @@ dependencies = [
 
     [project.scripts]
     sigmf_validate = "sigmf.validate:main"
-    sigmf_convert_wav = "sigmf.apps.convert_wav:main [apps]"
-    sigmf_convert_blue = "sigmf.apps.convert_blue:main [apps]"
+    sigmf_convert_wav = "sigmf.convert.wav:main"
+    sigmf_convert_blue = "sigmf.convert.blue:main"
     [project.optional-dependencies]
     test = [
         "pylint",
         "pytest",
         "pytest-cov",
         "hypothesis",   # next-gen testing framework
-    ]
-    apps = [
-        "scipy",        # for wav i/o
     ]
 
 [tool.setuptools]
@@ -107,6 +104,6 @@ legacy_tox_ini = '''
 
     [testenv]
     usedevelop = True
-    deps = .[test,apps]
+    deps = .[test]
     commands = coverage run
 '''

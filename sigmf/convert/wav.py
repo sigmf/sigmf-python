@@ -10,12 +10,12 @@ import argparse
 import getpass
 import logging
 import tempfile
+import wave
 from datetime import datetime, timezone
-from os import PathLike
 from pathlib import Path
 from typing import Optional
 
-from scipy.io import wavfile
+import numpy as np
 
 from .. import SigMFFile
 from .. import __version__ as toolversion
@@ -25,19 +25,27 @@ from ..utils import SIGMF_DATETIME_ISO8601_FMT, get_data_type_str
 log = logging.getLogger()
 
 
-def convert_wav(
+def wav_to_sigmf(
     wav_path: str,
     out_path: Optional[str] = None,
     to_archive: bool = True,
     author: Optional[str] = None,
-) -> PathLike:
+) -> SigMFFile:
     """
-    Read a wav and write a sigmf archive.
+    Read a wav, write a sigmf, return SigMFFile object.
+
+    Note: Can only read PCM wav files. Use scipy.io.wavefile for broader support.
     """
     wav_path = Path(wav_path)
     wav_stem = wav_path.stem
-    samp_rate, wav_data = wavfile.read(wav_path)
-
+    with wave.open(str(wav_path), "rb") as wav_reader:
+        n_channels = wav_reader.getnchannels()
+        samp_width = wav_reader.getsampwidth()
+        samp_rate = wav_reader.getframerate()
+        n_frames = wav_reader.getnframes()
+        raw_data = wav_reader.readframes(n_frames)
+    np_dtype = f"int{samp_width * 8}"
+    wav_data = np.frombuffer(raw_data, dtype=np_dtype).reshape(-1, n_channels)
     global_info = {
         SigMFFile.AUTHOR_KEY: getpass.getuser() if author is None else author,
         SigMFFile.DATATYPE_KEY: get_data_type_str(wav_data),
@@ -93,7 +101,11 @@ def main() -> None:
     }
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    _ = convert_wav(
+    _ = wav_to_sigmf(
         wav_path=args.input,
         author=args.author,
     )
+
+
+if __name__ == "__main__":
+    main()
