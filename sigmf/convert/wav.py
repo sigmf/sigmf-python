@@ -7,7 +7,6 @@
 """converter for wav containers"""
 
 import argparse
-import getpass
 import logging
 import tempfile
 import wave
@@ -28,7 +27,6 @@ log = logging.getLogger()
 def wav_to_sigmf(
     wav_path: str,
     out_path: Optional[str] = None,
-    to_archive: bool = True,
 ) -> SigMFFile:
     """
     Read a wav, write a sigmf, return SigMFFile object.

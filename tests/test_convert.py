@@ -68,7 +68,8 @@ class TestBlueConverter(unittest.TestCase):
             self.skipTest(f"Set {BLUE_ENV_VAR} environment variable to location with .cdif files to run test.")
         if not blue_path.is_dir():
             self.fail(f"{blue_path} is not a valid directory.")
-        self.bluefiles = list(blue_path.glob("*.cdif"))
+        self.bluefiles = list(blue_path.glob("**/*.cdif"))
+        print("bluefiles", self.bluefiles)
         if not self.bluefiles:
             self.fail(f"No .cdif files found in {BLUE_ENV_VAR}.")
         self.tmp_dir = tempfile.TemporaryDirectory()
@@ -82,30 +83,33 @@ class TestBlueConverter(unittest.TestCase):
         for bdx, bluefile in enumerate(self.bluefiles):
             sigmf_path = self.tmp_path / bluefile.stem
             meta = blue_to_sigmf(blue_path=bluefile, out_path=sigmf_path)
+            print(f"Converted {bluefile} to SigMF at {sigmf_path}")
+            if not meta.get_global_field("core:metadata_only"):
+                print(meta.read_samples(count=10))
 
-            ### EVERYTHING BELOW HERE IS FOR DEBUGGING ONLY _ REMOVE LATER ###
-            # plot stft of RF data for visual inspection
-            import matplotlib.pyplot as plt
-            from scipy.signal import spectrogram
-            from swiftfox import summary
+            # ### EVERYTHING BELOW HERE IS FOR DEBUGGING ONLY _ REMOVE LATER ###
+            # # plot stft of RF data for visual inspection
+            # import matplotlib.pyplot as plt
+            # from scipy.signal import spectrogram
+            # from swiftfox import summary
 
-            samples = meta.read_samples()
-            plt.figure(figsize=(10, 10))
-            summary(samples, detail=0.1, samp_rate=meta.get_global_field("core:sample_rate"))
-            plt.figure()
-            plt.plot(samples.real)
-            plt.plot(samples.imag)
+            # samples = meta.read_samples()
+            # plt.figure(figsize=(10, 10))
+            # summary(samples, detail=0.1, samp_rate=meta.get_global_field("core:sample_rate"))
+            # plt.figure()
+            # plt.plot(samples.real)
+            # plt.plot(samples.imag)
 
-            freqs, times, spec = spectrogram(samples, fs=meta.get_global_field("core:sample_rate"), nperseg=1024)
-            # use imshow to plot spectrogram
+            # freqs, times, spec = spectrogram(samples, fs=meta.get_global_field("core:sample_rate"), nperseg=1024)
+            # # use imshow to plot spectrogram
 
-            plt.figure()
-            plt.imshow(
-                10 * np.log10(spec), aspect="auto", extent=[times[0], times[-1], freqs[0], freqs[-1]], origin="lower"
-            )
-            plt.colorbar(label="Intensity [dB]")
-            plt.ylabel("Frequency [Hz]")
-            plt.xlabel("Time [s]")
-            plt.title(f"Spectrogram of {bluefile.name}")
-            plt.show()
+            # plt.figure()
+            # plt.imshow(
+            #     10 * np.log10(spec), aspect="auto", extent=[times[0], times[-1], freqs[0], freqs[-1]], origin="lower"
+            # )
+            # plt.colorbar(label="Intensity [dB]")
+            # plt.ylabel("Frequency [Hz]")
+            # plt.xlabel("Time [s]")
+            # plt.title(f"Spectrogram of {bluefile.name}")
+            # plt.show()
             self.assertIsInstance(meta, sigmf.SigMFFile)

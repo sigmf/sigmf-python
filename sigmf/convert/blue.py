@@ -12,9 +12,9 @@ Converts the extracted metadata into SigMF format.
 """
 
 import argparse
+import base64
 import getpass
 import logging
-import os
 import struct
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,62 +61,63 @@ FIXED_LAYOUT = [
 ]
 # fmt: on
 
-TYPE_MAP = {
-    # Extended Header type map
-    "B": (np.int8, 1),
-    "I": (np.int16, 2),
-    "L": (np.int32, 4),
-    "X": (np.int64, 8),
-    "F": (np.float32, 4),
-    "D": (np.float64, 8),
-    "A": (np.dtype("S1"), 1),
-}
-
 HEADER_SIZE_BYTES = 512
 BLOCK_SIZE_BYTES = 512
 
-NORMALIZATION_FACTORS = {
-    # format : normalization factor
-    "SB": 2**7 - 1,  # scalar 8-bit integer
-    "SI": 2**15 - 1,  # scalar 16-bit integer
-    "SL": 2**31 - 1,  # scalar 32-bit integer
-    "CB": 2**7 - 1,  # complex 8-bit integer
-    "CI": 2**15 - 1,  # complex 16-bit integer
-    "CL": 2**31 - 1,  # complex 32-bit integer
+TYPE_MAP = {
+    # BLUE code to numpy dtype
+    "A": np.dtype("S1"),  # ASCII character
+    "B": np.int8,
+    "I": np.int16,
+    "L": np.int32,
+    "X": np.int64,
+    "F": np.float32,
+    "D": np.float64,
+    # unsupported codes
+    # "P" : packed bits
+    # "N" : 4-bit integer
 }
 
-# Data type configurations
-DATA_TYPE_CONFIGS = {
-    "CB": {"dtype": np.int8, "complex": True, "normalize": True},
-    "CI": {"dtype": np.int16, "complex": True, "normalize": True},
-    "CL": {"dtype": np.int32, "complex": True, "normalize": True},
-    "CF": {"dtype": np.complex64, "complex": True, "normalize": False},
-    "SB": {"dtype": np.int8, "complex": False, "normalize": True},
-    "SI": {"dtype": np.int16, "complex": False, "normalize": True},
-    "SL": {"dtype": np.int32, "complex": False, "normalize": True},
-    "SX": {"dtype": np.int64, "complex": False, "normalize": False},
-    "SF": {"dtype": np.float32, "complex": False, "normalize": False},
-    "SD": {"dtype": np.float64, "complex": False, "normalize": False},
-}
 
-DATATYPE_MAP_BASE = {
-    # S = Scalar
-    "SB": "ri8",
-    "SI": "ri16",
-    "SL": "ri32",
-    "SX": "ri64",
-    "SF": "rf32",
-    "SD": "rf64",
-    # C = Complex
-    "CB": "ci8",
-    "CI": "ci16",
-    "CL": "ci32",
-    "CX": "ci64",
-    "CF": "cf32",
-    "CD": "cf32",  # FIXME: should be cf64? D should be double.
-    # V = Vector (not supported)
-    # Q = Quad (not supported)
-}
+def blue_to_sigmf_type_str(h_fixed):
+    """
+    Convert BLUE format code to SigMF datatype string.
+
+    Parameters
+    ----------
+    h_fixed : dict
+        Fixed Header dictionary containing 'format' and 'data_rep' fields.
+
+    Returns
+    -------
+    str
+        SigMF datatype string (e.g., 'ci16_le', 'rf32_be').
+    """
+    # extract format code and endianness from header
+    format_code = h_fixed.get("format")
+    endianness = h_fixed.get("data_rep")
+
+    # parse format code components
+    is_complex = format_code[0] == "C"
+    numpy_dtype = TYPE_MAP[format_code[1]]
+
+    # compute everything from numpy dtype
+    dtype_obj = np.dtype(numpy_dtype)
+    bits = dtype_obj.itemsize * 8  # bytes to bits
+
+    # infer sigmf type from numpy kind
+    sigmf_type = "i" if dtype_obj.kind in ("i", "u") else "f"
+
+    # build datatype string
+    prefix = "c" if is_complex else "r"
+    datatype = f"{prefix}{sigmf_type}{bits}"
+
+    # add endianness for types > 8 bits
+    if bits > 8:
+        endian_suffix = "_le" if endianness == "EEEI" else "_be"
+        datatype += endian_suffix
+
+    return datatype
 
 
 def detect_endian(data, probe_fields=("data_size", "version")):
@@ -142,7 +143,6 @@ def detect_endian(data, probe_fields=("data_size", "version")):
     SigMFConversionError
         If the endianness is unexpected.
     """
-    # TODO: handle both types of endianess 'EEEI' or IEEE and data rep and signal rep
     endianness = data[8:12].decode("ascii")
     if endianness not in ("EEEI", "IEEE"):
         raise SigMFConversionError(f"Unexpected endianness: {endianness}")
@@ -159,14 +159,14 @@ def detect_endian(data, probe_fields=("data_size", "version")):
                 MAX_DATA_SIZE_FACTOR = 100
 
                 if key == "data_size":
-                    if val <= 0 or val > len(data) * MAX_DATA_SIZE_FACTOR:
+                    if val < 0 or val > lenf(data) * MAX_DATA_SIZE_FACTOR:
                         ok = False
                         break
                 elif key == "version":
                     if not 0 < val < 10:  # expect small version number
                         ok = False
                         break
-            except Exception:
+            except (struct.error, ValueError, IndexError):
                 ok = False
                 break
         if ok:
@@ -243,7 +243,10 @@ def read_hcb(file_path):
                 "yunits": struct.unpack(f"{endian}i", handle.read(4))[0],
             }
         else:
-            h_adjunct = handle.read(256)
+            # read raw adjunct header as bytes and convert to base64 for JSON serialization
+            log.warning(f"Unknown BLUE file type {h_fixed['type']}, encoding adjunct header in metadata as base64.")
+            raw_adjunct = handle.read(256)
+            h_adjunct = {"raw_base64": base64.b64encode(raw_adjunct).decode("ascii")}
 
     ver_lut = {"1.0": "BLUE 1.0", "1.1": "BLUE 1.1", "2.0": "Platinum"}
     spec_str = ver_lut.get(h_keywords.get("VER", "1.0"))
@@ -291,7 +294,15 @@ def read_extended_header(file_path, h_fixed):
             ltag = struct.unpack(f"{endian}b", handle.read(1))[0]
             type_char = handle.read(1).decode("ascii", errors="replace")
 
-            dtype, bytes_per_element = TYPE_MAP.get(type_char, (np.dtype("S1"), 1))
+            # get dtype and compute bytes per element
+            if type_char in TYPE_MAP:
+                dtype = TYPE_MAP[type_char]
+                bytes_per_element = np.dtype(dtype).itemsize
+            else:
+                # fallback for unknown types
+                dtype = np.dtype("S1")
+                bytes_per_element = 1
+
             val_len = lkey - lext
             val_count = val_len // bytes_per_element if bytes_per_element else 0
 
@@ -303,7 +314,16 @@ def read_extended_header(file_path, h_fixed):
             else:
                 value = np.frombuffer(handle.read(val_len), dtype=dtype, count=val_count)
                 if value.size == 1:
-                    value = value[0]
+                    val_item = value[0]
+                    # handle bytes first (numpy.bytes_ is also np.generic)
+                    if isinstance(val_item, bytes):
+                        # handle bytes from S1 dtype - convert to base64 for JSON
+                        value = base64.b64encode(val_item).decode("ascii")
+                    elif isinstance(val_item, np.generic):
+                        # convert numpy scalar to native python type
+                        value = val_item.item()
+                    else:
+                        value = val_item
                 else:
                     value = value.tolist()
 
@@ -338,7 +358,7 @@ def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
     Returns
     -------
     numpy.ndarray
-        Parsed samples.
+        Parsed samples. Empty array for zero-sample files.
     """
     log.debug("parsing BLUE file data values")
 
@@ -348,22 +368,26 @@ def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
 
     log.debug(f"format: {fmt}, data_size from header: {data_size_bytes} bytes")
 
-    # Determine destination path for SigMF data file
-    dest_path = out_path.with_suffix(".sigmf-data")
-    print("#" * 80)
-    print("Writing SigMF data to:", dest_path)
-    print("#" * 80)
-
-    config = DATA_TYPE_CONFIGS[fmt]
-    np_dtype = config["dtype"]
-    is_complex = config["complex"]
-    should_normalize = config["normalize"]
+    # parse format code components
+    is_complex = fmt[0] == "C"
+    np_dtype = TYPE_MAP[fmt[1]]
 
     # calculate element size and count
     elem_size = np.dtype(np_dtype).itemsize
     elem_count = data_size_bytes // elem_size
 
     log.debug(f"elem_size: {elem_size}, elem_count: {elem_count}, is_complex: {is_complex}")
+
+    # check for zero-sample file (metadata-only)
+    if elem_count == 0:
+        log.info("detected zero-sample BLUE file, creating metadata-only SigMF")
+        return np.array([], dtype=np_dtype)
+
+    # Determine destination path for SigMF data file
+    dest_path = out_path.with_suffix(".sigmf-data")
+    print("#" * 80)
+    print("Writing SigMF data to:", dest_path)
+    print("#" * 80)
 
     # read raw samples
     raw_samples = np.fromfile(blue_path, dtype=np_dtype, offset=HEADER_SIZE_BYTES, count=elem_count)
@@ -381,9 +405,13 @@ def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
         # scalar data
         samples = raw_samples
 
+    # print('dbug', samples.dtype, len(samples), get_normalization_factor(fmt))
+
     # normalize if needed
-    if should_normalize:
-        samples /= NORMALIZATION_FACTORS[fmt]
+    # if should_normalize:
+    #     norm_factor = get_normalization_factor(fmt)
+    #     if norm_factor:
+    #         samples /= norm_factor
 
     # save out as SigMF IQ data file
     samples.tofile(dest_path)
@@ -393,7 +421,9 @@ def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
     return samples
 
 
-def construct_sigmf(out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: dict, h_extended: list) -> SigMFFile:
+def construct_sigmf(
+    out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: dict, h_extended: list, is_metadata_only: bool = False
+) -> SigMFFile:
     """
     Built & write a SigMF object from BLUE metadata.
 
@@ -409,11 +439,13 @@ def construct_sigmf(out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: 
         Adjunct Header
     h_extended : list of dict
         Parsed extended header entries from read_extended_header().
+    is_metadata_only : bool, optional
+        If True, creates a metadata-only SigMF file.
 
     Returns
     -------
-    dict
-        SigMF metadata structure.
+    SigMFFile
+        SigMF object.
     """
     # helper to look up extended header values by tag
     def get_tag(tag):
@@ -422,18 +454,10 @@ def construct_sigmf(out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: 
                 return entry["value"]
         return None
 
-    # data_rep: 'EEEI' or 'IEEE' (little or big data endianess representation)
-    data_rep = h_fixed.get("data_rep")
+    # get sigmf datatype from blue format and endianness
+    datatype = blue_to_sigmf_type_str(h_fixed)
 
-    # data_format: for example 'CI' or 'SD' (data format code - real or complex, int or float)
-    data_format = h_fixed.get("format")
-    endian_suffix = "_le" if data_rep == "EEEI" else "_be"
-
-    # get base datatype and add endianness
-    base_datatype = DATATYPE_MAP_BASE.get(data_format)
-    datatype = base_datatype + endian_suffix
-
-    log.info(f"Using SigMF datatype: {datatype} for BLUE format {h_fixed['format']} and endianness {data_rep}.")
+    log.info(f"Using SigMF datatype: {datatype} for BLUE format {h_fixed['format']}")
 
     # sample rate: prefer adjunct.xdelta, else extended header SAMPLE_RATE
     if "xdelta" in h_adjunct:
@@ -448,16 +472,18 @@ def construct_sigmf(out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: 
 
     # base global metadata
     global_info = {
-        # FIXME: what common fields are in h_fixed?
         "core:author": getpass.getuser(),
         SigMFFile.DATATYPE_KEY: datatype,
-        # FIXME: what is the most apt description?
         # SigMFFile.DESCRIPTION_KEY: ???,
         SigMFFile.RECORDER_KEY: "Official SigMF BLUE converter",
         SigMFFile.NUM_CHANNELS_KEY: num_channels,
         SigMFFile.SAMPLE_RATE_KEY: sample_rate_hz,
         SigMFFile.EXTENSIONS_KEY: [{"name": "blue", "version": "0.0.1", "optional": True}],
     }
+
+    # set metadata-only flag for zero-sample files
+    if is_metadata_only:
+        global_info[SigMFFile.METADATA_ONLY_KEY] = True
 
     # merge HCB values into metadata
     global_info["blue:fixed"] = h_fixed
@@ -485,7 +511,6 @@ def construct_sigmf(out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: 
     else:
         # timecode uses 1950-01-01 as epoch, datetime uses 1970-01-01
         blue_epoch = blue_start_time - 631152000  # seconds between 1950 and 1970
-        # FIXME: I am unsure if the timezone is always UTC in these files
         blue_datetime = datetime.fromtimestamp(blue_epoch, tz=timezone.utc)
 
         capture_info = {
@@ -493,17 +518,25 @@ def construct_sigmf(out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: 
         }
 
     if get_tag("RF_FREQ") is not None:
-        # FIXME: I believe there are many possible keys related to tune frequency
+        # There may be other keys related to tune frequency
         capture_info[SigMFFile.FREQUENCY_KEY] = float(get_tag("RF_FREQ"))
 
     # actually write to SigMF
     filenames = get_sigmf_filenames(out_path.stem)
     print("dbug", filenames)
 
-    meta = SigMFFile(
-        data_file=filenames["data_fn"],
-        global_info=global_info,
-    )
+    # for metadata-only files, don't specify data_file and skip checksum
+    if is_metadata_only:
+        meta = SigMFFile(
+            data_file=None,
+            global_info=global_info,
+            skip_checksum=True,
+        )
+    else:
+        meta = SigMFFile(
+            data_file=filenames["data_fn"],
+            global_info=global_info,
+        )
     meta.add_capture(0, metadata=capture_info)
     log.debug("created %r", meta)
 
@@ -549,17 +582,13 @@ def validate_fixed(h_fixed: dict) -> None:
     for field in required:
         if field not in h_fixed:
             raise SigMFConversionError(f"Missing required Fixed Header field: {field}")
-        # FIXME: when could this possibly occur?
-        if h_fixed[field] is None:
-            raise SigMFConversionError(f"Required Fixed Header field {field} is None")
-
     for rep_field in ["data_rep", "head_rep"]:
         if h_fixed[rep_field] not in ("EEEI", "IEEE"):
             raise SigMFConversionError(f"Invalid value for {rep_field}: {h_fixed[rep_field]}")
-    # FIXME: merge these lookup tables into one
-    if h_fixed["format"] not in DATATYPE_MAP_BASE:
-        raise SigMFConversionError(f"Unsupported data format: {h_fixed['format']}")
-    if h_fixed["format"] not in DATA_TYPE_CONFIGS:
+    if h_fixed["data_size"] < 0:
+        raise SigMFConversionError(f"Invalid data_size: {h_fixed['data_size']} (must be >= 0)")
+    # validate format code is supported
+    if len(h_fixed["format"]) != 2 or h_fixed["format"][0] not in "SC" or h_fixed["format"][1] not in TYPE_MAP:
         raise SigMFConversionError(f"Unsupported data format: {h_fixed['format']}")
 
 
@@ -638,8 +667,15 @@ def blue_to_sigmf(
     # read extended header
     h_extended = read_extended_header(blue_path, h_fixed)
 
-    # write to SigMF data file
-    _ = data_loopback(blue_path, out_path, h_fixed)
+    # check if this is a zero-sample (metadata-only) file
+    data_size_bytes = int(h_fixed.get("data_size", 0))
+    is_metadata_only = data_size_bytes == 0
+
+    # write to SigMF data file only if samples exist
+    if not is_metadata_only:
+        _ = data_loopback(blue_path, out_path, h_fixed)
+    else:
+        log.info("skipping data file creation for zero-sample BLUE file")
 
     log.debug(">>>>>>>>> Fixed Header")
     for key, _, _, _, desc in FIXED_LAYOUT:
@@ -656,7 +692,7 @@ def blue_to_sigmf(
         log.debug(f"{entry['tag']:20s}:{entry['value']}")
 
     # call the SigMF conversion for metadata generation
-    meta = construct_sigmf(out_path, h_fixed, h_keywords, h_adjunct, h_extended)
+    meta = construct_sigmf(out_path, h_fixed, h_keywords, h_adjunct, h_extended, is_metadata_only)
 
     return meta
 
