@@ -461,15 +461,23 @@ def construct_sigmf(
     global_info["blue:keywords"] = h_keywords
     global_info["blue:adjunct"] = h_adjunct
 
-    # merge extended header fields
+    # merge extended header fields, handling duplicate keys
     if h_extended:
         extended = {}
+        tag_counts = {}
         for entry in h_extended:
-            key = entry.get("tag")
+            tag = entry.get("tag")
             value = entry.get("value")
             if hasattr(value, "item"):
                 value = value.item()
-            extended[key] = value
+
+            # handle duplicate tags by numbering them
+            if tag in extended:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+                numbered_tag = f"{tag}_{tag_counts[tag]}"
+                extended[numbered_tag] = value
+            else:
+                extended[tag] = value
         global_info["blue:extended"] = extended
 
     blue_start_time = float(h_fixed.get("timecode", 0))
@@ -557,7 +565,6 @@ def validate_fixed(h_fixed: dict) -> None:
             raise SigMFConversionError(f"Invalid value for {rep_field}: {h_fixed[rep_field]}")
     if h_fixed["data_size"] < 0:
         raise SigMFConversionError(f"Invalid data_size: {h_fixed['data_size']} (must be >= 0)")
-    # validate format code is supported
     if len(h_fixed["format"]) != 2 or h_fixed["format"][0] not in "SC" or h_fixed["format"][1] not in TYPE_MAP:
         raise SigMFConversionError(f"Unsupported data format: {h_fixed['format']}")
 
