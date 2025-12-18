@@ -91,25 +91,20 @@ class TestBlueConverter(unittest.TestCase):
             # # plot stft of RF data for visual inspection
             # import matplotlib.pyplot as plt
             # from scipy.signal import spectrogram
-            # from swiftfox import summary
+            # from swiftfox import summary, smartspec
 
+            # if meta.get_global_field("core:metadata_only"):
+            #     print("Metadata only file, skipping plot.")
+            #     continue
             # samples = meta.read_samples()
-            # plt.figure(figsize=(10, 10))
-            # summary(samples, detail=0.1, samp_rate=meta.get_global_field("core:sample_rate"))
+            # # plt.figure(figsize=(10, 10))
+            # summary(samples, detail=0.1, samp_rate=meta.get_global_field("core:sample_rate"), title=sigmf_path.name)
             # plt.figure()
-            # plt.plot(samples.real)
-            # plt.plot(samples.imag)
-
-            # freqs, times, spec = spectrogram(samples, fs=meta.get_global_field("core:sample_rate"), nperseg=1024)
+            # # plt.plot(samples.real)
+            # # plt.plot(samples.imag)
+            # # plt.figure()
+            # spec = smartspec(samples, detail=0.5, samp_rate=meta.get_global_field("core:sample_rate"))
             # # use imshow to plot spectrogram
 
-            # plt.figure()
-            # plt.imshow(
-            #     10 * np.log10(spec), aspect="auto", extent=[times[0], times[-1], freqs[0], freqs[-1]], origin="lower"
-            # )
-            # plt.colorbar(label="Intensity [dB]")
-            # plt.ylabel("Frequency [Hz]")
-            # plt.xlabel("Time [s]")
-            # plt.title(f"Spectrogram of {bluefile.name}")
             # plt.show()
             self.assertIsInstance(meta, sigmf.SigMFFile)

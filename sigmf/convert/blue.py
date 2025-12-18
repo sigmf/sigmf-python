@@ -145,7 +145,7 @@ def detect_endian(data):
     elif endianness == "IEEE":
         return ">"
     else:
-        raise SigMFConversionError(f"Unexpected endianness: {endianness}")
+        raise SigMFConversionError(f"Unsupported endianness: {endianness}")
 
 
 def read_hcb(file_path):
@@ -313,7 +313,7 @@ def read_extended_header(file_path, h_fixed):
     return entries
 
 
-def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
+def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> None:
     """
     Write SigMF data file from BLUE file samples.
 
@@ -356,40 +356,25 @@ def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> np.ndarray:
 
     # Determine destination path for SigMF data file
     dest_path = out_path.with_suffix(".sigmf-data")
-    print("#" * 80)
-    print("Writing SigMF data to:", dest_path)
-    print("#" * 80)
 
     # read raw samples
     raw_samples = np.fromfile(blue_path, dtype=np_dtype, offset=HEADER_SIZE_BYTES, count=elem_count)
 
     if is_complex:
-        # complex data: already in IQIQIQ... format or native complex
-        if np_dtype == np.complex64:
+        # check if data is already complex or needs deinterleaving
+        if np.iscomplexobj(raw_samples):
             # already complex, no reassembly needed
             samples = raw_samples
         else:
             # reassemble interleaved IQ samples
             samples = raw_samples[::2] + 1j * raw_samples[1::2]
-            log.debug(f"Deinterleaved {len(raw_samples)} samples into {len(samples)} complex samples")
     else:
         # scalar data
         samples = raw_samples
 
-    # print('dbug', samples.dtype, len(samples), get_normalization_factor(fmt))
-
-    # normalize if needed
-    # if should_normalize:
-    #     norm_factor = get_normalization_factor(fmt)
-    #     if norm_factor:
-    #         samples /= norm_factor
-
     # save out as SigMF IQ data file
     samples.tofile(dest_path)
     log.info("wrote %s", dest_path)
-
-    # return the IQ data if needed for further processing if needed
-    return samples
 
 
 def construct_sigmf(
@@ -627,7 +612,7 @@ def blue_to_sigmf(
     implement a function that instead writes metadata only for a non-conforming
     dataset using the HEADER_BYTES_KEY and TRAILING_BYTES_KEY in most cases.
     """
-    log.debug(f"convert {blue_path}")
+    log.debug(f"read {blue_path}")
 
     blue_path = Path(blue_path)
     if out_path is None:
@@ -650,7 +635,7 @@ def blue_to_sigmf(
 
     # write to SigMF data file only if samples exist
     if not is_metadata_only:
-        _ = data_loopback(blue_path, out_path, h_fixed)
+        data_loopback(blue_path, out_path, h_fixed)
     else:
         log.info("skipping data file creation for zero-sample BLUE file")
 
