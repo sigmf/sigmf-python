@@ -120,18 +120,14 @@ def blue_to_sigmf_type_str(h_fixed):
     return datatype
 
 
-def detect_endian(data, probe_fields=("data_size", "version")):
+def detect_endian(data):
     """
     Detect endianness of a Bluefile header.
-
-    TODO: Look at this code and see if can be improved and possibly simplified.
 
     Parameters
     ----------
     data : bytes
         Raw header data.
-    probe_fields : tuple of str, optional
-        Field names to test for sanity checks.
 
     Returns
     -------
@@ -144,35 +140,12 @@ def detect_endian(data, probe_fields=("data_size", "version")):
         If the endianness is unexpected.
     """
     endianness = data[8:12].decode("ascii")
-    if endianness not in ("EEEI", "IEEE"):
+    if endianness == "EEEI":
+        return "<"
+    elif endianness == "IEEE":
+        return ">"
+    else:
         raise SigMFConversionError(f"Unexpected endianness: {endianness}")
-
-    for endian in ("<", ">"):
-        ok = True
-        for key, offset, size, fmt, _ in FIXED_LAYOUT:
-            if key not in probe_fields:
-                continue
-            raw = data[offset : offset + size]
-            try:
-                val = struct.unpack(endian + fmt, raw)[0]
-                # sanity checks
-                MAX_DATA_SIZE_FACTOR = 100
-
-                if key == "data_size":
-                    if val < 0 or val > lenf(data) * MAX_DATA_SIZE_FACTOR:
-                        ok = False
-                        break
-                elif key == "version":
-                    if not 0 < val < 10:  # expect small version number
-                        ok = False
-                        break
-            except (struct.error, ValueError, IndexError):
-                ok = False
-                break
-        if ok:
-            return endian
-    # fallback
-    return "<"
 
 
 def read_hcb(file_path):
@@ -268,8 +241,6 @@ def read_extended_header(file_path, h_fixed):
         Path to the BLUE file.
     h_fixed : dict
         Fixed Header containing 'ext_size' and 'ext_start'.
-    endian : str, optional
-        Endianness ('<' for little-endian, '>' for big-endian).
 
     Returns
     -------
@@ -522,8 +493,7 @@ def construct_sigmf(
         capture_info[SigMFFile.FREQUENCY_KEY] = float(get_tag("RF_FREQ"))
 
     # actually write to SigMF
-    filenames = get_sigmf_filenames(out_path.stem)
-    print("dbug", filenames)
+    filenames = get_sigmf_filenames(out_path)
 
     # for metadata-only files, don't specify data_file and skip checksum
     if is_metadata_only:
