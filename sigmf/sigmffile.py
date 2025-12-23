@@ -177,6 +177,7 @@ class SigMFFile(SigMFMetafile):
         """
         super().__init__()
         self.data_file = None
+        self.data_buffer = None
         self.sample_count = 0
         self._memmap = None
         self.is_complex_data = False  # numpy.iscomplexobj(self._memmap) is not adequate for fixed-point complex case
@@ -490,23 +491,28 @@ class SigMFFile(SigMFMetafile):
         use 0.
         For complex data, a 'sample' includes both the real and imaginary part.
         """
-        if self.data_file is None:
+        if self.data_file is None and self.data_buffer is None:
             sample_count = self._get_sample_count_from_annotations()
         else:
             header_bytes = sum([c.get(self.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
-            file_size = self.data_file.stat().st_size if self.data_size_bytes is None else self.data_size_bytes
-            file_data_size = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes  # bytes
+            if self.data_file is not None:
+                file_bytes = self.data_file.stat().st_size if self.data_size_bytes is None else self.data_size_bytes
+            elif self.data_buffer is not None:
+                file_bytes = len(self.data_buffer.getbuffer()) if self.data_size_bytes is None else self.data_size_bytes
+            else:
+                file_bytes = 0
+            sample_bytes = file_bytes - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes
             sample_size = self.get_sample_size()  # size of a sample in bytes
             num_channels = self.get_num_channels()
-            sample_count = file_data_size // sample_size // num_channels
-            if file_data_size % (sample_size * num_channels) != 0:
+            sample_count = sample_bytes // sample_size // num_channels
+            if sample_bytes % (sample_size * num_channels) != 0:
                 warnings.warn(
-                    f"File `{self.data_file}` does not contain an integer number of samples across channels. "
+                    f"Data source does not contain an integer number of samples across channels. "
                     "It may be invalid data."
                 )
             if self._get_sample_count_from_annotations() > sample_count:
                 warnings.warn(
-                    f"File `{self.data_file}` ends before the final annotation in the corresponding SigMF metadata."
+                    f"Data source ends before the final annotation in the corresponding SigMF metadata."
                 )
         self.sample_count = sample_count
         return sample_count
@@ -735,7 +741,9 @@ class SigMFFile(SigMFMetafile):
             fp.seek(first_byte, 0)
             data = np.fromfile(fp, dtype=data_type_in, count=nitems)
         elif self.data_buffer is not None:
-            data = np.frombuffer(self.data_buffer.getbuffer(), dtype=data_type_in, count=nitems)
+            # handle offset for data_buffer like we do for data_file
+            buffer_data = self.data_buffer.getbuffer()[first_byte:]
+            data = np.frombuffer(buffer_data, dtype=data_type_in, count=nitems)
         else:
             data = self._memmap
 
@@ -1065,10 +1073,13 @@ def fromarchive(archive_path, dir=None, skip_checksum=False):
 
 def fromfile(filename, skip_checksum=False):
     """
-    Creates and returns a SigMFFile or SigMFCollection instance with metadata
-    loaded from the specified file. The filename may be that of either a
-    sigmf-meta file, a sigmf-data file, a sigmf-collection file, or a sigmf
-    archive.
+    Creates and returns a SigMFFile or SigMFCollection instance with metadata loaded from the specified file.
+
+    The file can be one of:
+    * A SigMF Metadata file (.sigmf-meta)
+    * A SigMF Dataset file (.sigmf-data)
+    * A SigMF Collection file (.sigmf-collection)
+    * A SigMF Archive file (.sigmf-archive)
 
     Parameters
     ----------
