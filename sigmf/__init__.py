@@ -5,9 +5,9 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 # version of this python module
-__version__ = "1.2.14"
+__version__ = "1.2.15"
 # matching version of the SigMF specification
-__specification__ = "1.2.5"
+__specification__ = "1.2.6"
 
 from . import archive, archivereader, error, schema, sigmffile, utils, validate
 from .archive import SigMFArchive
