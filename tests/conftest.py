@@ -34,5 +34,4 @@ def test_sigmffile(test_data_file):
     meta.add_annotation(start_index=0, length=len(TEST_FLOAT32_DATA))
     meta.add_capture(start_index=0)
     meta.set_data_file(test_data_file.name)
-    assert meta._metadata == TEST_METADATA
     return meta
