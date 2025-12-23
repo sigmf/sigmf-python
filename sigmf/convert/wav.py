@@ -23,26 +23,39 @@ from ..utils import SIGMF_DATETIME_ISO8601_FMT, get_data_type_str
 
 log = logging.getLogger()
 
+try:
+    from scipy.io import wavfile
+except ImportError:
+    SCIPY_INSTALLED = False
+else:
+    SCIPY_INSTALLED = True
+
 
 def wav_to_sigmf(
     wav_path: str,
     out_path: Optional[str] = None,
+    create_archive: bool = False,
 ) -> SigMFFile:
     """
-    Read a wav, write a sigmf, return SigMFFile object.
+    Read a wav, optionally write a sigmf, return SigMFFile object.
 
-    Note: Can only read PCM wav files. Use scipy.io.wavefile for broader support.
+    Raises
+    ------
+    wave.Error
+        If the wav file is not PCM and Scipy is not installed.
     """
     wav_path = Path(wav_path)
-    wav_stem = wav_path.stem
-    with wave.open(str(wav_path), "rb") as wav_reader:
-        n_channels = wav_reader.getnchannels()
-        samp_width = wav_reader.getsampwidth()
-        samp_rate = wav_reader.getframerate()
-        n_frames = wav_reader.getnframes()
-        raw_data = wav_reader.readframes(n_frames)
-    np_dtype = f"int{samp_width * 8}"
-    wav_data = np.frombuffer(raw_data, dtype=np_dtype).reshape(-1, n_channels)
+    if SCIPY_INSTALLED:
+        samp_rate, wav_data = wavfile.read(wav_path)
+    else:
+        with wave.open(str(wav_path), "rb") as wav_reader:
+            n_channels = wav_reader.getnchannels()
+            samp_width = wav_reader.getsampwidth()
+            samp_rate = wav_reader.getframerate()
+            n_frames = wav_reader.getnframes()
+            raw_data = wav_reader.readframes(n_frames)
+        np_dtype = f"int{samp_width * 8}"
+        wav_data = np.frombuffer(raw_data, dtype=np_dtype).reshape(-1, n_channels)
     global_info = {
         SigMFFile.DATATYPE_KEY: get_data_type_str(wav_data),
         SigMFFile.DESCRIPTION_KEY: f"converted from {wav_path.name}",
@@ -58,24 +71,39 @@ def wav_to_sigmf(
         SigMFFile.DATETIME_KEY: wav_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT),
     }
 
-    temp_dir = Path(tempfile.mkdtemp())
     if out_path is None:
-        # extension will be changed
-        out_path = Path(wav_stem)
+        base_path = wav_path.with_suffix(".sigmf")
     else:
-        out_path = Path(out_path)
-    filenames = get_sigmf_filenames(out_path)
+        base_path = Path(out_path)
 
-    data_path = temp_dir / filenames["data_fn"]
-    wav_data.tofile(data_path)
+    filenames = get_sigmf_filenames(base_path)
 
-    meta = SigMFFile(data_file=data_path, global_info=global_info)
-    meta.add_capture(0, metadata=capture_info)
-    log.debug("created %r", meta)
+    output_dir = filenames["meta_fn"].parent
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    arc_path = filenames["archive_fn"]
-    meta.tofile(arc_path, toarchive=True)
-    log.info("wrote %s", arc_path)
+    if create_archive:
+        # use temporary directory for data file when creating archive
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_path = Path(temp_dir) / filenames["data_fn"].name
+            wav_data.tofile(data_path)
+
+            meta = SigMFFile(data_file=data_path, global_info=global_info)
+            meta.add_capture(0, metadata=capture_info)
+            log.debug("created %r", meta)
+
+            meta.tofile(filenames["archive_fn"], toarchive=True)
+            log.info("wrote %s", filenames["archive_fn"])
+    else:
+        data_path = filenames["data_fn"]
+        wav_data.tofile(data_path)
+
+        meta = SigMFFile(data_file=data_path, global_info=global_info)
+        meta.add_capture(0, metadata=capture_info)
+        log.debug("created %r", meta)
+
+        meta.tofile(filenames["meta_fn"], toarchive=False)
+        log.info("wrote %s and %s", filenames["meta_fn"], filenames["data_fn"])
+
     return meta
 
 
@@ -87,6 +115,9 @@ def main() -> None:
     parser.add_argument("-i", "--input", type=str, required=True, help="WAV path")
     parser.add_argument("-o", "--output", type=str, default=None, help="SigMF path")
     parser.add_argument("-v", "--verbose", action="count", default=0)
+    parser.add_argument(
+        "-a", "--archive", action="store_true", help="Save as SigMF archive instead of separate meta/data files."
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
     args = parser.parse_args()
 
@@ -97,7 +128,11 @@ def main() -> None:
     }
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    _ = wav_to_sigmf(wav_path=args.input, out_path=args.output)
+    wav_path = Path(args.input)
+    if args.output is None:
+        args.output = wav_path.with_suffix(".sigmf")
+
+    _ = wav_to_sigmf(wav_path=wav_path, out_path=args.output, create_archive=args.archive)
 
 
 if __name__ == "__main__":

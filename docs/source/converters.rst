@@ -35,6 +35,15 @@ or by using module syntax:
     python3 -m sigmf.convert.wav recording.wav
 
 
+Output Naming
+~~~~~~~~~~~~~
+
+All converters treat the value passed with ``-o/--output`` as a base name and ignore any existing suffix. The tools
+emit ``<base>.sigmf-data`` and ``<base>.sigmf-meta`` files (retaining any original extensions such as ``.cdif`` or
+``.tmp`` in the base). Supplying ``--archive`` packages the result as ``<base>.sigmf`` instead of producing separate
+meta/data files.
+
+
 BLUE Converter
 --------------
 

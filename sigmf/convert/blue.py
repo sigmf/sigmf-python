@@ -14,8 +14,10 @@ Converts the extracted metadata into SigMF format.
 import argparse
 import base64
 import getpass
+import io
 import logging
 import struct
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -221,6 +223,7 @@ def read_hcb(file_path):
             raw_adjunct = handle.read(256)
             h_adjunct = {"raw_base64": base64.b64encode(raw_adjunct).decode("ascii")}
 
+    # FIXME: I've seen VER=2.0.14
     ver_lut = {"1.0": "BLUE 1.0", "1.1": "BLUE 1.1", "2.0": "Platinum"}
     spec_str = ver_lut.get(h_keywords.get("VER", "1.0"))
     log.info(f"Read {h_fixed['version']} type {h_fixed['type']} using {spec_str} specification.")
@@ -313,7 +316,7 @@ def read_extended_header(file_path, h_fixed):
     return entries
 
 
-def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> None:
+def data_loopback(blue_path: Path, data_path: Path, h_fixed: dict) -> None:
     """
     Write SigMF data file from BLUE file samples.
 
@@ -321,8 +324,8 @@ def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> None:
     ----------
     blue_path : Path
         Path to the BLUE file.
-    out_path : Path
-        Path to output SigMF metadata file.
+    data_path : Path
+        Destination path for the SigMF dataset (.sigmf-data).
     h_fixed : dict
         Header Control Block dictionary.
 
@@ -354,9 +357,6 @@ def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> None:
         log.info("detected zero-sample BLUE file, creating metadata-only SigMF")
         return np.array([], dtype=np_dtype)
 
-    # Determine destination path for SigMF data file
-    dest_path = out_path.with_suffix(".sigmf-data")
-
     # read raw samples
     raw_samples = np.fromfile(blue_path, dtype=np_dtype, offset=HEADER_SIZE_BYTES, count=elem_count)
 
@@ -373,20 +373,26 @@ def data_loopback(blue_path: Path, out_path: Path, h_fixed: dict) -> None:
         samples = raw_samples
 
     # save out as SigMF IQ data file
-    samples.tofile(dest_path)
-    log.info("wrote %s", dest_path)
+    samples.tofile(data_path)
+    log.info("wrote %s", data_path)
 
 
 def construct_sigmf(
-    out_path: Path, h_fixed: dict, h_keywords: dict, h_adjunct: dict, h_extended: list, is_metadata_only: bool = False
+    filenames: dict,
+    h_fixed: dict,
+    h_keywords: dict,
+    h_adjunct: dict,
+    h_extended: list,
+    is_metadata_only: bool = False,
+    create_archive: bool = False,
 ) -> SigMFFile:
     """
     Built & write a SigMF object from BLUE metadata.
 
     Parameters
     ----------
-    out_path : Path
-        Path to output SigMF metadata file.
+    filenames : dict
+        Mapping returned by get_sigmf_filenames containing destination paths.
     h_fixed : dict
         Fixed Header
     h_keywords : dict
@@ -397,6 +403,8 @@ def construct_sigmf(
         Parsed extended header entries from read_extended_header().
     is_metadata_only : bool, optional
         If True, creates a metadata-only SigMF file.
+    create_archive : bool, optional
+        When True, package output as SigMF archive instead of a meta/data pair.
 
     Returns
     -------
@@ -485,8 +493,7 @@ def construct_sigmf(
         # There may be other keys related to tune frequency
         capture_info[SigMFFile.FREQUENCY_KEY] = float(get_tag("RF_FREQ"))
 
-    # actually write to SigMF
-    filenames = get_sigmf_filenames(out_path)
+    # TODO: if no output path is specified, construct non-conforming metadata only SigMF
 
     # for metadata-only files, don't specify data_file and skip checksum
     if is_metadata_only:
@@ -495,6 +502,7 @@ def construct_sigmf(
             global_info=global_info,
             skip_checksum=True,
         )
+        meta.data_buffer = io.BytesIO()
     else:
         meta = SigMFFile(
             data_file=filenames["data_fn"],
@@ -503,8 +511,12 @@ def construct_sigmf(
     meta.add_capture(0, metadata=capture_info)
     log.debug("created %r", meta)
 
-    meta.tofile(filenames["meta_fn"], toarchive=False)
-    log.info("wrote %s", filenames["meta_fn"])
+    if create_archive:
+        meta.tofile(filenames["archive_fn"], toarchive=True)
+        log.info("wrote %s", filenames["archive_fn"])
+    else:
+        meta.tofile(filenames["meta_fn"], toarchive=False)
+        log.info("wrote %s", filenames["meta_fn"])
 
     return meta
 
@@ -590,6 +602,7 @@ def validate_extended_header(entries: list) -> None:
 def blue_to_sigmf(
     blue_path: str,
     out_path: Optional[str] = None,
+    create_archive: bool = False,
 ) -> SigMFFile:
     """
     Read a MIDAS Bluefile, write to SigMF, return SigMFFile object.
@@ -600,6 +613,8 @@ def blue_to_sigmf(
         Path to the Blue file.
     out_path : str
         Path to the output SigMF metadata file.
+    create_archive : bool, optional
+        When True, package output as a .sigmf archive.
 
     Returns
     -------
@@ -616,10 +631,14 @@ def blue_to_sigmf(
 
     blue_path = Path(blue_path)
     if out_path is None:
-        # extension will be changed later
-        out_path = Path(blue_path)
+        base_path = blue_path
     else:
-        out_path = Path(out_path)
+        base_path = Path(out_path)
+
+    filenames = get_sigmf_filenames(base_path)
+
+    # ensure output directory exists
+    filenames["base_fn"].parent.mkdir(parents=True, exist_ok=True)
 
     validate_file(blue_path)
 
@@ -631,13 +650,31 @@ def blue_to_sigmf(
 
     # check if this is a zero-sample (metadata-only) file
     data_size_bytes = int(h_fixed.get("data_size", 0))
-    is_metadata_only = data_size_bytes == 0
+    metadata_only = data_size_bytes == 0
 
-    # write to SigMF data file only if samples exist
-    if not is_metadata_only:
-        data_loopback(blue_path, out_path, h_fixed)
-    else:
-        log.info("skipping data file creation for zero-sample BLUE file")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        if not metadata_only:
+            if create_archive:
+                # for archives, write data to a temporary file that will be cleaned up
+                data_path = Path(temp_dir) / filenames["data_fn"].name
+                filenames["data_fn"] = data_path  # update path for construct_sigmf
+            else:
+                # for file pairs, write to the final destination
+                data_path = filenames["data_fn"]
+            data_loopback(blue_path, data_path, h_fixed)
+        else:
+            log.info("skipping data file creation for zero-sample BLUE file")
+
+        # call the SigMF conversion for metadata generation
+        meta = construct_sigmf(
+            filenames=filenames,
+            h_fixed=h_fixed,
+            h_keywords=h_keywords,
+            h_adjunct=h_adjunct,
+            h_extended=h_extended,
+            is_metadata_only=metadata_only,
+            create_archive=create_archive,
+        )
 
     log.debug(">>>>>>>>> Fixed Header")
     for key, _, _, _, desc in FIXED_LAYOUT:
@@ -653,9 +690,6 @@ def blue_to_sigmf(
     for entry in h_extended:
         log.debug(f"{entry['tag']:20s}:{entry['value']}")
 
-    # call the SigMF conversion for metadata generation
-    meta = construct_sigmf(out_path, h_fixed, h_keywords, h_adjunct, h_extended, is_metadata_only)
-
     return meta
 
 
@@ -667,6 +701,7 @@ def main() -> None:
     parser.add_argument("-i", "--input", type=str, required=True, help="BLUE file path")
     parser.add_argument("-o", "--output", type=str, default=None, help="SigMF path")
     parser.add_argument("-v", "--verbose", action="count", default=0)
+    parser.add_argument("--archive", action="store_true", help="Write a .sigmf archive instead of meta/data pair")
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
     args = parser.parse_args()
 
@@ -677,7 +712,7 @@ def main() -> None:
     }
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    _ = blue_to_sigmf(blue_path=args.input, out_path=args.output)
+    _ = blue_to_sigmf(blue_path=args.input, out_path=args.output, create_archive=args.archive)
 
 
 if __name__ == "__main__":

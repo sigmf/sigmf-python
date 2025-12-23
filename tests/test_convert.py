@@ -18,14 +18,14 @@ import sigmf
 from sigmf.convert.blue import blue_to_sigmf
 from sigmf.convert.wav import wav_to_sigmf
 
-BLUE_ENV_VAR = "NONSIGMF_RECORDINGS_PATH"
+from .testdata import NONSIGMF_REPO, NONSIGMF_ENV
 
 
 class TestWAVConverter(unittest.TestCase):
     """wav loopback test"""
 
     def setUp(self) -> None:
-        """create temp wav file for testing"""
+        """temp wav file for testing"""
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.tmp_path = Path(self.tmp_dir.name)
         self.wav_path = self.tmp_path / "foo.wav"
@@ -50,28 +50,35 @@ class TestWAVConverter(unittest.TestCase):
         """clean up temporary directory"""
         self.tmp_dir.cleanup()
 
-    def test_wav_to_sigmf(self):
-        sigmf_path = self.tmp_path / "bar"
+    def test_wav_to_sigmf_pair(self):
+        sigmf_path = self.tmp_path / "bar.tmp"
         meta = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path)
         data = meta.read_samples()
         # allow numerical differences due to PCM quantization
         self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
+        filenames = sigmf.sigmffile.get_sigmf_filenames(sigmf_path)
+        self.assertTrue(filenames["data_fn"].exists(), "dataset path missing")
+        self.assertTrue(filenames["meta_fn"].exists(), "metadata path missing")
+
+    def test_wav_to_sigmf_archive(self):
+        sigmf_path = self.tmp_path / "baz.ext"
+        wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, create_archive=True)
+        filenames = sigmf.sigmffile.get_sigmf_filenames(sigmf_path)
+        self.assertTrue(filenames["archive_fn"].exists(), "archive path missing")
 
 
 class TestBlueConverter(unittest.TestCase):
     """As we have no blue files in the repository, test only when env path specified."""
 
     def setUp(self) -> None:
-        blue_path = Path(os.getenv(BLUE_ENV_VAR, "nopath"))
-        if not blue_path or blue_path == Path("nopath"):
+        """temp paths & blue files"""
+        if not NONSIGMF_REPO:
             # skip test if environment variable not set
-            self.skipTest(f"Set {BLUE_ENV_VAR} environment variable to location with .cdif files to run test.")
-        if not blue_path.is_dir():
-            self.fail(f"{blue_path} is not a valid directory.")
-        self.bluefiles = list(blue_path.glob("**/*.cdif"))
+            self.skipTest(f"Set {NONSIGMF_ENV} environment variable to path with .cdif files to run test. ")
+        self.bluefiles = list(NONSIGMF_REPO.glob("**/*.cdif"))
         print("bluefiles", self.bluefiles)
         if not self.bluefiles:
-            self.fail(f"No .cdif files found in {BLUE_ENV_VAR}.")
+            self.fail(f"No .cdif files found in {NONSIGMF_ENV}.")
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.tmp_path = Path(self.tmp_dir.name)
 
@@ -79,7 +86,7 @@ class TestBlueConverter(unittest.TestCase):
         """clean up temporary directory"""
         self.tmp_dir.cleanup()
 
-    def test_blue_to_sigmf(self):
+    def test_blue_to_sigmf_pair(self):
         for bdx, bluefile in enumerate(self.bluefiles):
             sigmf_path = self.tmp_path / bluefile.stem
             meta = blue_to_sigmf(blue_path=bluefile, out_path=sigmf_path)
@@ -107,4 +114,11 @@ class TestBlueConverter(unittest.TestCase):
             # # use imshow to plot spectrogram
 
             # plt.show()
+            self.assertIsInstance(meta, sigmf.SigMFFile)
+
+    def test_blue_to_sigmf_archive(self):
+        for bdx, bluefile in enumerate(self.bluefiles):
+            sigmf_path = self.tmp_path / f"{bluefile.stem}_archive"
+            meta = blue_to_sigmf(blue_path=bluefile, out_path=sigmf_path, create_archive=True)
+            print(f"Converted {bluefile} to SigMF archive at {sigmf_path}")
             self.assertIsInstance(meta, sigmf.SigMFFile)

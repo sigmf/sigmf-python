@@ -6,9 +6,19 @@
 
 """Shared test data for tests."""
 
+import os
+from pathlib import Path
+
 import numpy as np
 
 from sigmf import SigMFFile, __specification__, __version__
+
+# detection for https://github.com/sigmf/example_nonsigmf_recordings
+NONSIGMF_ENV = "EXAMPLE_NONSIGMF_RECORDINGS_PATH"
+NONSIGMF_REPO = None
+_recordings_path = Path(os.getenv(NONSIGMF_ENV, "nopath"))
+if _recordings_path.is_dir():
+    NONSIGMF_REPO = Path(_recordings_path)
 
 TEST_FLOAT32_DATA = np.arange(16, dtype=np.float32)
 
