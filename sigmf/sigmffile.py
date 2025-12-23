@@ -60,7 +60,8 @@ class SigMFMetafile:
         """
         ordered_meta = OrderedDict()
         for top_key in self.VALID_KEYS.keys():
-            assert top_key in self._metadata
+            if top_key not in self._metadata:
+                raise SigMFAccessError("key '{}' is not a VALID KEY for metadata".format(top_key))
             ordered_meta[top_key] = json.loads(json.dumps(self._metadata[top_key], sort_keys=True))
         # If there are other top-level keys, they go later
         # TODO: sort potential `other` top-level keys
@@ -270,7 +271,8 @@ class SigMFFile(SigMFMetafile):
         if self.version != current_metadata_version or self.schema is None:
             self.version = current_metadata_version
             self.schema = schema.get_schema(self.version)
-        assert isinstance(self.schema, dict)
+        if not isinstance(self.schema, dict):
+            raise SigMFError("SigMF schema expects a dict (key, value pairs)")
         return self.schema
 
     def set_metadata(self, metadata):
@@ -327,7 +329,10 @@ class SigMFFile(SigMFMetafile):
         If there is already capture info for this index, metadata will be merged
         with the existing metadata, overwriting keys if they were previously set.
         """
-        assert start_index >= self._get_start_offset()
+        if start_index < self._get_start_offset():
+            raise SigMFAccessError(
+                "`start_index` {} must be >= the global start index {}".format(start_index, self._get_start_offset())
+            )
         capture_list = self._metadata[self.CAPTURE_KEY]
         new_capture = metadata or {}
         new_capture[self.START_INDEX_KEY] = start_index
@@ -356,9 +361,13 @@ class SigMFFile(SigMFMetafile):
         Returns a dictionary containing all the capture information at sample
         'index'.
         """
-        assert index >= self._get_start_offset()
+        if index < self._get_start_offset():
+            raise SigMFAccessError(
+                "`start_index` {} must be >= the global start index {}".format(index, self._get_start_offset())
+            )
         captures = self._metadata.get(self.CAPTURE_KEY, [])
-        assert len(captures) > 0
+        if len(captures) == 0:
+            raise SigMFAccessError("No captures are present!")
         cap_info = captures[0]
         for capture in captures:
             if capture[self.START_INDEX_KEY] > index:
@@ -413,12 +422,17 @@ class SigMFFile(SigMFMetafile):
         """
         Insert annotation at start_index with length (if != None).
         """
-        assert start_index >= self._get_start_offset()
+
+        if start_index < self._get_start_offset():
+            raise SigMFAccessError(
+                "`start_index` {} must be >= the global start index {}".format(start_index, self._get_start_offset())
+            )
 
         new_annot = metadata or {}
         new_annot[self.START_INDEX_KEY] = start_index
         if length is not None:
-            assert length >= 1
+            if length <= 0:
+                raise SigMFAccessError("Annotation `length` must be >= 0")
             new_annot[self.LENGTH_INDEX_KEY] = length
 
         self._metadata[self.ANNOTATION_KEY] += [new_annot]
