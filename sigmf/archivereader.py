@@ -29,7 +29,9 @@ class SigMFArchiveReader:
     map_readonly : bool, optional
         Indicate whether assignments on the numpy.memmap are allowed.
     archive_buffer : buffer, optional
-
+        Alternative buffer to read archive from.
+    autoscale : bool, optional
+        If dataset is in a fixed-point representation, scale samples from (min, max) to (-1.0, 1.0).
 
     Raises
     ------
@@ -41,7 +43,7 @@ class SigMFArchiveReader:
         If metadata is invalid.
     """
 
-    def __init__(self, name=None, skip_checksum=False, map_readonly=True, archive_buffer=None):
+    def __init__(self, name=None, skip_checksum=False, map_readonly=True, archive_buffer=None, autoscale=True):
         if name is not None:
             path = Path(name)
             if path.suffix != SIGMF_ARCHIVE_EXT:
@@ -90,7 +92,7 @@ class SigMFArchiveReader:
         if data_offset is None:
             raise SigMFFileError("No .sigmf-data file found in archive!")
 
-        self.sigmffile = SigMFFile(metadata=json_contents)
+        self.sigmffile = SigMFFile(metadata=json_contents, autoscale=autoscale)
         self.sigmffile.validate()
 
         self.sigmffile.set_data_file(

@@ -197,9 +197,10 @@ class TestMultichannel(unittest.TestCase):
                 SigMFFile.DATATYPE_KEY: "cu16_le",
                 SigMFFile.NUM_CHANNELS_KEY: 3,
             },
+            autoscale=False,
         )
         # read after the first sample
-        temp_samples = temp_signal.read_samples(start_index=1, autoscale=False)
+        temp_samples = temp_signal.read_samples(start_index=1)
         # ensure samples are in the order we expect
         self.assertTrue(np.all(temp_samples[:, 0] == np.array([6 + 7j, 12 + 13j])))
 
@@ -240,74 +241,70 @@ class TestCaptures(unittest.TestCase):
         """remove temporary dir"""
         shutil.rmtree(self.temp_dir)
 
-    def prepare(self, data: list, meta: dict, dtype: type) -> SigMFFile:
+    def prepare(self, data: list, meta: dict, dtype: type, autoscale: bool = True) -> SigMFFile:
         """write some data and metadata to temporary paths"""
         np.array(data, dtype=dtype).tofile(self.temp_path_data)
         with open(self.temp_path_meta, "w") as handle:
             json.dump(meta, handle)
-        meta = sigmf.fromfile(self.temp_path_meta, skip_checksum=True)
+        meta = sigmf.fromfile(self.temp_path_meta, skip_checksum=True, autoscale=autoscale)
         return meta
 
     def test_000(self) -> None:
         """compliant two-capture recording"""
-        meta = self.prepare(TEST_U8_DATA0, TEST_U8_META0, np.uint8)
+        meta = self.prepare(TEST_U8_DATA0, TEST_U8_META0, np.uint8, autoscale=False)
         self.assertEqual(256, meta._count_samples())
         self.assertTrue(meta._is_conforming_dataset())
         self.assertTrue((0, 0), meta.get_capture_byte_boundarys(0))
         self.assertTrue((0, 256), meta.get_capture_byte_boundarys(1))
-        self.assertTrue(np.array_equal(TEST_U8_DATA0, meta.read_samples(autoscale=False)))
+        self.assertTrue(np.array_equal(TEST_U8_DATA0, meta.read_samples()))
         self.assertTrue(np.array_equal(np.array([]), meta.read_samples_in_capture(0)))
-        self.assertTrue(np.array_equal(TEST_U8_DATA0, meta.read_samples_in_capture(1, autoscale=False)))
+        self.assertTrue(np.array_equal(TEST_U8_DATA0, meta.read_samples_in_capture(1)))
 
     def test_001(self) -> None:
         """two capture recording with header_bytes and trailing_bytes set"""
-        meta = self.prepare(TEST_U8_DATA1, TEST_U8_META1, np.uint8)
+        meta = self.prepare(TEST_U8_DATA1, TEST_U8_META1, np.uint8, autoscale=False)
         self.assertEqual(192, meta._count_samples())
         self.assertFalse(meta._is_conforming_dataset())
         self.assertTrue((32, 160), meta.get_capture_byte_boundarys(0))
         self.assertTrue((160, 224), meta.get_capture_byte_boundarys(1))
-        self.assertTrue(np.array_equal(np.arange(128), meta.read_samples_in_capture(0, autoscale=False)))
-        self.assertTrue(np.array_equal(np.arange(128, 192), meta.read_samples_in_capture(1, autoscale=False)))
+        self.assertTrue(np.array_equal(np.arange(128), meta.read_samples_in_capture(0)))
+        self.assertTrue(np.array_equal(np.arange(128, 192), meta.read_samples_in_capture(1)))
 
     def test_002(self) -> None:
         """two capture recording with multiple header_bytes set"""
-        meta = self.prepare(TEST_U8_DATA2, TEST_U8_META2, np.uint8)
+        meta = self.prepare(TEST_U8_DATA2, TEST_U8_META2, np.uint8, autoscale=False)
         self.assertEqual(192, meta._count_samples())
         self.assertFalse(meta._is_conforming_dataset())
         self.assertTrue((32, 160), meta.get_capture_byte_boundarys(0))
-        self.assertTrue((176, 240), meta.get_capture_byte_boundarys(1))
-        self.assertTrue(np.array_equal(np.arange(128), meta.read_samples_in_capture(0, autoscale=False)))
-        self.assertTrue(np.array_equal(np.arange(128, 192), meta.read_samples_in_capture(1, autoscale=False)))
+        self.assertTrue((160, 224), meta.get_capture_byte_boundarys(1))
+        self.assertTrue(np.array_equal(np.arange(128), meta.read_samples_in_capture(0)))
+        self.assertTrue(np.array_equal(np.arange(128, 192), meta.read_samples_in_capture(1)))
 
     def test_003(self) -> None:
         """three capture recording with multiple header_bytes set"""
-        meta = self.prepare(TEST_U8_DATA3, TEST_U8_META3, np.uint8)
+        meta = self.prepare(TEST_U8_DATA3, TEST_U8_META3, np.uint8, autoscale=False)
         self.assertEqual(192, meta._count_samples())
         self.assertFalse(meta._is_conforming_dataset())
         self.assertTrue((32, 64), meta.get_capture_byte_boundarys(0))
         self.assertTrue((64, 160), meta.get_capture_byte_boundarys(1))
-        self.assertTrue((192, 256), meta.get_capture_byte_boundarys(2))
-        self.assertTrue(np.array_equal(np.arange(32), meta.read_samples_in_capture(0, autoscale=False)))
-        self.assertTrue(np.array_equal(np.arange(32, 128), meta.read_samples_in_capture(1, autoscale=False)))
-        self.assertTrue(np.array_equal(np.arange(128, 192), meta.read_samples_in_capture(2, autoscale=False)))
+        self.assertTrue((160, 224), meta.get_capture_byte_boundarys(2))
+        self.assertTrue(np.array_equal(np.arange(32), meta.read_samples_in_capture(0)))
+        self.assertTrue(np.array_equal(np.arange(32, 128), meta.read_samples_in_capture(1)))
+        self.assertTrue(np.array_equal(np.arange(128, 192), meta.read_samples_in_capture(2)))
 
     def test_004(self) -> None:
         """two channel version of 000"""
-        meta = self.prepare(TEST_U8_DATA4, TEST_U8_META4, np.uint8)
+        meta = self.prepare(TEST_U8_DATA4, TEST_U8_META4, np.uint8, autoscale=False)
         self.assertEqual(96, meta._count_samples())
         self.assertFalse(meta._is_conforming_dataset())
-        self.assertTrue((32, 160), meta.get_capture_byte_boundarys(0))
-        self.assertTrue((160, 224), meta.get_capture_byte_boundarys(1))
-        self.assertTrue(
-            np.array_equal(np.arange(64).repeat(2).reshape(-1, 2), meta.read_samples_in_capture(0, autoscale=False))
-        )
-        self.assertTrue(
-            np.array_equal(np.arange(64, 96).repeat(2).reshape(-1, 2), meta.read_samples_in_capture(1, autoscale=False))
-        )
+        self.assertTrue((32, 96), meta.get_capture_byte_boundarys(0))
+        self.assertTrue((96, 160), meta.get_capture_byte_boundarys(1))
+        self.assertTrue(np.array_equal(np.arange(64).repeat(2).reshape(-1, 2), meta.read_samples_in_capture(0)))
+        self.assertTrue(np.array_equal(np.arange(64, 96).repeat(2).reshape(-1, 2), meta.read_samples_in_capture(1)))
 
     def test_slicing_ru8(self) -> None:
         """slice real uint8"""
-        meta = self.prepare(TEST_U8_DATA0, TEST_U8_META0, np.uint8)
+        meta = self.prepare(TEST_U8_DATA0, TEST_U8_META0, np.uint8, autoscale=False)
         self.assertTrue(np.array_equal(meta[:], TEST_U8_DATA0))
         self.assertTrue(np.array_equal(meta[6], TEST_U8_DATA0[6]))
         self.assertTrue(np.array_equal(meta[1:-1], TEST_U8_DATA0[1:-1]))
@@ -320,12 +317,13 @@ class TestCaptures(unittest.TestCase):
 
     def test_slicing_multiple_channels(self) -> None:
         """slice multiple channels"""
-        meta = self.prepare(TEST_U8_DATA4, TEST_U8_META4, np.uint8)
+        meta_raw = self.prepare(TEST_U8_DATA4, TEST_U8_META4, np.uint8, autoscale=False)
+        meta_scaled = self.prepare(TEST_U8_DATA4, TEST_U8_META4, np.uint8, autoscale=False)  # use raw data for this test
         channelized = np.array(TEST_U8_DATA4).reshape((-1, 2))
-        self.assertTrue(np.array_equal(meta[:][:], channelized))
-        self.assertTrue(np.array_equal(meta[10:20, 0], meta.read_samples(autoscale=False)[10:20, 0]))
-        self.assertTrue(np.array_equal(meta[0], channelized[0]))
-        self.assertTrue(np.array_equal(meta[1, :], channelized[1]))
+        self.assertTrue(np.array_equal(meta_scaled[:][:], channelized))
+        self.assertTrue(np.array_equal(meta_raw[10:20, 0], meta_raw.read_samples()[10:20, 0]))
+        self.assertTrue(np.array_equal(meta_scaled[0], channelized[0]))
+        self.assertTrue(np.array_equal(meta_scaled[1, :], channelized[1]))
 
 
 def simulate_capture(sigmf_md, n, capture_len):
