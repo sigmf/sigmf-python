@@ -60,7 +60,7 @@ class TestArchiveReader(unittest.TestCase):
                     if complex_prefix == "c":
                         # complex data will be half as long
                         target_count //= 2
-                        self.assertTrue(np.all(np.iscomplex(readback_samples)))
+                        self.assertTrue(np.iscomplexobj(readback_samples))
                     if num_channels != 1:
                         # check expected # of channels
                         self.assertEqual(
