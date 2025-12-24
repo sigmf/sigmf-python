@@ -221,7 +221,7 @@ class SigMFFile(SigMFMetafile):
     def __getitem__(self, sli):
         mem = self._memmap[sli]  # matches behavior of numpy.ndarray.__getitem__()
 
-        # original behavior: always apply _return_type conversion if set
+        # apply _return_type conversion if set
         if self._return_type is None:
             # no special conversion needed
             if not self.autoscale:
@@ -253,7 +253,7 @@ class SigMFFile(SigMFMetafile):
                     # floating-point data, no scaling needed
                     return mem
 
-        # handle complex data type conversion (original behavior)
+        # handle complex data type conversion
         if self._memmap.ndim == 2:
             # num_channels == 1
             ray = mem[:, 0].astype(self._return_type) + 1.0j * mem[:, 1].astype(self._return_type)
