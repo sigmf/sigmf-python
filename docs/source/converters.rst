@@ -3,7 +3,7 @@ Format Converters
 =================
 
 The SigMF Python library includes converters to import data from various file formats into SigMF format.
-These converters make it easy to migrate existing RF recordings to the standardized SigMF format while preserving metadata when possible.
+Converters can create standard SigMF file pairs or Non-Conforming Datasets (NCDs) that reference the original files.
 
 Overview
 --------
@@ -13,35 +13,52 @@ Converters are available for:
 * **BLUE files** - MIDAS Blue and Platinum BLUE RF recordings (``.cdif``)
 * **WAV files** - Audio recordings (``.wav``)
 
-All converters return a :class:`~sigmf.SigMFFile` object that can be used immediately or saved to disk.
-Converters preserve datatypes and metadata where possible.
+All converters return a :class:`~sigmf.SigMFFile` object. Auto-detection is available through :func:`~sigmf.sigmffile.fromfile`.
+
+
+Auto-Detection
+~~~~~~~~~~~~~~
+
+The :func:`~sigmf.sigmffile.fromfile` function automatically detects file formats and creates Non-Conforming Datasets:
+
+.. code-block:: python
+
+    import sigmf
+
+    # auto-detect and create NCD for any supported format
+    meta = sigmf.fromfile("recording.cdif")  # BLUE file
+    meta = sigmf.fromfile("recording.wav")   # WAV file
+    meta = sigmf.fromfile("recording.sigmf")  # SigMF archive
+
+    samples = meta.read_samples()
 
 
 Command Line Usage
 ~~~~~~~~~~~~~~~~~~
 
-Converters can be used from the command line after ``pip install sigmf``:
+Converters can be used from the command line:
 
 .. code-block:: bash
 
     sigmf_convert_blue recording.cdif
     sigmf_convert_wav recording.wav
 
-or by using module syntax:
+or by using module execution:
 
 .. code-block:: bash
 
-    python3 -m sigmf.convert.blue recording.cdif
-    python3 -m sigmf.convert.wav recording.wav
+    python -m sigmf.convert.blue recording.cdif
+    python -m sigmf.convert.wav recording.wav
 
 
-Output Naming
-~~~~~~~~~~~~~
+Output Options
+~~~~~~~~~~~~~~
 
-All converters treat the value passed with ``-o/--output`` as a base name and ignore any existing suffix. The tools
-emit ``<base>.sigmf-data`` and ``<base>.sigmf-meta`` files (retaining any original extensions such as ``.cdif`` or
-``.tmp`` in the base). Supplying ``--archive`` packages the result as ``<base>.sigmf`` instead of producing separate
-meta/data files.
+Converters support multiple output modes:
+
+* **Standard conversion**: Creates ``.sigmf-data`` and ``.sigmf-meta`` files
+* **Archive mode**: Creates single ``.sigmf`` archive with ``--archive``
+* **Non-Conforming Dataset**: Creates metadata-only file referencing original data with ``--ncd``
 
 
 BLUE Converter
@@ -56,38 +73,42 @@ The BLUE converter handles CDIF (.cdif) recordings while placing BLUE header inf
 
 .. autofunction:: sigmf.convert.blue.blue_to_sigmf
 
-
 .. code-block:: python
 
     from sigmf.convert.blue import blue_to_sigmf
 
-    # read BLUE, write SigMF, and return SigMFFile object
-    meta = blue_to_sigmf(blue_path="recording.cdif", out_path="recording.sigmf")
+    # standard conversion
+    meta = blue_to_sigmf(blue_path="recording.cdif", out_path="recording")
 
-    # access converted data
-    samples = meta.read_samples()
+    # create NCD automatically (metadata-only, references original file)
+    meta = blue_to_sigmf(blue_path="recording.cdif")
+
+    # access standard SigMF data & metadata
+    all_samples = meta.read_samples()
     sample_rate_hz = meta.sample_rate
 
     # access BLUE-specific metadata
-    blue_type = meta.get_global_field("blue:fixed")["type"] # e.g., 1000
-    blue_version = meta.get_global_field("blue:keywords")["IO"] # e.g., "X-Midas"
+    blue_type = meta.get_global_field("blue:fixed")["type"]  # e.g., 1000
+    blue_version = meta.get_global_field("blue:keywords")["IO"]  # e.g., "X-Midas"
 
 
 WAV Converter
 -------------
 
-This is useful when working with audio datasets.
+Converts WAV audio recordings to SigMF format.
 
 .. autofunction:: sigmf.convert.wav.wav_to_sigmf
-
 
 .. code-block:: python
 
     from sigmf.convert.wav import wav_to_sigmf
 
-    # read WAV, write SigMF, and return SigMFFile object
-    meta = wav_to_sigmf(wav_path="recording.wav", out_path="recording.sigmf")
+    # standard conversion
+    meta = wav_to_sigmf(wav_path="recording.wav", out_path="recording")
 
-    # access converted data
-    samples = meta.read_samples()
+    # create NCD automatically (metadata-only, references original file)
+    meta = wav_to_sigmf(wav_path="recording.wav")
+
+    # access standard SigMF data & metadata
+    all_samples = meta.read_samples()
     sample_rate_hz = meta.sample_rate

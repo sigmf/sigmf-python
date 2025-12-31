@@ -12,10 +12,26 @@ freely under the terms GNU Lesser GPL v3 License.
 
 This module follows the SigMF specification [html](https://sigmf.org/)/[pdf](https://sigmf.github.io/SigMF/sigmf-spec.pdf) from the [spec repository](https://github.com/sigmf/SigMF).
 
-To install the latest PyPI release, install from pip:
+### Install Latest
 
 ```bash
 pip install sigmf
 ```
 
-**[Please visit the documentation for examples & more info.](https://sigmf.readthedocs.io/en/latest/)**
+### Read SigMF
+
+```python
+import sigmf
+
+# read SigMF recording
+meta = sigmf.fromfile("recording.sigmf-meta")
+samples = meta[0:1024]  # get first 1024 samples
+
+# fromfile() also supports BLUE and WAV files via auto-detection
+meta = sigmf.fromfile("recording.cdif")  # BLUE file
+meta = sigmf.fromfile("recording.wav")   # WAV file
+```
+
+### Full API & Docs
+
+**[Please visit our documentation for more info.](https://sigmf.readthedocs.io/en/latest/)**

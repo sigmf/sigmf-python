@@ -20,7 +20,7 @@ import struct
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -225,7 +225,7 @@ def read_hcb(file_path):
 
     # FIXME: I've seen VER=2.0.14
     ver_lut = {"1.0": "BLUE 1.0", "1.1": "BLUE 1.1", "2.0": "Platinum"}
-    spec_str = ver_lut.get(h_keywords.get("VER", "1.0"))
+    spec_str = ver_lut.get(h_keywords.get("VER", "1.0"), "Unknown")
     log.info(f"Read {h_fixed['version']} type {h_fixed['type']} using {spec_str} specification.")
 
     validate_fixed(h_fixed)
@@ -355,7 +355,7 @@ def data_loopback(blue_path: Path, data_path: Path, h_fixed: dict) -> None:
     # check for zero-sample file (metadata-only)
     if elem_count == 0:
         log.info("detected zero-sample BLUE file, creating metadata-only SigMF")
-        return np.array([], dtype=np_dtype)
+        return
 
     # read raw samples
     raw_samples = np.fromfile(blue_path, dtype=np_dtype, offset=HEADER_SIZE_BYTES, count=elem_count)
@@ -377,22 +377,20 @@ def data_loopback(blue_path: Path, data_path: Path, h_fixed: dict) -> None:
     log.info("wrote %s", data_path)
 
 
-def construct_sigmf(
-    filenames: dict,
+def _build_common_metadata(
     h_fixed: dict,
     h_keywords: dict,
     h_adjunct: dict,
     h_extended: list,
-    is_metadata_only: bool = False,
-    create_archive: bool = False,
-) -> SigMFFile:
+    is_ncd: bool = False,
+    blue_file_name: str = None,
+    trailing_bytes: int = 0,
+) -> Tuple[dict, dict]:
     """
-    Built & write a SigMF object from BLUE metadata.
+    Build common global_info and capture_info metadata for both standard and NCD SigMF files.
 
     Parameters
     ----------
-    filenames : dict
-        Mapping returned by get_sigmf_filenames containing destination paths.
     h_fixed : dict
         Fixed Header
     h_keywords : dict
@@ -400,16 +398,23 @@ def construct_sigmf(
     h_adjunct : dict
         Adjunct Header
     h_extended : list of dict
-        Parsed extended header entries from read_extended_header().
-    is_metadata_only : bool, optional
-        If True, creates a metadata-only SigMF file.
-    create_archive : bool, optional
-        When True, package output as SigMF archive instead of a meta/data pair.
+        Parsed extended header entries.
+    is_ncd : bool, optional
+        If True, adds NCD-specific fields.
+    blue_file_name : str, optional
+        Original BLUE file name (required for NCD).
+    trailing_bytes : int, optional
+        Number of trailing bytes (for NCD).
 
     Returns
     -------
-    SigMFFile
-        SigMF object.
+    tuple[dict, dict]
+        (global_info, capture_info) dictionaries.
+
+    Raises
+    ------
+    SigMFConversionError
+        If SigMF spec compliance is violated.
     """
     # helper to look up extended header values by tag
     def get_tag(tag):
@@ -420,7 +425,6 @@ def construct_sigmf(
 
     # get sigmf datatype from blue format and endianness
     datatype = blue_to_sigmf_type_str(h_fixed)
-
     log.info(f"Using SigMF datatype: {datatype} for BLUE format {h_fixed['format']}")
 
     # sample rate: prefer adjunct.xdelta, else extended header SAMPLE_RATE
@@ -438,16 +442,16 @@ def construct_sigmf(
     global_info = {
         "core:author": getpass.getuser(),
         SigMFFile.DATATYPE_KEY: datatype,
-        # SigMFFile.DESCRIPTION_KEY: ???,
-        SigMFFile.RECORDER_KEY: "Official SigMF BLUE converter",
+        SigMFFile.RECORDER_KEY: f"Official SigMF BLUE converter",
         SigMFFile.NUM_CHANNELS_KEY: num_channels,
         SigMFFile.SAMPLE_RATE_KEY: sample_rate_hz,
         SigMFFile.EXTENSIONS_KEY: [{"name": "blue", "version": "0.0.1", "optional": True}],
     }
 
-    # set metadata-only flag for zero-sample files
-    if is_metadata_only:
-        global_info[SigMFFile.METADATA_ONLY_KEY] = True
+    # add NCD-specific fields
+    if is_ncd:
+        global_info[SigMFFile.TRAILING_BYTES_KEY] = trailing_bytes
+        global_info[SigMFFile.DATASET_KEY] = blue_file_name
 
     # merge HCB values into metadata
     global_info["blue:fixed"] = h_fixed
@@ -473,52 +477,32 @@ def construct_sigmf(
                 extended[tag] = value
         global_info["blue:extended"] = extended
 
+    # calculate blue start time
     blue_start_time = float(h_fixed.get("timecode", 0))
     blue_start_time += h_adjunct.get("xstart", 0)
     blue_start_time += float(h_keywords.get("TC_PREC", 0))
 
+    capture_info = {}
     if blue_start_time == 0:
         log.warning("BLUE timecode is zero or missing; datetime metadata will be absent.")
-        capture_info = {}
     else:
         # timecode uses 1950-01-01 as epoch, datetime uses 1970-01-01
         blue_epoch = blue_start_time - 631152000  # seconds between 1950 and 1970
         blue_datetime = datetime.fromtimestamp(blue_epoch, tz=timezone.utc)
-
-        capture_info = {
-            SigMFFile.DATETIME_KEY: blue_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT),
-        }
+        capture_info[SigMFFile.DATETIME_KEY] = blue_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT)
 
     if get_tag("RF_FREQ") is not None:
-        # There may be other keys related to tune frequency
+        # it's possible other keys indicate tune frequency, but RF_FREQ is standard
         capture_info[SigMFFile.FREQUENCY_KEY] = float(get_tag("RF_FREQ"))
 
-    # TODO: if no output path is specified, construct non-conforming metadata only SigMF
-
-    # for metadata-only files, don't specify data_file and skip checksum
-    if is_metadata_only:
-        meta = SigMFFile(
-            data_file=None,
-            global_info=global_info,
-            skip_checksum=True,
+    # validate SigMF spec compliance: metadata_only and dataset fields are mutually exclusive
+    if SigMFFile.METADATA_ONLY_KEY in global_info and SigMFFile.DATASET_KEY in global_info:
+        raise SigMFConversionError(
+            "SigMF spec violation: core:metadata_only MAY NOT be used in conjunction with "
+            "Non-Conforming Datasets or the core:dataset field"
         )
-        meta.data_buffer = io.BytesIO()
-    else:
-        meta = SigMFFile(
-            data_file=filenames["data_fn"],
-            global_info=global_info,
-        )
-    meta.add_capture(0, metadata=capture_info)
-    log.debug("created %r", meta)
 
-    if create_archive:
-        meta.tofile(filenames["archive_fn"], toarchive=True)
-        log.info("wrote %s", filenames["archive_fn"])
-    else:
-        meta.tofile(filenames["meta_fn"], toarchive=False)
-        log.info("wrote %s", filenames["meta_fn"])
-
-    return meta
+    return global_info, capture_info
 
 
 def validate_file(blue_path: Path) -> None:
@@ -599,10 +583,142 @@ def validate_extended_header(entries: list) -> None:
                 raise SigMFConversionError(f"Invalid SAMPLE_RATE in extended header: {sample_rate}")
 
 
+def construct_sigmf(
+    filenames: dict,
+    h_fixed: dict,
+    h_keywords: dict,
+    h_adjunct: dict,
+    h_extended: list,
+    is_metadata_only: bool = False,
+    create_archive: bool = False,
+) -> SigMFFile:
+    """
+    Built & write a SigMF object from BLUE metadata.
+
+    Parameters
+    ----------
+    filenames : dict
+        Mapping returned by get_sigmf_filenames containing destination paths.
+    h_fixed : dict
+        Fixed Header
+    h_keywords : dict
+        Custom User Keywords
+    h_adjunct : dict
+        Adjunct Header
+    h_extended : list of dict
+        Parsed extended header entries from read_extended_header().
+    is_metadata_only : bool, optional
+        If True, creates a metadata-only SigMF file.
+    create_archive : bool, optional
+        When True, package output as SigMF archive instead of a meta/data pair.
+
+    Returns
+    -------
+    SigMFFile
+        SigMF object.
+    """
+    # use shared helper to build common metadata
+    global_info, capture_info = _build_common_metadata(h_fixed, h_keywords, h_adjunct, h_extended)
+
+    # set metadata-only flag for zero-sample files (only for non-NCD files)
+    if is_metadata_only:
+        # ensure we're not accidentally setting metadata_only for an NCD
+        if SigMFFile.DATASET_KEY in global_info:
+            raise ValueError(
+                "Cannot set metadata_only=True for Non-Conforming Dataset files. "
+                "Per SigMF spec, metadata_only MAY NOT be used with core:dataset field."
+            )
+        global_info[SigMFFile.METADATA_ONLY_KEY] = True
+
+    # for metadata-only files, don't specify data_file and skip checksum
+    if is_metadata_only:
+        meta = SigMFFile(
+            data_file=None,
+            global_info=global_info,
+            skip_checksum=True,
+        )
+        meta.data_buffer = io.BytesIO()
+    else:
+        meta = SigMFFile(
+            data_file=filenames["data_fn"],
+            global_info=global_info,
+        )
+    meta.add_capture(0, metadata=capture_info)
+    log.debug("created %r", meta)
+
+    if create_archive:
+        meta.tofile(filenames["archive_fn"], toarchive=True)
+        log.info("wrote %s", filenames["archive_fn"])
+    else:
+        meta.tofile(filenames["meta_fn"], toarchive=False)
+        log.info("wrote %s", filenames["meta_fn"])
+
+    return meta
+
+
+def construct_sigmf_ncd(
+    blue_path: Path,
+    h_fixed: dict,
+    h_keywords: dict,
+    h_adjunct: dict,
+    h_extended: list,
+    header_bytes: int,
+    trailing_bytes: int,
+) -> SigMFFile:
+    """
+    Construct Non-Conforming Dataset SigMF metadata for BLUE file.
+
+    Parameters
+    ----------
+    blue_path : Path
+        Path to the original BLUE file.
+    h_fixed : dict
+        Fixed Header
+    h_keywords : dict
+        Custom User Keywords
+    h_adjunct : dict
+        Adjunct Header
+    h_extended : list of dict
+        Parsed extended header entries from read_extended_header().
+    header_bytes : int
+        Number of header bytes to skip.
+    trailing_bytes : int
+        Number of trailing bytes to ignore.
+
+    Returns
+    -------
+    SigMFFile
+        NCD SigMF object pointing to original BLUE file.
+    """
+    # use shared helper to build common metadata, with NCD-specific additions
+    global_info, capture_info = _build_common_metadata(
+        h_fixed,
+        h_keywords,
+        h_adjunct,
+        h_extended,
+        is_ncd=True,
+        blue_file_name=blue_path.name,
+        trailing_bytes=trailing_bytes,
+    )
+
+    # add NCD-specific capture info
+    capture_info[SigMFFile.HEADER_BYTES_KEY] = header_bytes
+
+    # create NCD metadata-only SigMF pointing to original file
+    meta = SigMFFile(global_info=global_info, skip_checksum=True)
+    meta.set_data_file(data_file=blue_path, offset=header_bytes, skip_checksum=True)
+    meta.data_buffer = io.BytesIO()
+    meta.add_capture(0, metadata=capture_info)
+    log.debug("created NCD SigMF: %r", meta)
+
+    return meta
+
+
 def blue_to_sigmf(
     blue_path: str,
     out_path: Optional[str] = None,
     create_archive: bool = False,
+    create_ncd: bool = False,
 ) -> SigMFFile:
     """
     Read a MIDAS Bluefile, write to SigMF, return SigMFFile object.
@@ -611,23 +727,23 @@ def blue_to_sigmf(
     ----------
     blue_path : str
         Path to the Blue file.
-    out_path : str
+    out_path : str, optional
         Path to the output SigMF metadata file.
     create_archive : bool, optional
         When True, package output as a .sigmf archive.
+    create_ncd : bool, optional
+        When True, create Non-Conforming Dataset with header_bytes and trailing_bytes.
 
     Returns
     -------
-    numpy.ndarray
-        IQ Data.
-
-    Notes
-    -----
-    This function currently reads BLUE then writes a SigMF pair. We could also
-    implement a function that instead writes metadata only for a non-conforming
-    dataset using the HEADER_BYTES_KEY and TRAILING_BYTES_KEY in most cases.
+    SigMFFile
+        SigMF object, potentially as Non-Conforming Dataset.
     """
     log.debug(f"read {blue_path}")
+
+    # auto-enable NCD when no output path is specified
+    if out_path is None:
+        create_ncd = True
 
     blue_path = Path(blue_path)
     if out_path is None:
@@ -648,9 +764,35 @@ def blue_to_sigmf(
     # read extended header
     h_extended = read_extended_header(blue_path, h_fixed)
 
+    # calculate NCD byte boundaries if requested
+    if create_ncd:
+        header_bytes = HEADER_SIZE_BYTES + int(h_fixed.get("ext_size", 0))
+
+        # for NCD, trailing_bytes = file_size - header_bytes - actual_data_size
+        file_size = blue_path.stat().st_size
+        actual_data_size = file_size - header_bytes
+        trailing_bytes = 0  # assume no trailing bytes for NCD unless file is smaller than expected
+
+        log.debug(
+            f"BLUE NCD: file_size={file_size}, header_bytes={header_bytes}, actual_data_size={actual_data_size}, trailing_bytes={trailing_bytes}"
+        )
+
     # check if this is a zero-sample (metadata-only) file
     data_size_bytes = int(h_fixed.get("data_size", 0))
     metadata_only = data_size_bytes == 0
+
+    # handle NCD case where no output files are created
+    if create_ncd and out_path is None:
+        # create metadata-only SigMF for NCD pointing to original file
+        return construct_sigmf_ncd(
+            blue_path=blue_path,
+            h_fixed=h_fixed,
+            h_keywords=h_keywords,
+            h_adjunct=h_adjunct,
+            h_extended=h_extended,
+            header_bytes=header_bytes,
+            trailing_bytes=trailing_bytes,
+        )
 
     with tempfile.TemporaryDirectory() as temp_dir:
         if not metadata_only:
@@ -702,6 +844,9 @@ def main() -> None:
     parser.add_argument("-o", "--output", type=str, default=None, help="SigMF path")
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument("--archive", action="store_true", help="Write a .sigmf archive instead of meta/data pair")
+    parser.add_argument(
+        "--ncd", action="store_true", help="Process as Non-Conforming Dataset and write .sigmf-meta only."
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
     args = parser.parse_args()
 
@@ -712,7 +857,7 @@ def main() -> None:
     }
     logging.basicConfig(level=level_lut[min(args.verbose, 2)])
 
-    _ = blue_to_sigmf(blue_path=args.input, out_path=args.output, create_archive=args.archive)
+    _ = blue_to_sigmf(blue_path=args.input, out_path=args.output, create_archive=args.archive, create_ncd=args.ncd)
 
 
 if __name__ == "__main__":
