@@ -23,6 +23,7 @@ To get started, see the :doc:`quickstart` section or learn how to :ref:`install`
 
    quickstart
    advanced
+   converters
    developers
 
 .. toctree::

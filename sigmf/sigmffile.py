@@ -23,8 +23,8 @@ from .archive import (
     SIGMF_METADATA_EXT,
     SigMFArchive,
 )
-from .error import SigMFAccessError, SigMFError, SigMFFileError
-from .utils import dict_merge
+from .error import SigMFAccessError, SigMFConversionError, SigMFError, SigMFFileError
+from .utils import dict_merge, get_magic_bytes
 
 
 class SigMFMetafile:
@@ -493,9 +493,17 @@ class SigMFFile(SigMFMetafile):
         if self.data_file is None:
             sample_count = self._get_sample_count_from_annotations()
         else:
-            header_bytes = sum([c.get(self.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
             file_size = self.data_file.stat().st_size if self.data_size_bytes is None else self.data_size_bytes
-            file_data_size = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes  # bytes
+
+            # calculate actual data size accounting for offset, header_bytes, and trailing_bytes
+            if hasattr(self, "data_offset") and self.data_offset > 0:
+                # for NCD with offset, we start from offset position
+                file_data_size = file_size - self.data_offset - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
+            else:
+                # for conforming datasets or NCD without offset, subtract header_bytes
+                header_bytes = sum([c.get(self.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
+                file_data_size = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes
+
             sample_size = self.get_sample_size()  # size of a sample in bytes
             num_channels = self.get_num_channels()
             sample_count = file_data_size // sample_size // num_channels
@@ -701,6 +709,8 @@ class SigMFFile(SigMFMetafile):
         """
         if count == 0:
             raise IOError("Number of samples must be greater than zero, or -1 for all samples.")
+        elif count == -1:
+            count = self.sample_count - start_index
         elif start_index + count > self.sample_count:
             raise IOError("Cannot read beyond EOF.")
         if self.data_file is None and not isinstance(self.data_buffer, io.BytesIO):
@@ -711,8 +721,6 @@ class SigMFFile(SigMFMetafile):
                 raise SigMFFileError("No signal data file has been associated with the metadata.")
         first_byte = start_index * self.get_sample_size() * self.get_num_channels()
 
-        if not self._is_conforming_dataset():
-            warnings.warn(f"Recording dataset appears non-compliant, resulting data may be erroneous")
         return self._read_datafile(first_byte, count * self.get_num_channels(), autoscale, False)
 
     def _read_datafile(self, first_byte, nitems, autoscale, raw_components):
@@ -732,7 +740,10 @@ class SigMFFile(SigMFMetafile):
 
         if self.data_file is not None:
             fp = open(self.data_file, "rb")
-            fp.seek(first_byte, 0)
+            # account for data_offset when seeking (important for NCDs)
+            seek_position = first_byte + getattr(self, "data_offset", 0)
+            fp.seek(seek_position, 0)
+
             data = np.fromfile(fp, dtype=data_type_in, count=nitems)
         elif self.data_buffer is not None:
             data = np.frombuffer(self.data_buffer.getbuffer(), dtype=data_type_in, count=nitems)
@@ -1060,6 +1071,7 @@ def fromarchive(archive_path, dir=None, skip_checksum=False):
     access SigMF archives without extracting them.
     """
     from .archivereader import SigMFArchiveReader
+
     return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
 
 
@@ -1067,8 +1079,8 @@ def fromfile(filename, skip_checksum=False):
     """
     Creates and returns a SigMFFile or SigMFCollection instance with metadata
     loaded from the specified file. The filename may be that of either a
-    sigmf-meta file, a sigmf-data file, a sigmf-collection file, or a sigmf
-    archive.
+    sigmf-meta file, a sigmf-data file, a sigmf-collection file, a sigmf
+    archive, or a non-SigMF RF recording that can be converted (WAV, BLUE).
 
     Parameters
     ----------
@@ -1079,22 +1091,34 @@ def fromfile(filename, skip_checksum=False):
 
     Returns
     -------
-    object
-        SigMFFile with dataset & metadata or a SigMFCollection depending on file type.
+    SigMFFile | SigMFCollection
+        A SigMFFile or a SigMFCollection depending on file type.
+
+    Raises
+    ------
+    SigMFFileError
+        If the file cannot be read as any supported format.
+    SigMFConversionError
+        If auto-detection conversion fails.
     """
+    file_path = Path(filename)
     fns = get_sigmf_filenames(filename)
     meta_fn = fns["meta_fn"]
     archive_fn = fns["archive_fn"]
     collection_fn = fns["collection_fn"]
 
-    # extract the extension to check whether we are dealing with an archive, collection, etc.
-    file_path = Path(filename)
-    ext = file_path.suffix
+    # extract the extension to check file type
+    ext = file_path.suffix.lower()
 
-    if (ext.lower().endswith(SIGMF_ARCHIVE_EXT) or not Path.is_file(meta_fn)) and Path.is_file(archive_fn):
+    # group SigMF extensions for cleaner checking
+    sigmf_extensions = (SIGMF_METADATA_EXT, SIGMF_DATASET_EXT, SIGMF_COLLECTION_EXT, SIGMF_ARCHIVE_EXT)
+
+    # try SigMF archive
+    if (ext.endswith(SIGMF_ARCHIVE_EXT) or not Path.is_file(meta_fn)) and Path.is_file(archive_fn):
         return fromarchive(archive_fn, skip_checksum=skip_checksum)
 
-    if (ext.lower().endswith(SIGMF_COLLECTION_EXT) or not Path.is_file(meta_fn)) and Path.is_file(collection_fn):
+    # try SigMF collection
+    if (ext.endswith(SIGMF_COLLECTION_EXT) or not Path.is_file(meta_fn)) and Path.is_file(collection_fn):
         collection_fp = open(collection_fn, "rb")
         bytestream_reader = codecs.getreader("utf-8")
         mdfile_reader = bytestream_reader(collection_fp)
@@ -1104,7 +1128,8 @@ def fromfile(filename, skip_checksum=False):
         dir_path = meta_fn.parent
         return SigMFCollection(metadata=metadata, base_path=dir_path, skip_checksums=skip_checksum)
 
-    else:
+    # try standard SigMF metadata file
+    if Path.is_file(meta_fn):
         meta_fp = open(meta_fn, "rb")
         bytestream_reader = codecs.getreader("utf-8")
         mdfile_reader = bytestream_reader(meta_fp)
@@ -1113,6 +1138,23 @@ def fromfile(filename, skip_checksum=False):
 
         data_fn = get_dataset_filename_from_metadata(meta_fn, metadata)
         return SigMFFile(metadata=metadata, data_file=data_fn, skip_checksum=skip_checksum)
+
+    # try auto-detection for non-SigMF files only
+    if Path.is_file(file_path) and not ext.endswith(sigmf_extensions):
+        magic_bytes = get_magic_bytes(file_path, count=4, offset=0)
+
+        if magic_bytes == b"RIFF":
+            from .convert.wav import wav_to_sigmf
+
+            return wav_to_sigmf(file_path, create_ncd=True)
+
+        elif magic_bytes == b"BLUE":
+            from .convert.blue import blue_to_sigmf
+
+            return blue_to_sigmf(file_path, create_ncd=True)
+
+    # if file doesn't exist at all or no valid files found, raise original error
+    raise SigMFFileError(f"Cannot read {filename} as SigMF or supported non-SigMF format.")
 
 
 def get_sigmf_filenames(filename):
@@ -1126,7 +1168,7 @@ def get_sigmf_filenames(filename):
 
     Returns
     -------
-    dict with 'data_fn', 'meta_fn', and 'archive_fn' as keys.
+    dict with filename keys.
     """
     stem_path = Path(filename)
     # If the path has a sigmf suffix, remove it. Otherwise do not remove the
