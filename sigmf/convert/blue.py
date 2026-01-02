@@ -402,7 +402,7 @@ def _build_common_metadata(
     is_ncd : bool, optional
         If True, adds NCD-specific fields.
     blue_file_name : str, optional
-        Original BLUE file name (required for NCD).
+        Original BLUE file name (for NCD).
     trailing_bytes : int, optional
         Number of trailing bytes (for NCD).
 
@@ -450,8 +450,8 @@ def _build_common_metadata(
 
     # add NCD-specific fields
     if is_ncd:
-        global_info[SigMFFile.TRAILING_BYTES_KEY] = trailing_bytes
         global_info[SigMFFile.DATASET_KEY] = blue_file_name
+        global_info[SigMFFile.TRAILING_BYTES_KEY] = trailing_bytes
 
     # merge HCB values into metadata
     global_info["blue:fixed"] = h_fixed

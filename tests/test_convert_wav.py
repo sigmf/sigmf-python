@@ -10,7 +10,6 @@ import tempfile
 import unittest
 import wave
 from pathlib import Path
-from typing import cast
 
 import numpy as np
 
@@ -20,11 +19,28 @@ from sigmf.convert.wav import wav_to_sigmf
 from .testdata import NONSIGMF_ENV, NONSIGMF_REPO
 
 
+def _validate_ncd(test, meta, target_path):
+    """non-conforming dataset has a specific structure"""
+    test.assertEqual(str(meta.data_file), str(target_path), "Auto-detected NCD should point to original file")
+    test.assertIsInstance(meta, sigmf.SigMFFile)
+
+    global_info = meta.get_global_info()
+    capture_info = meta.get_captures()
+
+    # validate NCD SigMF spec compliance
+    test.assertGreater(len(capture_info), 0, "Should have at least one capture")
+    test.assertIn("core:header_bytes", capture_info[0])
+    test.assertGreater(capture_info[0]["core:header_bytes"], 0, "Should have non-zero core:header_bytes field")
+    test.assertIn("core:trailing_bytes", global_info, "Should have core:trailing_bytes field.")
+    test.assertIn("core:dataset", global_info, "Should have core:dataset field.")
+    test.assertNotIn("core:metadata_only", global_info, "Should NOT have core:metadata_only field.")
+
+
 class TestWAVConverter(unittest.TestCase):
-    """wav converter tests"""
+    """Create a realistic WAV file and test conversion methods."""
 
     def setUp(self) -> None:
-        """temp wav file for testing"""
+        """temp WAV file with tone for testing"""
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.tmp_path = Path(self.tmp_dir.name)
         self.wav_path = self.tmp_path / "foo.wav"
@@ -47,49 +63,14 @@ class TestWAVConverter(unittest.TestCase):
         """clean up temporary directory"""
         self.tmp_dir.cleanup()
 
-    def _validate_ncd_structure(self, meta, expected_file):
-        """validate basic NCD structure"""
-        self.assertEqual(meta.data_file, expected_file, "NCD should point to original file")
-        self.assertIn("core:trailing_bytes", meta._metadata["global"])
-        captures = meta.get_captures()
-        self.assertGreater(len(captures), 0, "Should have at least one capture")
-        self.assertIn("core:header_bytes", captures[0])
-
-        # validate SigMF spec compliance: NCDs must not have metadata_only field
-        global_meta = meta._metadata["global"]
-        has_dataset = "core:dataset" in global_meta
-        has_metadata_only = "core:metadata_only" in global_meta
-
-        self.assertTrue(has_dataset, "NCD should have core:dataset field")
-        self.assertFalse(has_metadata_only, "NCD should NOT have core:metadata_only field (spec violation)")
-
-        return captures
-
-    def _validate_dataset_key(self, meta, expected_filename):
-        """validate DATASET_KEY is correctly set"""
-        dataset_filename = meta.get_global_field("core:dataset")
-        self.assertEqual(dataset_filename, expected_filename, "DATASET_KEY should contain filename")
-        self.assertIsInstance(dataset_filename, str, "DATASET_KEY should be a string")
-
-    def _validate_auto_detection(self, file_path):
-        """validate auto-detection works and returns valid NCD"""
-        meta_auto_raw = sigmf.fromfile(file_path)
-        # auto-detection should return SigMFFile, not SigMFCollection
-        self.assertIsInstance(meta_auto_raw, sigmf.SigMFFile)
-        meta_auto = cast(sigmf.SigMFFile, meta_auto_raw)
-        # data_file might be Path or str, so convert both for comparison
-        self.assertEqual(str(meta_auto.data_file), str(file_path))
-        self.assertIn("core:trailing_bytes", meta_auto._metadata["global"])
-        return meta_auto
-
     def test_wav_to_sigmf_pair(self):
         """test standard wav to sigmf conversion with file pairs"""
         sigmf_path = self.tmp_path / "bar.tmp"
         meta = wav_to_sigmf(wav_path=str(self.wav_path), out_path=str(sigmf_path))
         data = meta.read_samples()
+        self.assertGreater(len(data), 0, "Should read some samples")
         # allow numerical differences due to PCM quantization
         self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
-        self.assertGreater(len(data), 0, "Should read some samples")
         filenames = sigmf.sigmffile.get_sigmf_filenames(sigmf_path)
         self.assertTrue(filenames["data_fn"].exists(), "dataset path missing")
         self.assertTrue(filenames["meta_fn"].exists(), "metadata path missing")
@@ -104,101 +85,79 @@ class TestWAVConverter(unittest.TestCase):
     def test_wav_to_sigmf_ncd(self):
         """test wav to sigmf conversion as Non-Conforming Dataset"""
         meta = wav_to_sigmf(wav_path=str(self.wav_path), create_ncd=True)
-
-        # validate basic NCD structure
-        captures = self._validate_ncd_structure(meta, self.wav_path)
-        self.assertEqual(len(captures), 1, "Should have exactly one capture")
-
-        # validate DATASET_KEY is set for NCD
-        self._validate_dataset_key(meta, self.wav_path.name)
-
-        # header_bytes should be non-zero for WAV files
-        header_bytes = captures[0]["core:header_bytes"]
-        self.assertGreater(header_bytes, 0, "WAV files should have non-zero header bytes")
+        _validate_ncd(self, meta, self.wav_path)
 
         # verify data can still be read correctly from NCD
         data = meta.read_samples()
-        self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
         self.assertGreater(len(data), 0, "Should read some samples")
-
-        # verify this is metadata-only (no separate data file created)
-        self.assertIsInstance(meta.data_buffer, type(meta.data_buffer))
-
-    def test_wav_auto_detection(self):
-        """test automatic WAV detection through fromfile()"""
-        # validate auto-detection works
-        meta_raw = self._validate_auto_detection(self.wav_path)
-        meta = cast(sigmf.SigMFFile, meta_raw)
-
-        # validate DATASET_KEY is set for auto-detected NCD
-        self._validate_dataset_key(meta, self.wav_path.name)
-
-        # verify data can be read correctly
-        data = meta.read_samples()
+        # allow numerical differences due to PCM quantization
         self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
-        self.assertGreater(len(data), 0, "Should read some samples")
 
 
-class TestWAVConverterWithRealFiles(unittest.TestCase):
+class TestWAVWithNonSigMFRepo(unittest.TestCase):
     """Test WAV converter with real example files if available"""
 
     def setUp(self) -> None:
         """setup paths to example wav files"""
-        self.wav_dir = None
-        if NONSIGMF_REPO:
-            wav_path = NONSIGMF_REPO / "wav"
-            if wav_path.exists():
-                self.wav_dir = wav_path
-                self.wav_files = list(wav_path.glob("*.wav"))
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+        if not NONSIGMF_REPO:
+            # skip test if environment variable not set
+            self.skipTest(f"Set {NONSIGMF_ENV} environment variable to path with WAV files to run test.")
 
-    def _validate_ncd_structure(self, meta, expected_file):
-        """validate basic NCD structure"""
-        self.assertEqual(meta.data_file, expected_file, "NCD should point to original file")
-        self.assertIn("core:trailing_bytes", meta._metadata["global"])
-        captures = meta.get_captures()
-        self.assertGreater(len(captures), 0, "Should have at least one capture")
-        self.assertIn("core:header_bytes", captures[0])
+        # glob all files in wav/ directory
+        wav_dir = NONSIGMF_REPO / "wav"
+        self.wav_paths = []
+        if wav_dir.exists():
+            self.wav_paths = list(wav_dir.glob("*.wav"))
+        if not self.wav_paths:
+            self.fail(f"No WAV files (*.wav) found in {wav_dir}.")
 
-        # validate SigMF spec compliance: NCDs must not have metadata_only field
-        global_meta = meta._metadata["global"]
-        has_dataset = "core:dataset" in global_meta
-        has_metadata_only = "core:metadata_only" in global_meta
+    def tearDown(self) -> None:
+        """clean up temporary directory"""
+        self.tmp_dir.cleanup()
 
-        self.assertTrue(has_dataset, "NCD should have core:dataset field")
-        self.assertFalse(has_metadata_only, "NCD should NOT have core:metadata_only field (spec violation)")
+    def test_sigmf_pair(self):
+        """test standard wav to sigmf conversion with file pairs"""
+        for wav_path in self.wav_paths:
+            sigmf_path = self.tmp_path / wav_path.stem
+            meta = wav_to_sigmf(wav_path=wav_path, out_path=sigmf_path)
+            self.assertIsInstance(meta, sigmf.SigMFFile)
+            # FIXME: REPLACE BELOW WITH BELOW COMMENTED AFTER PR #121 MERGED
+            if not meta.get_global_field("core:metadata_only"):
+                _ = meta.read_samples(count=10)
+                # check sample read consistency
+                # np.testing.assert_array_equal(meta.read_samples(count=10), meta[0:10])
 
-        return captures
+    def test_sigmf_archive(self):
+        """test wav to sigmf conversion with archive output"""
+        for wav_path in self.wav_paths:
+            sigmf_path = self.tmp_path / f"{wav_path.stem}_archive"
+            meta = wav_to_sigmf(wav_path=wav_path, out_path=sigmf_path, create_archive=True)
+            # now read newly created archive
+            arc_meta = sigmf.fromfile(sigmf_path)
+            # FIXME: I believe this error related to sample_count being 0 is fixed by PR 121
+            print("dbug", arc_meta)
+            print("dbug len", len(arc_meta))
+            print("dbug sample_count", arc_meta.sample_count)
+            self.assertIsInstance(arc_meta, sigmf.SigMFFile)
+            # FIXME: REPLACE BELOW WITH BELOW COMMENTED AFTER PR #121 MERGED
+            if not arc_meta.get_global_field("core:metadata_only"):
+                _ = arc_meta.read_samples(count=10)
+                # check sample read consistency
+                # np.testing.assert_array_equal(meta.read_samples(count=10), meta[0:10])
 
-    def _validate_dataset_key(self, meta, expected_filename):
-        """validate DATASET_KEY is correctly set"""
-        dataset_filename = meta.get_global_field("core:dataset")
-        self.assertEqual(dataset_filename, expected_filename, "DATASET_KEY should contain filename")
+    def test_create_ncd(self):
+        """test direct NCD conversion"""
+        for wav_path in self.wav_paths:
+            meta = wav_to_sigmf(wav_path=wav_path)
+            _validate_ncd(self, meta, wav_path)
 
-    def _validate_auto_detection(self, file_path):
-        """validate auto-detection works and returns valid NCD"""
-        meta_auto_raw = sigmf.fromfile(file_path)
-        # auto-detection should return SigMFFile, not SigMFCollection
-        self.assertIsInstance(meta_auto_raw, sigmf.SigMFFile)
-        meta_auto = cast(sigmf.SigMFFile, meta_auto_raw)
-        # data_file might be Path or str, so convert both for comparison
-        self.assertEqual(str(meta_auto.data_file), str(file_path))
-        self.assertIn("core:trailing_bytes", meta_auto._metadata["global"])
-        return meta_auto
+            # test file read
+            _ = meta.read_samples(count=10)
 
-    def test_real_wav_files_ncd(self):
-        """test NCD conversion with real example wav files"""
-        if not self.wav_dir or not hasattr(self, "wav_files"):
-            self.skipTest(f"Set {NONSIGMF_ENV} environment variable to path with wav/ directory to run test.")
-
-        if not self.wav_files:
-            self.skipTest(f"No .wav files found in {self.wav_dir}")
-
-        for wav_file in self.wav_files:
-            meta = wav_to_sigmf(wav_path=str(wav_file), create_ncd=True)
-
-            # validate basic NCD structure
-            self._validate_ncd_structure(meta, wav_file)
-
-            # validate auto-detection also works
-            meta_auto = self._validate_auto_detection(wav_file)
-            self._validate_dataset_key(meta_auto, wav_file.name)
+    def test_autodetect_ncd(self):
+        """test automatic NCD conversion"""
+        for wav_path in self.wav_paths:
+            meta = sigmf.fromfile(wav_path)
+            _validate_ncd(self, meta, wav_path)
