@@ -115,3 +115,24 @@ method-based approach.
    Only core **global** fields support attribute access. Capture and annotation
    fields must still be accessed using the traditional ``get_captures()`` and
    ``get_annotations()`` methods.
+
+--------------------------------
+Control Fixed-Point Data Scaling
+--------------------------------
+
+For fixed-point datasets, you can control whether samples are automatically scaled to floating-point values:
+
+.. code-block:: python
+
+    import sigmf
+
+    # Default behavior: autoscale fixed-point data to [-1.0, 1.0] range
+    handle = sigmf.fromfile("fixed_point_data.sigmf")
+    samples = handle.read_samples()  # Returns float32/complex64
+
+    # Disable autoscaling to access raw integer values
+    handle_raw = sigmf.fromfile("fixed_point_data.sigmf", autoscale=False)
+    raw_samples = handle_raw.read_samples()  # Returns original integer types
+
+    # Both slicing and read_samples() respect the autoscale setting
+    assert handle[0:10].dtype == handle.read_samples(count=10).dtype

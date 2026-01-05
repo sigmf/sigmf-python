@@ -182,7 +182,7 @@ class SigMFFile(SigMFMetafile):
     ]
     VALID_KEYS = {GLOBAL_KEY: VALID_GLOBAL_KEYS, CAPTURE_KEY: VALID_CAPTURE_KEYS, ANNOTATION_KEY: VALID_ANNOTATION_KEYS}
 
-    def __init__(self, metadata=None, data_file=None, global_info=None, skip_checksum=False, map_readonly=True):
+    def __init__(self, metadata=None, data_file=None, global_info=None, skip_checksum=False, map_readonly=True, autoscale=True):
         """
         API for SigMF I/O
 
@@ -198,6 +198,9 @@ class SigMFFile(SigMFMetafile):
             When True will skip calculating hash on data_file (if present) to check against metadata.
         map_readonly: bool, default True
             Indicates whether assignments on the numpy.memmap are allowed.
+        autoscale: bool, default True
+            If dataset is in a fixed-point representation, scale samples from (min, max) to (-1.0, 1.0)
+            for all sample reading operations including slicing.
         """
         super().__init__()
         self.data_file = None
@@ -205,6 +208,7 @@ class SigMFFile(SigMFMetafile):
         self.sample_count = 0
         self._memmap = None
         self.is_complex_data = False  # numpy.iscomplexobj(self._memmap) is not adequate for fixed-point complex case
+        self.autoscale = autoscale
 
         self.set_metadata(metadata)
         if global_info is not None:
@@ -310,10 +314,39 @@ class SigMFFile(SigMFMetafile):
     def __getitem__(self, sli):
         mem = self._memmap[sli]  # matches behavior of numpy.ndarray.__getitem__()
 
+        # apply _return_type conversion if set
         if self._return_type is None:
-            return mem
+            # no special conversion needed
+            if not self.autoscale:
+                return mem
+            else:
+                # apply autoscaling for fixed-point data when autoscale=True
+                dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
+                is_fixedpoint_data = dtype["is_fixedpoint"]
 
-        # is_fixed_point and is_complex
+                if is_fixedpoint_data:
+                    # apply scaling for fixed-point data
+                    is_unsigned_data = dtype["is_unsigned"]
+                    component_size = dtype["component_size"]
+                    data_type_out = np.dtype("f4") if not self.is_complex_data else np.dtype("f4, f4")
+
+                    data = mem.astype(data_type_out)
+                    data = data.view(np.dtype("f4"))
+                    if is_unsigned_data:
+                        data -= 2 ** (component_size * 8 - 1)
+                    data *= 2 ** -(component_size * 8 - 1)
+                    data = data.view(data_type_out)
+                    if self.is_complex_data:
+                        data = data.view(np.complex64)
+                        # for single-channel complex data, flatten the last dimension
+                        if data.ndim > 1 and self.get_num_channels() == 1:
+                            data = data.flatten()
+                    return data[0] if isinstance(sli, int) else data
+                else:
+                    # floating-point data, no scaling needed
+                    return mem
+
+        # handle complex data type conversion
         if self._memmap.ndim == 2:
             # num_channels == 1
             ray = mem[:, 0].astype(self._return_type) + 1.0j * mem[:, 1].astype(self._return_type)
@@ -740,7 +773,7 @@ class SigMFFile(SigMFMetafile):
                 self.dump(fp, pretty=pretty)
                 fp.write("\n")  # text files should end in carriage return
 
-    def read_samples_in_capture(self, index=0, autoscale=True):
+    def read_samples_in_capture(self, index=0):
         """
         Reads samples from the specified captures segment in its entirety.
 
@@ -763,9 +796,9 @@ class SigMFFile(SigMFMetafile):
                 "an integer number of samples across channels. It may be invalid."
             )
 
-        return self._read_datafile(cb[0], (cb[1] - cb[0]) // self.get_sample_size(), autoscale, False)
+        return self._read_datafile(cb[0], (cb[1] - cb[0]) // self.get_sample_size())
 
-    def read_samples(self, start_index=0, count=-1, autoscale=True, raw_components=False):
+    def read_samples(self, start_index=0, count=-1):
         """
         Reads the specified number of samples starting at the specified index from the associated data file.
 
@@ -775,16 +808,12 @@ class SigMFFile(SigMFMetafile):
             Starting sample index from which to read.
         count : int, default -1
             Number of samples to read. -1 will read whole file.
-        autoscale : bool, default True
-            If dataset is in a fixed-point representation, scale samples from (min, max) to (-1.0, 1.0)
-        raw_components : bool, default False
-            If True read and return the sample components (individual I & Q for complex, samples for real)
-            with no conversions or interleaved channels.
 
         Returns
         -------
         data : ndarray
             Samples are returned as an array of float or complex, with number of dimensions equal to NUM_CHANNELS_KEY.
+            Scaling behavior depends on the autoscale parameter set during construction.
         """
         if count == 0:
             raise IOError("Number of samples must be greater than zero, or -1 for all samples.")
@@ -800,9 +829,9 @@ class SigMFFile(SigMFMetafile):
 
         if not self._is_conforming_dataset():
             warnings.warn(f"Recording dataset appears non-compliant, resulting data may be erroneous")
-        return self._read_datafile(first_byte, count * self.num_channels, autoscale, False)
+        return self._read_datafile(first_byte, count * self.get_num_channels())
 
-    def _read_datafile(self, first_byte, nitems, autoscale, raw_components):
+    def _read_datafile(self, first_byte, nitems):
         """
         internal function for reading samples from datafile
         """
@@ -832,18 +861,15 @@ class SigMFFile(SigMFMetafile):
             # return reshaped view for num_channels
             # first dimension will be double size if `is_complex_data`
             data = data.reshape(data.shape[0] // num_channels, num_channels)
-        if not raw_components:
-            data = data.astype(data_type_out)
-            if autoscale and is_fixedpoint_data:
-                data = data.view(np.dtype("f4"))
-                if is_unsigned_data:
-                    data -= 2 ** (component_size * 8 - 1)
-                data *= 2 ** -(component_size * 8 - 1)
-                data = data.view(data_type_out)
-            if self.is_complex_data:
-                data = data.view(np.complex64)
-        else:
-            data = data.view(component_type_in)
+        data = data.astype(data_type_out)
+        if self.autoscale and is_fixedpoint_data:
+            data = data.view(np.dtype("f4"))
+            if is_unsigned_data:
+                data -= 2 ** (component_size * 8 - 1)
+            data *= 2 ** -(component_size * 8 - 1)
+            data = data.view(data_type_out)
+        if self.is_complex_data:
+            data = data.view(np.complex64)
 
         if self.data_file is not None:
             fp.close()
@@ -1144,18 +1170,34 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     return None
 
 
-def fromarchive(archive_path, dir=None, skip_checksum=False):
+def fromarchive(archive_path, dir=None, skip_checksum=False, autoscale=True):
     """Extract an archive and return a SigMFFile.
 
     The `dir` parameter is no longer used as this function has been changed to
     access SigMF archives without extracting them.
+
+    Parameters
+    ----------
+    archive_path: str
+        Path to `sigmf-archive` tarball.
+    dir: str, optional
+        No longer used. Kept for compatibility.
+    skip_checksum: bool, default False
+        Skip dataset checksum calculation.
+    autoscale: bool, default True
+        If dataset is in a fixed-point representation, scale samples from (min, max) to (-1.0, 1.0).
+
+    Returns
+    -------
+    SigMFFile
+        Instance created from archive.
     """
     from .archivereader import SigMFArchiveReader
 
-    return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
+    return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum, autoscale=autoscale).sigmffile
 
 
-def fromfile(filename, skip_checksum=False):
+def fromfile(filename, skip_checksum=False, autoscale=True):
     """
     Creates and returns a SigMFFile or SigMFCollection instance with metadata loaded from the specified file.
 
@@ -1171,6 +1213,8 @@ def fromfile(filename, skip_checksum=False):
         Path for SigMF Metadata, Dataset, Archive or Collection (with or without extension).
     skip_checksum: bool, default False
         When True will not read entire dataset to calculate hash.
+    autoscale: bool, default True
+        If dataset is in a fixed-point representation, scale samples from (min, max) to (-1.0, 1.0).
 
     Returns
     -------
@@ -1187,7 +1231,7 @@ def fromfile(filename, skip_checksum=False):
     ext = file_path.suffix
 
     if (ext.lower().endswith(SIGMF_ARCHIVE_EXT) or not Path.is_file(meta_fn)) and Path.is_file(archive_fn):
-        return fromarchive(archive_fn, skip_checksum=skip_checksum)
+        return fromarchive(archive_fn, skip_checksum=skip_checksum, autoscale=autoscale)
 
     if (ext.lower().endswith(SIGMF_COLLECTION_EXT) or not Path.is_file(meta_fn)) and Path.is_file(collection_fn):
         collection_fp = open(collection_fn, "rb")
@@ -1207,7 +1251,7 @@ def fromfile(filename, skip_checksum=False):
         meta_fp.close()
 
         data_fn = get_dataset_filename_from_metadata(meta_fn, metadata)
-        return SigMFFile(metadata=metadata, data_file=data_fn, skip_checksum=skip_checksum)
+        return SigMFFile(metadata=metadata, data_file=data_fn, skip_checksum=skip_checksum, autoscale=autoscale)
 
 
 def get_sigmf_filenames(filename):
