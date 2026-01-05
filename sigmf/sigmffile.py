@@ -126,8 +126,8 @@ class SigMFFile(SigMFMetafile):
     COMMENT_KEY = "core:comment"
     DESCRIPTION_KEY = "core:description"
     AUTHOR_KEY = "core:author"
-    META_DOI_KEY = "core:meta-doi"
-    DATA_DOI_KEY = "core:data-doi"
+    META_DOI_KEY = "core:meta_doi"
+    DATA_DOI_KEY = "core:data_doi"
     GENERATOR_KEY = "core:generator"
     LABEL_KEY = "core:label"
     RECORDER_KEY = "core:recorder"
@@ -147,14 +147,38 @@ class SigMFFile(SigMFMetafile):
     CAPTURE_KEY = "captures"
     ANNOTATION_KEY = "annotations"
     VALID_GLOBAL_KEYS = [
-        AUTHOR_KEY, COLLECTION_KEY, DATASET_KEY, DATATYPE_KEY, DATA_DOI_KEY, DESCRIPTION_KEY, EXTENSIONS_KEY,
-        GEOLOCATION_KEY, HASH_KEY, HW_KEY, LICENSE_KEY, META_DOI_KEY, METADATA_ONLY_KEY, NUM_CHANNELS_KEY, RECORDER_KEY,
-        SAMPLE_RATE_KEY, START_OFFSET_KEY, TRAILING_BYTES_KEY, VERSION_KEY
+        AUTHOR_KEY,
+        COLLECTION_KEY,
+        DATASET_KEY,
+        DATATYPE_KEY,
+        DATA_DOI_KEY,
+        DESCRIPTION_KEY,
+        EXTENSIONS_KEY,
+        GEOLOCATION_KEY,
+        HASH_KEY,
+        HW_KEY,
+        LICENSE_KEY,
+        META_DOI_KEY,
+        METADATA_ONLY_KEY,
+        NUM_CHANNELS_KEY,
+        RECORDER_KEY,
+        SAMPLE_RATE_KEY,
+        START_OFFSET_KEY,
+        TRAILING_BYTES_KEY,
+        VERSION_KEY,
     ]
     VALID_CAPTURE_KEYS = [DATETIME_KEY, FREQUENCY_KEY, HEADER_BYTES_KEY, GLOBAL_INDEX_KEY, START_INDEX_KEY]
     VALID_ANNOTATION_KEYS = [
-        COMMENT_KEY, FHI_KEY, FLO_KEY, GENERATOR_KEY, LABEL_KEY, LAT_KEY, LENGTH_INDEX_KEY, LON_KEY, START_INDEX_KEY,
-        UUID_KEY
+        COMMENT_KEY,
+        FHI_KEY,
+        FLO_KEY,
+        GENERATOR_KEY,
+        LABEL_KEY,
+        LAT_KEY,
+        LENGTH_INDEX_KEY,
+        LON_KEY,
+        START_INDEX_KEY,
+        UUID_KEY,
     ]
     VALID_KEYS = {GLOBAL_KEY: VALID_GLOBAL_KEYS, CAPTURE_KEY: VALID_CAPTURE_KEYS, ANNOTATION_KEY: VALID_ANNOTATION_KEYS}
 
@@ -202,6 +226,75 @@ class SigMFFile(SigMFMetafile):
             return self._metadata == other._metadata
         return False
 
+    def __getattr__(self, name):
+        """
+        Enable dynamic attribute access for core global metadata fields.
+
+        Allows convenient access to core metadata fields using attribute notation:
+        - `sigmf_file.sample_rate` returns `sigmf_file._metadata["global"]["core:sample_rate"]
+        - `sigmf_file.author` returns `sigmf_file._metadata["global"]["core:author"]
+
+        Parameters
+        ----------
+        name : str
+            Attribute name corresponding to a core field (without "core:" prefix).
+
+        Returns
+        -------
+        value
+            The value of the core field from global metadata, or None if not set.
+
+        Raises
+        ------
+        SigMFAccessError
+            If the attribute name doesn't correspond to a valid core global field.
+        """
+        # iterate through valid global keys to find matching core field
+        for key in self.VALID_GLOBAL_KEYS:
+            if key.startswith("core:") and key[5:] == name:
+                field_value = self.get_global_field(key)
+                if field_value is None:
+                    raise SigMFAccessError(f"Core field '{key}' does not exist in global metadata")
+                return field_value
+
+        # if we get here, the attribute doesn't correspond to a core field
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        """
+        Enable dynamic attribute setting for core global metadata fields.
+
+        Allows convenient setting of core metadata fields using attribute notation:
+        - `sigmf_file.sample_rate = 1000000` sets `sigmf_file._metadata["global"]["core:sample_rate"]
+        - `sigmf_file.author = "jane.doe@domain.org"` sets `sigmf_file._metadata["global"]["core:author"]
+
+        Parameters
+        ----------
+        name : str
+            Attribute name. If it corresponds to a core field (without "core:" prefix),
+            the value will be set in global metadata. Otherwise, normal attribute setting occurs.
+        value
+            The value to set for the field.
+        """
+        # handle regular instance attributes, existing properties, or during initialization
+        if (
+            name.startswith("_")
+            or hasattr(type(self), name)
+            or not hasattr(self, "_metadata")
+            or self._metadata is None
+        ):
+            super().__setattr__(name, value)
+            return
+
+        # check if this corresponds to a core global field
+        for key in self.VALID_GLOBAL_KEYS:
+            if key.startswith("core:") and key[5:] == name:
+                self.set_global_field(key, value)
+                return
+
+        # fall back to normal attribute setting for non-core attributes
+        super().__setattr__(name, value)
+
     def __next__(self):
         """get next batch of samples"""
         if self.iter_position < len(self):
@@ -231,15 +324,15 @@ class SigMFFile(SigMFMetafile):
             raise ValueError("unhandled ndim in SigMFFile.__getitem__(); this shouldn't happen")
         return ray[0] if isinstance(sli, int) else ray  # return element instead of 1-element array
 
-    def _get_start_offset(self):
-        """
-        Return the offset of the first sample.
-        """
-        return self.get_global_field(self.START_OFFSET_KEY, 0)
-
     def get_num_channels(self):
-        """Returns integer number of channels if present, otherwise 1"""
-        return self.get_global_field(self.NUM_CHANNELS_KEY, 1)
+        """Return integer number of channels."""
+        warnings.warn(
+            "get_num_channels() is deprecated and will be removed in a future version of sigmf. "
+            "Use the 'num_channels' attribute instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.num_channels
 
     def _is_conforming_dataset(self):
         """
@@ -290,9 +383,11 @@ class SigMFFile(SigMFMetafile):
         else:
             raise SigMFError("Unable to interpret provided metadata.")
 
-        # if num_channels missing, default to 1
+        # ensure fields required for parsing are present or use defaults
         if self.get_global_field(self.NUM_CHANNELS_KEY) is None:
             self.set_global_field(self.NUM_CHANNELS_KEY, 1)
+        if self.get_global_field(self.START_OFFSET_KEY) is None:
+            self.set_global_field(self.START_OFFSET_KEY, 0)
 
         # set version to current implementation
         self.set_global_field(self.VERSION_KEY, __specification__)
@@ -330,10 +425,8 @@ class SigMFFile(SigMFMetafile):
         If there is already capture info for this index, metadata will be merged
         with the existing metadata, overwriting keys if they were previously set.
         """
-        if start_index < self._get_start_offset():
-            raise SigMFAccessError(
-                "`start_index` {} must be >= the global start index {}".format(start_index, self._get_start_offset())
-            )
+        if start_index < self.offset:
+            raise SigMFAccessError("Capture start_index cannot be less than dataset start offset.")
         capture_list = self._metadata[self.CAPTURE_KEY]
         new_capture = metadata or {}
         new_capture[self.START_INDEX_KEY] = start_index
@@ -359,16 +452,13 @@ class SigMFFile(SigMFMetafile):
 
     def get_capture_info(self, index):
         """
-        Returns a dictionary containing all the capture information at sample
-        'index'.
+        Returns a dictionary containing all the capture information at sample index.
         """
-        if index < self._get_start_offset():
-            raise SigMFAccessError(
-                "`start_index` {} must be >= the global start index {}".format(index, self._get_start_offset())
-            )
+        if index < self.offset:
+            raise SigMFAccessError("Sample index cannot be less than dataset start offset.")
         captures = self._metadata.get(self.CAPTURE_KEY, [])
         if len(captures) == 0:
-            raise SigMFAccessError("No captures are present!")
+            raise SigMFAccessError("No captures in metadata.")
         cap_info = captures[0]
         for capture in captures:
             if capture[self.START_INDEX_KEY] > index:
@@ -401,9 +491,7 @@ class SigMFFile(SigMFMetafile):
         prev_start_sample = 0
         for ii, capture in enumerate(self.get_captures()):
             start_byte += capture.get(self.HEADER_BYTES_KEY, 0)
-            start_byte += (
-                (self.get_capture_start(ii) - prev_start_sample) * self.get_sample_size() * self.get_num_channels()
-            )
+            start_byte += (self.get_capture_start(ii) - prev_start_sample) * self.get_sample_size() * self.num_channels
             prev_start_sample = self.get_capture_start(ii)
             if ii >= index:
                 break
@@ -415,7 +503,7 @@ class SigMFFile(SigMFMetafile):
             end_byte += (
                 (self.get_capture_start(index + 1) - self.get_capture_start(index))
                 * self.get_sample_size()
-                * self.get_num_channels()
+                * self.num_channels
             )
         return (start_byte, end_byte)
 
@@ -423,11 +511,8 @@ class SigMFFile(SigMFMetafile):
         """
         Insert annotation at start_index with length (if != None).
         """
-
-        if start_index < self._get_start_offset():
-            raise SigMFAccessError(
-                "`start_index` {} must be >= the global start index {}".format(start_index, self._get_start_offset())
-            )
+        if start_index < self.offset:
+            raise SigMFAccessError("Annotation start_index cannot be less than dataset start offset.")
 
         new_annot = metadata or {}
         new_annot[self.START_INDEX_KEY] = start_index
@@ -481,7 +566,7 @@ class SigMFFile(SigMFMetafile):
         Determines the size of a sample, in bytes, from the datatype of this set.
         For complex data, a 'sample' includes both the real and imaginary part.
         """
-        return dtype_info(self.get_global_field(self.DATATYPE_KEY))["sample_size"]
+        return dtype_info(self.datatype)["sample_size"]
 
     def _count_samples(self):
         """
@@ -502,18 +587,14 @@ class SigMFFile(SigMFMetafile):
             else:
                 file_bytes = 0
             sample_bytes = file_bytes - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes
-            sample_size = self.get_sample_size()  # size of a sample in bytes
-            num_channels = self.get_num_channels()
-            sample_count = sample_bytes // sample_size // num_channels
-            if sample_bytes % (sample_size * num_channels) != 0:
+            total_sample_size = self.get_sample_size() * self.num_channels
+            sample_count, remainder = divmod(sample_bytes, total_sample_size)
+            if remainder:
                 warnings.warn(
-                    f"Data source does not contain an integer number of samples across channels. "
-                    "It may be invalid data."
+                    "Data source does not contain an integer number of samples across channels, it may be invalid."
                 )
             if self._get_sample_count_from_annotations() > sample_count:
-                warnings.warn(
-                    f"Data source ends before the final annotation in the corresponding SigMF metadata."
-                )
+                warnings.warn("Data source ends before the final annotation in the corresponding SigMF metadata.")
         self.sample_count = sample_count
         return sample_count
 
@@ -580,7 +661,7 @@ class SigMFFile(SigMFMetafile):
 
         dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
         self.is_complex_data = dtype["is_complex"]
-        num_channels = self.get_num_channels()
+        num_channels = self.num_channels
         self.ndim = 1 if (num_channels < 2) else 2
 
         complex_int_separates = dtype["is_complex"] and dtype["is_fixedpoint"]
@@ -676,7 +757,7 @@ class SigMFFile(SigMFMetafile):
             Samples are returned as an array of float or complex, with number of dimensions equal to NUM_CHANNELS_KEY.
         """
         cb = self.get_capture_byte_boundarys(index)
-        if (cb[1] - cb[0]) % (self.get_sample_size() * self.get_num_channels()):
+        if (cb[1] - cb[0]) % (self.get_sample_size() * self.num_channels):
             warnings.warn(
                 f"Capture `{index}` in `{self.data_file}` does not contain "
                 "an integer number of samples across channels. It may be invalid."
@@ -715,11 +796,11 @@ class SigMFFile(SigMFMetafile):
                 raise SigMFFileError("Cannot read samples from a metadata only distribution.")
             else:
                 raise SigMFFileError("No signal data file has been associated with the metadata.")
-        first_byte = start_index * self.get_sample_size() * self.get_num_channels()
+        first_byte = start_index * self.get_sample_size() * self.num_channels
 
         if not self._is_conforming_dataset():
             warnings.warn(f"Recording dataset appears non-compliant, resulting data may be erroneous")
-        return self._read_datafile(first_byte, count * self.get_num_channels(), autoscale, False)
+        return self._read_datafile(first_byte, count * self.num_channels, autoscale, False)
 
     def _read_datafile(self, first_byte, nitems, autoscale, raw_components):
         """
@@ -734,7 +815,7 @@ class SigMFFile(SigMFMetafile):
         component_size = dtype["component_size"]
 
         data_type_out = np.dtype("f4") if not self.is_complex_data else np.dtype("f4, f4")
-        num_channels = self.get_num_channels()
+        num_channels = self.num_channels
 
         if self.data_file is not None:
             fp = open(self.data_file, "rb")
@@ -790,7 +871,9 @@ class SigMFCollection(SigMFMetafile):
     ]
     VALID_KEYS = {COLLECTION_KEY: VALID_COLLECTION_KEYS}
 
-    def __init__(self, metafiles: list = None, metadata: dict = None, base_path=None, skip_checksums: bool = False) -> None:
+    def __init__(
+        self, metafiles: list = None, metadata: dict = None, base_path=None, skip_checksums: bool = False
+    ) -> None:
         """
         Create a SigMF Collection object.
 
@@ -1068,6 +1151,7 @@ def fromarchive(archive_path, dir=None, skip_checksum=False):
     access SigMF archives without extracting them.
     """
     from .archivereader import SigMFArchiveReader
+
     return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
 
 
@@ -1144,8 +1228,10 @@ def get_sigmf_filenames(filename):
     # suffix, because the filename might contain '.' characters which are part
     # of the filename rather than an extension.
     sigmf_suffixes = [
-        SIGMF_DATASET_EXT, SIGMF_METADATA_EXT,
-        SIGMF_ARCHIVE_EXT, SIGMF_COLLECTION_EXT,
+        SIGMF_DATASET_EXT,
+        SIGMF_METADATA_EXT,
+        SIGMF_ARCHIVE_EXT,
+        SIGMF_COLLECTION_EXT,
     ]
     if stem_path.suffix in sigmf_suffixes:
         with_suffix_path = stem_path
