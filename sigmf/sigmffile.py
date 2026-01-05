@@ -126,8 +126,8 @@ class SigMFFile(SigMFMetafile):
     COMMENT_KEY = "core:comment"
     DESCRIPTION_KEY = "core:description"
     AUTHOR_KEY = "core:author"
-    META_DOI_KEY = "core:meta-doi"
-    DATA_DOI_KEY = "core:data-doi"
+    META_DOI_KEY = "core:meta_doi"
+    DATA_DOI_KEY = "core:data_doi"
     GENERATOR_KEY = "core:generator"
     LABEL_KEY = "core:label"
     RECORDER_KEY = "core:recorder"
@@ -147,14 +147,38 @@ class SigMFFile(SigMFMetafile):
     CAPTURE_KEY = "captures"
     ANNOTATION_KEY = "annotations"
     VALID_GLOBAL_KEYS = [
-        AUTHOR_KEY, COLLECTION_KEY, DATASET_KEY, DATATYPE_KEY, DATA_DOI_KEY, DESCRIPTION_KEY, EXTENSIONS_KEY,
-        GEOLOCATION_KEY, HASH_KEY, HW_KEY, LICENSE_KEY, META_DOI_KEY, METADATA_ONLY_KEY, NUM_CHANNELS_KEY, RECORDER_KEY,
-        SAMPLE_RATE_KEY, START_OFFSET_KEY, TRAILING_BYTES_KEY, VERSION_KEY
+        AUTHOR_KEY,
+        COLLECTION_KEY,
+        DATASET_KEY,
+        DATATYPE_KEY,
+        DATA_DOI_KEY,
+        DESCRIPTION_KEY,
+        EXTENSIONS_KEY,
+        GEOLOCATION_KEY,
+        HASH_KEY,
+        HW_KEY,
+        LICENSE_KEY,
+        META_DOI_KEY,
+        METADATA_ONLY_KEY,
+        NUM_CHANNELS_KEY,
+        RECORDER_KEY,
+        SAMPLE_RATE_KEY,
+        START_OFFSET_KEY,
+        TRAILING_BYTES_KEY,
+        VERSION_KEY,
     ]
     VALID_CAPTURE_KEYS = [DATETIME_KEY, FREQUENCY_KEY, HEADER_BYTES_KEY, GLOBAL_INDEX_KEY, START_INDEX_KEY]
     VALID_ANNOTATION_KEYS = [
-        COMMENT_KEY, FHI_KEY, FLO_KEY, GENERATOR_KEY, LABEL_KEY, LAT_KEY, LENGTH_INDEX_KEY, LON_KEY, START_INDEX_KEY,
-        UUID_KEY
+        COMMENT_KEY,
+        FHI_KEY,
+        FLO_KEY,
+        GENERATOR_KEY,
+        LABEL_KEY,
+        LAT_KEY,
+        LENGTH_INDEX_KEY,
+        LON_KEY,
+        START_INDEX_KEY,
+        UUID_KEY,
     ]
     VALID_KEYS = {GLOBAL_KEY: VALID_GLOBAL_KEYS, CAPTURE_KEY: VALID_CAPTURE_KEYS, ANNOTATION_KEY: VALID_ANNOTATION_KEYS}
 
@@ -201,6 +225,75 @@ class SigMFFile(SigMFMetafile):
         if isinstance(other, SigMFFile):
             return self._metadata == other._metadata
         return False
+
+    def __getattr__(self, name):
+        """
+        Enable dynamic attribute access for core global metadata fields.
+
+        Allows convenient access to core metadata fields using attribute notation:
+        - `sigmf_file.sample_rate` returns `sigmf_file._metadata["global"]["core:sample_rate"]
+        - `sigmf_file.author` returns `sigmf_file._metadata["global"]["core:author"]
+
+        Parameters
+        ----------
+        name : str
+            Attribute name corresponding to a core field (without "core:" prefix).
+
+        Returns
+        -------
+        value
+            The value of the core field from global metadata, or None if not set.
+
+        Raises
+        ------
+        SigMFAccessError
+            If the attribute name doesn't correspond to a valid core global field.
+        """
+        # iterate through valid global keys to find matching core field
+        for key in self.VALID_GLOBAL_KEYS:
+            if key.startswith("core:") and key[5:] == name:
+                field_value = self.get_global_field(key)
+                if field_value is None:
+                    raise SigMFAccessError(f"Core field '{key}' does not exist in global metadata")
+                return field_value
+
+        # if we get here, the attribute doesn't correspond to a core field
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        """
+        Enable dynamic attribute setting for core global metadata fields.
+
+        Allows convenient setting of core metadata fields using attribute notation:
+        - `sigmf_file.sample_rate = 1000000` sets `sigmf_file._metadata["global"]["core:sample_rate"]
+        - `sigmf_file.author = "jane.doe@domain.org"` sets `sigmf_file._metadata["global"]["core:author"]
+
+        Parameters
+        ----------
+        name : str
+            Attribute name. If it corresponds to a core field (without "core:" prefix),
+            the value will be set in global metadata. Otherwise, normal attribute setting occurs.
+        value
+            The value to set for the field.
+        """
+        # handle regular instance attributes, existing properties, or during initialization
+        if (
+            name.startswith("_")
+            or hasattr(type(self), name)
+            or not hasattr(self, "_metadata")
+            or self._metadata is None
+        ):
+            super().__setattr__(name, value)
+            return
+
+        # check if this corresponds to a core global field
+        for key in self.VALID_GLOBAL_KEYS:
+            if key.startswith("core:") and key[5:] == name:
+                self.set_global_field(key, value)
+                return
+
+        # fall back to normal attribute setting for non-core attributes
+        super().__setattr__(name, value)
 
     def __next__(self):
         """get next batch of samples"""
@@ -790,7 +883,9 @@ class SigMFCollection(SigMFMetafile):
     ]
     VALID_KEYS = {COLLECTION_KEY: VALID_COLLECTION_KEYS}
 
-    def __init__(self, metafiles: list = None, metadata: dict = None, base_path=None, skip_checksums: bool = False) -> None:
+    def __init__(
+        self, metafiles: list = None, metadata: dict = None, base_path=None, skip_checksums: bool = False
+    ) -> None:
         """
         Create a SigMF Collection object.
 
@@ -1068,6 +1163,7 @@ def fromarchive(archive_path, dir=None, skip_checksum=False):
     access SigMF archives without extracting them.
     """
     from .archivereader import SigMFArchiveReader
+
     return SigMFArchiveReader(archive_path, skip_checksum=skip_checksum).sigmffile
 
 
@@ -1144,8 +1240,10 @@ def get_sigmf_filenames(filename):
     # suffix, because the filename might contain '.' characters which are part
     # of the filename rather than an extension.
     sigmf_suffixes = [
-        SIGMF_DATASET_EXT, SIGMF_METADATA_EXT,
-        SIGMF_ARCHIVE_EXT, SIGMF_COLLECTION_EXT,
+        SIGMF_DATASET_EXT,
+        SIGMF_METADATA_EXT,
+        SIGMF_ARCHIVE_EXT,
+        SIGMF_COLLECTION_EXT,
     ]
     if stem_path.suffix in sigmf_suffixes:
         with_suffix_path = stem_path

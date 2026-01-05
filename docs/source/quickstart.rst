@@ -24,11 +24,14 @@ Read a SigMF Recording
 
     import sigmf
     handle = sigmf.fromfile("example.sigmf")
-    handle.read_samples() # returns all timeseries data
+    # reading data
+    handle.read_samples() # read all timeseries data
+    handle[10:50] # read memory slice of samples 10 through 50
+    # accessing metadata
+    handle.sample_rate # get sample rate attribute
     handle.get_global_info() # returns 'global' dictionary
     handle.get_captures() # returns list of 'captures' dictionaries
     handle.get_annotations() # returns list of all annotations
-    handle[10:50] # return memory slice of samples 10 through 50
 
 -----------------------------------
 Verify SigMF Integrity & Compliance
@@ -80,3 +83,47 @@ Save a Numpy array as a SigMF Recording
 
     # check for mistakes & write to disk
     meta.tofile('example_cf32.sigmf-meta') # extension is optional
+
+----------------------------------
+Attribute Access for Global Fields
+----------------------------------
+
+SigMF-Python provides convenient attribute-style access for core global metadata fields,
+allowing you to read and write metadata using simple dot notation alongside the traditional
+method-based approach.
+
+.. code-block:: python
+
+    import numpy as np
+    from sigmf import SigMFFile
+
+    # create a new recording
+    meta = SigMFFile()
+
+    # set global metadata using attributes
+    meta.sample_rate = 48000
+    meta.author = 'jane.doe@domain.org'
+    meta.datatype = 'cf32_le'
+    meta.description = 'Example recording with attribute access'
+    meta.license = 'MIT'
+    meta.recorder = 'hackrf_one'
+
+    # read global metadata using attributes
+    print(f"Sample rate: {meta.sample_rate}")
+    print(f"Author: {meta.author}")
+    print(f"License: {meta.license}")
+
+    # method-based approach
+    meta.set_global_field(SigMFFile.HW_KEY, 'SDR Hardware v1.2')
+    hw_info = meta.get_global_field(SigMFFile.HW_KEY)
+    print(f"Hardware: {hw_info}")
+
+    # attribute and method access are equivalent
+    meta.set_global_field(SigMFFile.RECORDER_KEY, 'usrp_b210')
+    print(f"Recorder via attribute: {meta.recorder}")  # prints: usrp_b210
+
+.. note::
+
+   Only core **global** fields support attribute access. Capture and annotation
+   fields must still be accessed using the traditional ``add_capture()`` and
+   ``add_annotation()`` methods.
