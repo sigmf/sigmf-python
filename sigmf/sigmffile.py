@@ -182,7 +182,9 @@ class SigMFFile(SigMFMetafile):
     ]
     VALID_KEYS = {GLOBAL_KEY: VALID_GLOBAL_KEYS, CAPTURE_KEY: VALID_CAPTURE_KEYS, ANNOTATION_KEY: VALID_ANNOTATION_KEYS}
 
-    def __init__(self, metadata=None, data_file=None, global_info=None, skip_checksum=False, map_readonly=True, autoscale=True):
+    def __init__(
+        self, metadata=None, data_file=None, global_info=None, skip_checksum=False, map_readonly=True, autoscale=True
+    ):
         """
         API for SigMF I/O
 
@@ -339,7 +341,7 @@ class SigMFFile(SigMFMetafile):
                     if self.is_complex_data:
                         data = data.view(np.complex64)
                         # for single-channel complex data, flatten the last dimension
-                        if data.ndim > 1 and self.get_num_channels() == 1:
+                        if data.ndim > 1 and self.num_channels == 1:
                             data = data.flatten()
                     return data[0] if isinstance(sli, int) else data
                 else:
@@ -509,7 +511,7 @@ class SigMFFile(SigMFMetafile):
             raise SigMFAccessError("Capture {} does not have required {} key".format(index, self.START_INDEX_KEY))
         return start
 
-    def get_capture_byte_boundarys(self, index):
+    def get_capture_byte_boundaries(self, index):
         """
         Returns a tuple of the file byte range in a dataset of a given SigMF
         capture of the form [start, stop). This function works on either
@@ -531,7 +533,13 @@ class SigMFFile(SigMFMetafile):
 
         end_byte = start_byte
         if index == len(self.get_captures()) - 1:  # last captures...data is the rest of the file
-            end_byte = self.data_file.stat().st_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
+            if self.data_file is not None:
+                file_size = self.data_file.stat().st_size
+            elif self.data_buffer is not None:
+                file_size = len(self.data_buffer.getbuffer())
+            else:
+                raise SigMFFileError("Neither data_file nor data_buffer is available")
+            end_byte = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
         else:
             end_byte += (
                 (self.get_capture_start(index + 1) - self.get_capture_start(index))
@@ -539,6 +547,15 @@ class SigMFFile(SigMFMetafile):
                 * self.num_channels
             )
         return (start_byte, end_byte)
+
+    def get_capture_byte_boundarys(self, index):
+        warnings.warn(
+            "get_capture_byte_boundarys() is deprecated and will be removed in a future version of sigmf. "
+            "Use get_capture_byte_boundaries() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.get_capture_byte_boundaries(index)
 
     def add_annotation(self, start_index, length=None, metadata=None):
         """
@@ -789,7 +806,7 @@ class SigMFFile(SigMFMetafile):
         data : ndarray
             Samples are returned as an array of float or complex, with number of dimensions equal to NUM_CHANNELS_KEY.
         """
-        cb = self.get_capture_byte_boundarys(index)
+        cb = self.get_capture_byte_boundaries(index)
         if (cb[1] - cb[0]) % (self.get_sample_size() * self.num_channels):
             warnings.warn(
                 f"Capture `{index}` in `{self.data_file}` does not contain "
@@ -826,10 +843,7 @@ class SigMFFile(SigMFMetafile):
             else:
                 raise SigMFFileError("No signal data file has been associated with the metadata.")
         first_byte = start_index * self.get_sample_size() * self.num_channels
-
-        if not self._is_conforming_dataset():
-            warnings.warn(f"Recording dataset appears non-compliant, resulting data may be erroneous")
-        return self._read_datafile(first_byte, count * self.get_num_channels())
+        return self._read_datafile(first_byte, count * self.num_channels)
 
     def _read_datafile(self, first_byte, nitems):
         """
