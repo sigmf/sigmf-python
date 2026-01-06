@@ -254,8 +254,8 @@ class TestCaptures(unittest.TestCase):
         meta = self.prepare(TEST_U8_DATA0, TEST_U8_META0, np.uint8, autoscale=False)
         self.assertEqual(256, meta._count_samples())
         self.assertTrue(meta._is_conforming_dataset())
-        self.assertTrue((0, 0), meta.get_capture_byte_boundarys(0))
-        self.assertTrue((0, 256), meta.get_capture_byte_boundarys(1))
+        self.assertTrue((0, 0), meta.get_capture_byte_boundaries(0))
+        self.assertTrue((0, 256), meta.get_capture_byte_boundaries(1))
         self.assertTrue(np.array_equal(TEST_U8_DATA0, meta.read_samples()))
         self.assertTrue(np.array_equal(np.array([]), meta.read_samples_in_capture(0)))
         self.assertTrue(np.array_equal(TEST_U8_DATA0, meta.read_samples_in_capture(1)))
@@ -265,8 +265,8 @@ class TestCaptures(unittest.TestCase):
         meta = self.prepare(TEST_U8_DATA1, TEST_U8_META1, np.uint8, autoscale=False)
         self.assertEqual(192, meta._count_samples())
         self.assertFalse(meta._is_conforming_dataset())
-        self.assertTrue((32, 160), meta.get_capture_byte_boundarys(0))
-        self.assertTrue((160, 224), meta.get_capture_byte_boundarys(1))
+        self.assertTrue((32, 160), meta.get_capture_byte_boundaries(0))
+        self.assertTrue((160, 224), meta.get_capture_byte_boundaries(1))
         self.assertTrue(np.array_equal(np.arange(128), meta.read_samples_in_capture(0)))
         self.assertTrue(np.array_equal(np.arange(128, 192), meta.read_samples_in_capture(1)))
 
@@ -275,8 +275,8 @@ class TestCaptures(unittest.TestCase):
         meta = self.prepare(TEST_U8_DATA2, TEST_U8_META2, np.uint8, autoscale=False)
         self.assertEqual(192, meta._count_samples())
         self.assertFalse(meta._is_conforming_dataset())
-        self.assertTrue((32, 160), meta.get_capture_byte_boundarys(0))
-        self.assertTrue((160, 224), meta.get_capture_byte_boundarys(1))
+        self.assertTrue((32, 160), meta.get_capture_byte_boundaries(0))
+        self.assertTrue((160, 224), meta.get_capture_byte_boundaries(1))
         self.assertTrue(np.array_equal(np.arange(128), meta.read_samples_in_capture(0)))
         self.assertTrue(np.array_equal(np.arange(128, 192), meta.read_samples_in_capture(1)))
 
@@ -285,9 +285,9 @@ class TestCaptures(unittest.TestCase):
         meta = self.prepare(TEST_U8_DATA3, TEST_U8_META3, np.uint8, autoscale=False)
         self.assertEqual(192, meta._count_samples())
         self.assertFalse(meta._is_conforming_dataset())
-        self.assertTrue((32, 64), meta.get_capture_byte_boundarys(0))
-        self.assertTrue((64, 160), meta.get_capture_byte_boundarys(1))
-        self.assertTrue((160, 224), meta.get_capture_byte_boundarys(2))
+        self.assertTrue((32, 64), meta.get_capture_byte_boundaries(0))
+        self.assertTrue((64, 160), meta.get_capture_byte_boundaries(1))
+        self.assertTrue((160, 224), meta.get_capture_byte_boundaries(2))
         self.assertTrue(np.array_equal(np.arange(32), meta.read_samples_in_capture(0)))
         self.assertTrue(np.array_equal(np.arange(32, 128), meta.read_samples_in_capture(1)))
         self.assertTrue(np.array_equal(np.arange(128, 192), meta.read_samples_in_capture(2)))
@@ -297,8 +297,8 @@ class TestCaptures(unittest.TestCase):
         meta = self.prepare(TEST_U8_DATA4, TEST_U8_META4, np.uint8, autoscale=False)
         self.assertEqual(96, meta._count_samples())
         self.assertFalse(meta._is_conforming_dataset())
-        self.assertTrue((32, 96), meta.get_capture_byte_boundarys(0))
-        self.assertTrue((96, 160), meta.get_capture_byte_boundarys(1))
+        self.assertTrue((32, 96), meta.get_capture_byte_boundaries(0))
+        self.assertTrue((96, 160), meta.get_capture_byte_boundaries(1))
         self.assertTrue(np.array_equal(np.arange(64).repeat(2).reshape(-1, 2), meta.read_samples_in_capture(0)))
         self.assertTrue(np.array_equal(np.arange(64, 96).repeat(2).reshape(-1, 2), meta.read_samples_in_capture(1)))
 
@@ -317,13 +317,24 @@ class TestCaptures(unittest.TestCase):
 
     def test_slicing_multiple_channels(self) -> None:
         """slice multiple channels"""
-        meta_raw = self.prepare(TEST_U8_DATA4, TEST_U8_META4, np.uint8, autoscale=False)
-        meta_scaled = self.prepare(TEST_U8_DATA4, TEST_U8_META4, np.uint8, autoscale=False)  # use raw data for this test
+
+        meta = self.prepare(TEST_U8_DATA4, TEST_U8_META4, np.uint8, autoscale=False)
         channelized = np.array(TEST_U8_DATA4).reshape((-1, 2))
-        self.assertTrue(np.array_equal(meta_scaled[:][:], channelized))
-        self.assertTrue(np.array_equal(meta_raw[10:20, 0], meta_raw.read_samples()[10:20, 0]))
-        self.assertTrue(np.array_equal(meta_scaled[0], channelized[0]))
-        self.assertTrue(np.array_equal(meta_scaled[1, :], channelized[1]))
+        self.assertTrue(np.array_equal(meta[:][:], channelized))
+        self.assertTrue(np.array_equal(meta[10:20, 0], meta.read_samples()[10:20, 0]))
+        self.assertTrue(np.array_equal(meta[0], channelized[0]))
+        self.assertTrue(np.array_equal(meta[1, :], channelized[1]))
+
+    def test_boundaries(self) -> None:
+        """capture byte boundaries from pairs & archives"""
+        # get a meta pair and archive
+        meta = self.prepare(TEST_U8_DATA3, TEST_U8_META3, np.uint8)
+        arc_path = self.temp_dir / "arc.sigmf"
+        meta.tofile(arc_path, toarchive=True)
+        arc = sigmf.fromfile(arc_path)
+        for bdx in range(3):
+            self.assertEqual(meta.get_capture_byte_boundaries(bdx), arc.get_capture_byte_boundaries(bdx))
+            self.assertTrue(np.array_equal(meta.read_samples_in_capture(bdx), arc.read_samples_in_capture(bdx)))
 
 
 def simulate_capture(sigmf_md, n, capture_len):
