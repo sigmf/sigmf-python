@@ -314,50 +314,59 @@ class SigMFFile(SigMFMetafile):
             raise StopIteration
 
     def __getitem__(self, sli):
-        mem = self._memmap[sli]  # matches behavior of numpy.ndarray.__getitem__()
+        """
+        Enable slicing and indexing into the dataset samples.
 
-        # apply _return_type conversion if set
-        if self._return_type is None:
-            # no special conversion needed
-            if not self.autoscale:
-                return mem
-            else:
-                # apply autoscaling for fixed-point data when autoscale=True
-                dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
-                is_fixedpoint_data = dtype["is_fixedpoint"]
+        Should match behavior of ndarray.__getitem__() and apply autoscaling similar to read_samples().
+        """
+        mem = self._memmap[sli]
 
-                if is_fixedpoint_data:
-                    # apply scaling for fixed-point data
-                    is_unsigned_data = dtype["is_unsigned"]
-                    component_size = dtype["component_size"]
-                    data_type_out = np.dtype("f4") if not self.is_complex_data else np.dtype("f4, f4")
+        # apply autoscaling for fixed-point data when autoscale=True
+        if self.autoscale:
+            dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
+            if dtype["is_fixedpoint"]:
+                # extract scaling parameters
+                is_unsigned_data = dtype["is_unsigned"]
+                component_size = dtype["component_size"]
 
-                    data = mem.astype(data_type_out)
-                    data = data.view(np.dtype("f4"))
+                # convert to float and apply scaling
+                if self.is_complex_data:
+                    # for complex data, mem is shaped (..., 2) where last dim is [real, imag]
+                    real_part = mem[..., 0].astype(np.float32)
+                    imag_part = mem[..., 1].astype(np.float32)
+
+                    # apply scaling to both parts
+                    if is_unsigned_data:
+                        real_part -= 2 ** (component_size * 8 - 1)
+                        imag_part -= 2 ** (component_size * 8 - 1)
+                    real_part *= 2 ** -(component_size * 8 - 1)
+                    imag_part *= 2 ** -(component_size * 8 - 1)
+
+                    # combine into complex numbers
+                    data = real_part + 1.0j * imag_part
+                else:
+                    # for real data, direct scaling
+                    data = mem.astype(np.float32)
                     if is_unsigned_data:
                         data -= 2 ** (component_size * 8 - 1)
                     data *= 2 ** -(component_size * 8 - 1)
-                    data = data.view(data_type_out)
-                    if self.is_complex_data:
-                        data = data.view(np.complex64)
-                        # for single-channel complex data, flatten the last dimension
-                        if data.ndim > 1 and self.num_channels == 1:
-                            data = data.flatten()
-                    return data[0] if isinstance(sli, int) else data
-                else:
-                    # floating-point data, no scaling needed
-                    return mem
 
-        # handle complex data type conversion
-        if self._memmap.ndim == 2:
-            # num_channels == 1
-            ray = mem[:, 0].astype(self._return_type) + 1.0j * mem[:, 1].astype(self._return_type)
-        elif self._memmap.ndim == 3:
-            # num_channels > 1
-            ray = mem[:, :, 0].astype(self._return_type) + 1.0j * mem[:, :, 1].astype(self._return_type)
-        else:
-            raise ValueError("unhandled ndim in SigMFFile.__getitem__(); this shouldn't happen")
-        return ray[0] if isinstance(sli, int) else ray  # return element instead of 1-element array
+                return data
+
+        # handle complex data type conversion if _return_type is set (no autoscaling was applied)
+        if self._return_type is not None:
+            if self._memmap.ndim == 2:
+                # num_channels == 1
+                ray = mem[:, 0].astype(self._return_type) + 1.0j * mem[:, 1].astype(self._return_type)
+            elif self._memmap.ndim == 3:
+                # num_channels > 1
+                ray = mem[:, :, 0].astype(self._return_type) + 1.0j * mem[:, :, 1].astype(self._return_type)
+            else:
+                raise ValueError("unhandled ndim in SigMFFile.__getitem__(); this shouldn't happen")
+            return ray[0] if isinstance(sli, int) else ray  # return element instead of 1-element array
+
+        # return raw data (no autoscaling, no complex conversion needed)
+        return mem
 
     def get_num_channels(self):
         """Return integer number of channels."""
