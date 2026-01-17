@@ -60,9 +60,9 @@ To build the docs and host locally:
 .. code-block:: console
 
    $ cd docs
+   $ make clean
    $ make html
-   $ cd build/html/
-   $ python3 -m http.server
+   $ python3 -m http.server --directory build/html/
 
 --------------
 Find an Issue?

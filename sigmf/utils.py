@@ -10,10 +10,11 @@ import re
 import sys
 from copy import deepcopy
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 
-from .error import SigMFError
+from .error import SigMFConversionError, SigMFError
 
 SIGMF_DATETIME_ISO8601_FMT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -112,3 +113,37 @@ def get_data_type_str(ray: np.ndarray) -> str:
         # only append endianness for types over 8 bits
         data_type_str += get_endian_str(ray)
     return data_type_str
+
+
+def get_magic_bytes(file_path: Path, count: int = 4, offset: int = 0) -> bytes:
+    """
+    Get magic bytes from a file to help identify file type.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the file to read magic bytes from.
+    count : int, optional
+        Number of bytes to read. Default is 4.
+    offset : int, optional
+        Byte offset to start reading from. Default is 0.
+
+    Returns
+    -------
+    bytes
+        Magic bytes from the file.
+
+    Raises
+    ------
+    SigMFConversionError
+        If file cannot be read or is too small.
+    """
+    try:
+        with open(file_path, "rb") as handle:
+            handle.seek(offset)
+            magic_bytes = handle.read(count)
+            if len(magic_bytes) < count:
+                raise SigMFConversionError(f"File {file_path} too small to read {count} magic bytes at offset {offset}")
+            return magic_bytes
+    except (IOError, OSError) as err:
+        raise SigMFConversionError(f"Cannot read magic bytes from {file_path}: {err}")

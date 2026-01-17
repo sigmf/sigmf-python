@@ -22,3 +22,7 @@ class SigMFAccessError(SigMFError):
 
 class SigMFFileError(SigMFError):
     """Exceptions related to reading or writing SigMF files or archives."""
+
+
+class SigMFConversionError(SigMFError):
+    """Exceptions related to converting to SigMF format."""

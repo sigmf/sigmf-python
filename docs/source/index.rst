@@ -8,11 +8,12 @@ It offers a *simple* and *intuitive* API for Python developers.
 
 ..
    Note: The toolversion & specversion below are replaced dynamically during build.
+   The root __init__.py file is used as the sole source of truth for these values.
 
 This documentation is for version |toolversion| of the library, which is
 compatible with version |specversion| of the SigMF specification.
 
-To get started, see the :doc:`quickstart` section or learn how to :ref:`install` the library.
+To get started, see `quickstart`.
 
 -----
 
@@ -23,6 +24,7 @@ To get started, see the :doc:`quickstart` section or learn how to :ref:`install`
 
    quickstart
    advanced
+   converters
    developers
 
 .. toctree::
