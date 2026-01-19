@@ -69,9 +69,10 @@ class TestSigMFArchive(unittest.TestCase):
 
     def test_custom_name_overrides_fileobj_name(self):
         """Test that name is used in file object"""
-        with open(self.temp_path_archive, "wb") as temp:
-            sigmf_archive = self.sigmf_object.archive(name="testarchive", fileobj=temp)
-            sigmf_tarfile = tarfile.open(sigmf_archive, mode="r")
+        with open(self.temp_path_archive, "w+b") as temp:
+            self.sigmf_object.archive(name="testarchive", fileobj=temp)
+            temp.seek(0)  # rewind to beginning of file after writing
+            sigmf_tarfile = tarfile.open(fileobj=temp, mode="r")
             basedir, file1, file2 = sigmf_tarfile.getmembers()
             self.assertEqual(basedir.name, "testarchive")
             self.assertEqual(Path(file1.name).stem, "testarchive")

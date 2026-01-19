@@ -7,7 +7,7 @@
 [![PyPI Downloads Shield](https://img.shields.io/pypi/dm/sigmf)](https://pypi.org/project/SigMF/)
 
 The `sigmf` library makes it easy to interact with Signal Metadata Format
-(SigMF) recordings. This library is compatible with Python 3.7-3.13 and is distributed
+(SigMF) recordings. This library is compatible with Python 3.7-3.14 and is distributed
 freely under the terms GNU Lesser GPL v3 License.
 
 This module follows the SigMF specification [html](https://sigmf.org/)/[pdf](https://sigmf.github.io/SigMF/sigmf-spec.pdf) from the [spec repository](https://github.com/sigmf/SigMF).
