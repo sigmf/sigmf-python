@@ -15,8 +15,8 @@ from pathlib import Path
 import numpy as np
 
 import sigmf
-from sigmf.utils import SIGMF_DATETIME_ISO8601_FMT
 from sigmf.convert.blue import TYPE_MAP, blue_to_sigmf
+from sigmf.utils import SIGMF_DATETIME_ISO8601_FMT
 
 from .test_convert_wav import _validate_ncd
 from .testdata import get_nonsigmf_path
@@ -33,21 +33,27 @@ class TestBlueConverter(unittest.TestCase):
         self.format_tolerance = [
             ("SB", 1e-1),  # scalar int8
             ("CB", 1e-1),  # complex int8
+            ("SU", 1e-4),  # scalar uint16
+            ("CU", 1e-4),  # complex uint16
             ("SI", 1e-4),  # scalar int16
             ("CI", 1e-4),  # complex int16
-            ("SL", 1e-4),  # scalar int32
-            ("CL", 1e-4),  # complex int32
+            ("SV", 1e-7),  # scalar uint32
+            ("CV", 1e-7),  # complex uint32
+            ("SL", 1e-8),  # scalar int32
+            ("CL", 1e-8),  # complex int32
+            # ("SX", 1e-8),  # scalar int64, should work but not allowed by SigMF spec
+            # ("CX", 1e-8),  # complex int64, should work but not allowed by SigMF spec
             ("SF", 1e-8),  # scalar float32
             ("CF", 1e-8),  # complex float32
-            ("SD", 1e-8),  # scalar float64
-            ("CD", 1e-8),  # complex float64
+            ("SD", 0),  # scalar float64
+            ("CD", 0),  # complex float64
         ]
 
         self.samp_rate = 192e3
         num_samples = 1024
         ttt = np.linspace(0, num_samples / self.samp_rate, num_samples, endpoint=False)
         freq = 3520  # A7 note
-        self.iq_data = (0.5 * np.exp(2j * np.pi * freq * ttt)).astype(np.complex64)
+        self.iq_data = 0.5 * np.exp(2j * np.pi * freq * ttt)  # complex128
         time_now = datetime.now(timezone.utc)
         self.datetime = time_now.strftime(SIGMF_DATETIME_ISO8601_FMT)
         self.timecode = (time_now - datetime(1950, 1, 1, tzinfo=timezone.utc)).total_seconds()
@@ -63,15 +69,26 @@ class TestBlueConverter(unittest.TestCase):
         dtype = TYPE_MAP[chr(format[1])]
 
         if np.issubdtype(dtype, np.integer):
-            multiplier = 2 ** (np.dtype(dtype).itemsize * 8 - 1)
+            scale = 2 ** (np.dtype(dtype).itemsize * 8 - 1)
             if is_complex:
-                ci_real = (self.iq_data.real * multiplier).astype(dtype)
-                ci_imag = (self.iq_data.imag * multiplier).astype(dtype)
+                if np.dtype(dtype).kind == "u":
+                    # unsigned
+                    ci_real = (self.iq_data.real * scale + scale).astype(dtype)
+                    ci_imag = (self.iq_data.imag * scale + scale).astype(dtype)
+                else:
+                    # signed
+                    ci_real = (self.iq_data.real * scale).astype(dtype)
+                    ci_imag = (self.iq_data.imag * scale).astype(dtype)
                 iq_converted = np.empty((self.iq_data.size * 2,), dtype=dtype)
                 iq_converted[0::2] = ci_real
                 iq_converted[1::2] = ci_imag
             else:
-                iq_converted = (self.iq_data.real * multiplier).astype(dtype)
+                if np.dtype(dtype).kind == "u":
+                    # unsigned
+                    iq_converted = (self.iq_data.real * scale + scale).astype(dtype)
+                else:
+                    # signed
+                    iq_converted = (self.iq_data.real * scale).astype(dtype)
         elif np.issubdtype(dtype, np.floating):
             if is_complex:
                 ci_real = self.iq_data.real.astype(dtype)
@@ -186,7 +203,6 @@ class TestBlueWithNonSigMFRepo(unittest.TestCase):
         for blue_path in self.blue_paths:
             meta = blue_to_sigmf(blue_path=blue_path)
             _validate_ncd(self, meta, blue_path)
-            print(len(meta), blue_path)
             if len(meta):
                 # check sample read consistency
                 np.testing.assert_allclose(meta.read_samples(count=10), meta[0:10], atol=1e-6)
