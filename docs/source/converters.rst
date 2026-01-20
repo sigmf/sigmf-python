@@ -139,7 +139,7 @@ The following table summarizes tested BLUE formats and their compatibility with 
 
     "Code", ":abbr:`B (int8)`", ":abbr:`I (int16)`", ":abbr:`L (int32)`", ":abbr:`X (int64)`", ":abbr:`F (float32)`", ":abbr:`D (float64)`", ":abbr:`P (packed)`", ":abbr:`N (int4)`"
     ":abbr:`S (scalar)`", "✅", "✅", "✅", "✅", "✅", "✅", "❌", "❌"
-    ":abbr:`C (complex)`", "✅", "✅", "✅", "✅", "✅", ""✅", "❌", "❌"
+    ":abbr:`C (complex)`", "✅", "✅", "✅", "✅", "✅", "✅", "❌", "❌"
 
 **Legend:**
     * ✅ = Tested and known working
