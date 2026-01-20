@@ -137,9 +137,9 @@ The following table summarizes tested BLUE formats and their compatibility with 
     :header-rows: 1
     :stub-columns: 1
 
-    "Code", ":abbr:`B (int8)`", ":abbr:`I (int16)`", ":abbr:`L (int32)`", ":abbr:`X (int64)`", ":abbr:`F (float32)`", ":abbr:`D (float64)`", ":abbr:`P (packed)`", ":abbr:`N (int4)`"
-    ":abbr:`S (scalar)`", "✅", "✅", "✅", "✅", "✅", "✅", "❌", "❌"
-    ":abbr:`C (complex)`", "✅", "✅", "✅", "✅", "✅", "✅", "❌", "❌"
+    "Code", ":abbr:`P (packed)`", ":abbr:`N (int4)`", ":abbr:`B (int8)`", ":abbr:`U (uint16)`", ":abbr:`I (int16)`", ":abbr:`V (uint32)`", ":abbr:`L (int32)`", ":abbr:`F (float32)`", ":abbr:`X (int64)`", ":abbr:`D (float64)`", ":abbr:`O (excess-128)`"
+    ":abbr:`S (scalar)`", "❌", "❌", "✅", "✅", "✅", "✅", "✅", "✅", "✅", "✅", "❌"
+    ":abbr:`C (complex)`", "❌", "❌", "✅", "✅", "✅", "✅", "✅", "✅", "✅", "✅", "❌"
 
 **Legend:**
     * ✅ = Tested and known working

@@ -67,17 +67,19 @@ BLOCK_SIZE_BYTES = 512
 
 TYPE_MAP = {
     # BLUE format code to numpy dtype
-    # note new non 1-1 mapping supported needs new handling in data_loopback
+    # note: new non 1-1 mapping supported needs new handling in data_loopback
+    # "P" : packed bits,
     "A": np.dtype("S1"),  # ASCII for unpacking text fields
+    # "N" : 4-bit integer,
     "B": np.int8,
+    "U": np.uint16,
     "I": np.int16,
+    "V": np.uint32,
     "L": np.int32,
-    "X": np.int64,
     "F": np.float32,
+    "X": np.int64,
     "D": np.float64,
-    # unsupported codes
-    # "P" : packed bits
-    # "N" : 4-bit integer
+    # "O": excess-128,
 }
 
 
@@ -108,7 +110,12 @@ def blue_to_sigmf_type_str(h_fixed: dict) -> str:
     bits = dtype_obj.itemsize * 8  # bytes to bits
 
     # infer sigmf type from numpy kind
-    sigmf_type = "i" if dtype_obj.kind in ("i", "u") else "f"
+    if dtype_obj.kind == "u":
+        sigmf_type = "u"
+    elif dtype_obj.kind == "i":
+        sigmf_type = "i"
+    else:
+        sigmf_type = "f"
 
     # build datatype string
     prefix = "c" if is_complex else "r"
