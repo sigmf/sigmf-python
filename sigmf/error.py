@@ -24,5 +24,14 @@ class SigMFFileError(SigMFError):
     """Exceptions related to reading or writing SigMF files or archives."""
 
 
+class SigMFFileExistsError(SigMFFileError):
+    """Exception raised when a file already exists and overwrite is disabled."""
+
+    def __init__(self, file_path, file_type="File"):
+        super().__init__(f"{file_type} {file_path} already exists. Use overwrite=True to overwrite.")
+        self.file_path = file_path
+        self.file_type = file_type
+
+
 class SigMFConversionError(SigMFError):
     """Exceptions related to converting to SigMF format."""

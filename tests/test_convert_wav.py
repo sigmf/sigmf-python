@@ -66,7 +66,7 @@ class TestWAVConverter(unittest.TestCase):
     def test_wav_to_sigmf_pair(self) -> None:
         """test standard wav to sigmf conversion with file pairs"""
         sigmf_path = self.tmp_path / "bar"
-        meta = wav_to_sigmf(wav_path=str(self.wav_path), out_path=str(sigmf_path))
+        meta = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path)
         filenames = sigmf.sigmffile.get_sigmf_filenames(sigmf_path)
         self.assertTrue(filenames["data_fn"].exists(), "dataset path missing")
         self.assertTrue(filenames["meta_fn"].exists(), "metadata path missing")
@@ -76,10 +76,19 @@ class TestWAVConverter(unittest.TestCase):
         # allow numerical differences due to PCM quantization
         self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
 
+        # test overwrite protection
+        with self.assertRaises(sigmf.error.SigMFFileError) as context:
+            wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, overwrite=False)
+        self.assertIn("already exists", str(context.exception))
+
+        # test overwrite works
+        meta2 = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, overwrite=True)
+        self.assertIsInstance(meta2, sigmf.SigMFFile)
+
     def test_wav_to_sigmf_archive(self) -> None:
         """test wav to sigmf conversion with archive output"""
         sigmf_path = self.tmp_path / "baz.ext"
-        meta = wav_to_sigmf(wav_path=str(self.wav_path), out_path=str(sigmf_path), create_archive=True)
+        meta = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, create_archive=True)
         filenames = sigmf.sigmffile.get_sigmf_filenames(sigmf_path)
         self.assertTrue(filenames["archive_fn"].exists(), "archive path missing")
         # verify data
@@ -88,9 +97,18 @@ class TestWAVConverter(unittest.TestCase):
         # allow numerical differences due to PCM quantization
         self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
 
+        # test overwrite protection
+        with self.assertRaises(sigmf.error.SigMFFileError) as context:
+            wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, create_archive=True, overwrite=False)
+        self.assertIn("already exists", str(context.exception))
+
+        # test overwrite works
+        meta2 = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, create_archive=True, overwrite=True)
+        self.assertIsInstance(meta2, sigmf.SigMFFile)
+
     def test_wav_to_sigmf_ncd(self) -> None:
         """test wav to sigmf conversion as Non-Conforming Dataset"""
-        meta = wav_to_sigmf(wav_path=str(self.wav_path), create_ncd=True)
+        meta = wav_to_sigmf(wav_path=self.wav_path, create_ncd=True)
         _validate_ncd(self, meta, self.wav_path)
 
         # verify data
@@ -98,6 +116,17 @@ class TestWAVConverter(unittest.TestCase):
         # allow numerical differences due to PCM quantization
         self.assertGreater(len(data), 0, "Should read some samples")
         self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
+
+        # test overwrite protection when creating NCD with output path
+        sigmf_path = self.tmp_path / "ncd_test"
+        wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, create_ncd=True, overwrite=True)
+        with self.assertRaises(sigmf.error.SigMFFileError) as context:
+            wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, create_ncd=True, overwrite=False)
+        self.assertIn("already exists", str(context.exception))
+
+        # test overwrite works
+        meta2 = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, create_ncd=True, overwrite=True)
+        self.assertIsInstance(meta2, sigmf.SigMFFile)
 
 
 class TestWAVWithNonSigMFRepo(unittest.TestCase):

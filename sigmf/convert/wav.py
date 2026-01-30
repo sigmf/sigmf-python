@@ -19,6 +19,7 @@ import numpy as np
 from .. import SigMFFile
 from .. import __version__ as toolversion
 from .. import fromfile
+from ..error import SigMFFileExistsError
 from ..sigmffile import get_sigmf_filenames
 from ..utils import SIGMF_DATETIME_ISO8601_FMT, get_data_type_str
 
@@ -78,6 +79,7 @@ def wav_to_sigmf(
     out_path: Optional[str] = None,
     create_archive: bool = False,
     create_ncd: bool = False,
+    overwrite: bool = False,
 ) -> SigMFFile:
     """
     Read a wav, optionally write sigmf, return associated SigMF object.
@@ -92,6 +94,8 @@ def wav_to_sigmf(
         When True, package output as a .sigmf archive.
     create_ncd : bool, optional
         When True, create Non-Conforming Dataset with header_bytes and trailing_bytes.
+    overwrite : bool, optional
+        If False, raise exception if output files already exist.
 
     Returns
     -------
@@ -172,7 +176,7 @@ def wav_to_sigmf(
             filenames = get_sigmf_filenames(out_path)
             output_dir = filenames["meta_fn"].parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            meta.tofile(filenames["meta_fn"], toarchive=False)
+            meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
             log.info("wrote SigMF non-conforming metadata to %s", filenames["meta_fn"])
 
         log.debug("created %r", meta)
@@ -197,20 +201,25 @@ def wav_to_sigmf(
             meta = SigMFFile(data_file=data_path, global_info=global_info)
             meta.add_capture(0, metadata=capture_info)
 
-            meta.tofile(filenames["archive_fn"], toarchive=True)
+            meta.tofile(filenames["archive_fn"], toarchive=True, overwrite=overwrite)
             log.info("wrote SigMF archive to %s", filenames["archive_fn"])
             # metadata returned should be for this archive
             meta = fromfile(filenames["archive_fn"])
     else:
         # write separate meta and data files
         data_path = filenames["data_fn"]
+
+        # check if data file exists when overwrite is disabled
+        if not overwrite and data_path.exists():
+            raise SigMFFileExistsError(data_path, "Data file")
+
         wav_data.tofile(data_path)
         log.info("wrote SigMF dataset to %s", data_path)
 
         meta = SigMFFile(data_file=data_path, global_info=global_info)
         meta.add_capture(0, metadata=capture_info)
 
-        meta.tofile(filenames["meta_fn"], toarchive=False)
+        meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
         log.info("wrote SigMF metadata to %s", filenames["meta_fn"])
 
     log.debug("created %r", meta)

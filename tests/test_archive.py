@@ -47,13 +47,13 @@ class TestSigMFArchive(unittest.TestCase):
         """Test that archiving without data file raises error"""
         self.sigmf_object.data_file = None
         with self.assertRaises(error.SigMFFileError):
-            self.sigmf_object.archive(name=self.temp_path_archive)
+            self.sigmf_object.archive(name=self.temp_path_archive, overwrite=True)
 
     def test_archive_creation_validates_metadata(self):
         """Test that invalid metadata raises error"""
         del self.sigmf_object._metadata["global"]["core:datatype"]  # required field
         with self.assertRaises(jsonschema.exceptions.ValidationError):
-            self.sigmf_object.archive(name=self.temp_path_archive)
+            self.sigmf_object.archive(name=self.temp_path_archive, overwrite=True)
 
     def test_archive_creation_validates_extension(self):
         """Test that wrong extension raises error"""
