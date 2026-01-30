@@ -2,6 +2,7 @@
 name = "SigMF"
 description = "Easily interact with Signal Metadata Format (SigMF) recordings."
 keywords = ["gnuradio", "radio"]
+license = { file = "COPYING-LGPL" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
@@ -45,6 +46,7 @@ dependencies = [
 
 [tool.setuptools]
 packages = ["sigmf"]
+license-files = []
     [tool.setuptools.dynamic]
     version = {attr = "sigmf.__version__"}
     readme = {file = ["README.md"], content-type = "text/markdown"}
@@ -100,7 +102,7 @@ profile = "black"
 legacy_tox_ini = '''
     [tox]
     skip_missing_interpreters = True
-    envlist = py{37,38,39,310,311,312,313}
+    envlist = py{37,38,39,310,311,312,313,314}
 
     [testenv]
     usedevelop = True
