@@ -57,15 +57,15 @@ class TestCollection(unittest.TestCase):
         metadata = copy.deepcopy(TEST_METADATA)
         meta1 = SigMFFile(metadata=metadata, data_file=data_path1)
         meta2 = SigMFFile(metadata=metadata, data_file=data_path2)
-        meta1.tofile(meta_path1)
-        meta2.tofile(meta_path2)
+        meta1.tofile(meta_path1, overwrite=True)
+        meta2.tofile(meta_path2, overwrite=True)
 
         # create collection
         collection = SigMFCollection(
             metafiles=[meta_name1, meta_name2],
             base_path=str(self.temp_dir / subdir),
         )
-        collection.tofile(collection_path)
+        collection.tofile(collection_path, overwrite=True)
 
         # load collection
         collection_loopback = fromfile(collection_path)
