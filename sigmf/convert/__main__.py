@@ -60,6 +60,7 @@ def main() -> None:
     exclusive_group.add_argument(
         "--ncd", action="store_true", help="Output .sigmf-meta only and process as a Non-Conforming Dataset (NCD)"
     )
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
     args = parser.parse_args()
 
@@ -89,11 +90,23 @@ def main() -> None:
 
     if magic_bytes == b"RIFF":
         # WAV file
-        _ = wav_to_sigmf(wav_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
+        _ = wav_to_sigmf(
+            wav_path=input_path,
+            out_path=output_path,
+            create_archive=args.archive,
+            create_ncd=args.ncd,
+            overwrite=args.overwrite,
+        )
 
     elif magic_bytes == b"BLUE":
         # BLUE file
-        _ = blue_to_sigmf(blue_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
+        _ = blue_to_sigmf(
+            blue_path=input_path,
+            out_path=output_path,
+            create_archive=args.archive,
+            create_ncd=args.ncd,
+            overwrite=args.overwrite,
+        )
 
     else:
         raise SigMFConversionError(

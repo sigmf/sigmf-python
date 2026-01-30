@@ -375,7 +375,7 @@ def test_add_annotation():
 
 def test_fromarchive(test_sigmffile):
     with tempfile.NamedTemporaryFile(suffix=".sigmf") as temp_file:
-        archive_path = test_sigmffile.archive(name=temp_file.name)
+        archive_path = test_sigmffile.archive(name=temp_file.name, overwrite=True)
         result = sigmf.fromarchive(archive_path=archive_path)
         assert result._metadata == test_sigmffile._metadata == TEST_METADATA
 
@@ -384,3 +384,106 @@ def test_add_multiple_captures_and_annotations():
     sigf = SigMFFile()
     for idx in range(3):
         simulate_capture(sigf, idx, 1024)
+
+
+class TestOverwrite(unittest.TestCase):
+    """test file overwrite protection"""
+
+    def setUp(self):
+        """create temporary directory and test files"""
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.test_data_path = self.temp_dir / "test.sigmf-data"
+        self.test_meta_path = self.temp_dir / "test.sigmf-meta"
+        self.test_archive_path = self.temp_dir / "test.sigmf"
+        self.test_collection_path = self.temp_dir / "test.sigmf-collection"
+
+        # write test data file
+        TEST_FLOAT32_DATA.tofile(self.test_data_path)
+
+        # create test sigmf object
+        self.sigmf_obj = SigMFFile(TEST_METADATA, data_file=self.test_data_path)
+
+        # create alternate test data for overwrite testing
+        self.alt_data = np.arange(16, 32, dtype=np.float32)  # different data for checksum verification
+        self.alt_data_path = self.temp_dir / "alt.sigmf-data"
+        self.alt_data.tofile(self.alt_data_path)
+
+    def tearDown(self):
+        """clean up temporary directory"""
+        shutil.rmtree(self.temp_dir)
+
+    def test_prevent_metadata_overwrite(self):
+        """tofile raises exception when metadata file exists and overwrite=False"""
+        # create existing metadata file
+        self.sigmf_obj.tofile(self.test_meta_path)
+        with self.assertRaises(error.SigMFFileError) as context:
+            self.sigmf_obj.tofile(self.test_meta_path, overwrite=False)
+        self.assertIn("already exists", str(context.exception))
+
+    def test_metadata_overwrite_works(self):
+        """tofile succeeds when metadata file exists and overwrite=True"""
+        # create existing metadata file
+        self.sigmf_obj.tofile(self.test_meta_path)
+        self.assertTrue(self.test_meta_path.exists())
+        original_content = self.test_meta_path.read_text()
+        original_checksum = self.sigmf_obj.get_global_field("core:sha512")
+
+        # create sigmf object with different data and metadata
+        alt_sigmf = SigMFFile()
+        alt_sigmf.set_global_field(SigMFFile.DATATYPE_KEY, "rf32_le")
+        alt_sigmf.set_global_field("core:description", "overwritten file")
+        alt_sigmf.set_data_file(self.alt_data_path)
+
+        # should succeed with overwrite=True and content should change
+        alt_sigmf.tofile(self.test_meta_path, overwrite=True)
+        self.assertTrue(self.test_meta_path.exists())
+        new_content = self.test_meta_path.read_text()
+        new_checksum = alt_sigmf.get_global_field("core:sha512")
+
+        self.assertNotEqual(original_content, new_content, "file content should change when overwritten")
+        self.assertNotEqual(original_checksum, new_checksum, "SHA512 checksum should change when overwritten")
+
+    def test_prevent_archive_overwrite(self):
+        """tofile archive raises exception when archive exists and overwrite=False"""
+        # create existing archive
+        self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+        with self.assertRaises(error.SigMFFileError) as context:
+            self.sigmf_obj.tofile(self.test_archive_path, toarchive=True, overwrite=False)
+        self.assertIn("already exists", str(context.exception))
+
+    def test_archive_overwrite_works(self):
+        """tofile archive succeeds when archive exists and overwrite=True"""
+        # create existing archive
+        self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+        self.assertTrue(self.test_archive_path.exists())
+        original_checksum = self.sigmf_obj.get_global_field("core:sha512")
+
+        # create sigmf object with different data
+        alt_sigmf = SigMFFile()
+        alt_sigmf.set_global_field(SigMFFile.DATATYPE_KEY, "rf32_le")
+        alt_sigmf.set_global_field("core:description", "overwritten archive")
+        alt_sigmf.set_data_file(self.alt_data_path)
+
+        # should succeed with overwrite=True and content should change
+        alt_sigmf.tofile(self.test_archive_path, toarchive=True, overwrite=True)
+        self.assertTrue(self.test_archive_path.exists())
+
+        # verify by reading the archive content back
+        readback_sigmf = sigmf.fromarchive(self.test_archive_path)
+        new_checksum = readback_sigmf.get_global_field("core:sha512")
+
+        self.assertEqual(readback_sigmf.get_global_field("core:description"), "overwritten archive")
+        self.assertNotEqual(original_checksum, new_checksum, "SHA512 checksum should change when overwritten")
+
+    def test_default_behavior(self):
+        """overwrite defaults to False for safety"""
+        # create existing files
+        self.sigmf_obj.tofile(self.test_meta_path)
+        self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+
+        # should raise exceptions with default overwrite=False
+        with self.assertRaises(error.SigMFFileError):
+            self.sigmf_obj.tofile(self.test_meta_path)
+
+        with self.assertRaises(error.SigMFFileError):
+            self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)

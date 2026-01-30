@@ -130,9 +130,9 @@ class TestBlueConverter(unittest.TestCase):
     def test_blue_to_sigmf_pair(self) -> None:
         """test standard blue to sigmf conversion with file pairs"""
         for form, atol in self.format_tolerance:
-            sigmf_path = self.tmp_path / f"bar{format}"
+            sigmf_path = self.tmp_path / f"bar{form}"
             self.write_minimal(form.encode())
-            meta = blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path)
+            meta = blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, overwrite=True)
             filenames = sigmf.sigmffile.get_sigmf_filenames(sigmf_path)
             self.assertTrue(filenames["data_fn"].exists(), "dataset path missing")
             self.assertTrue(filenames["meta_fn"].exists(), "metadata path missing")
@@ -142,8 +142,8 @@ class TestBlueConverter(unittest.TestCase):
         """test blue to sigmf conversion with archive output"""
         for form, atol in self.format_tolerance:
             self.write_minimal(form.encode())
-            sigmf_path = self.tmp_path / f"baz{format}"
-            meta = blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, create_archive=True)
+            sigmf_path = self.tmp_path / f"baz{form}"
+            meta = blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, create_archive=True, overwrite=True)
             filenames = sigmf.sigmffile.get_sigmf_filenames(sigmf_path)
             self.assertTrue(filenames["archive_fn"].exists(), "archive path missing")
             self.check_data_and_metadata(meta, form, atol)
@@ -155,6 +155,45 @@ class TestBlueConverter(unittest.TestCase):
             meta = blue_to_sigmf(self.blue_path)
             _validate_ncd(self, meta, self.blue_path)
             self.check_data_and_metadata(meta, form, atol)
+
+    def test_pair_overwrite_protection(self) -> None:
+        """test overwrite protection for pair output"""
+        self.write_minimal(b"CF")
+        sigmf_path = self.tmp_path / "overwrite_test"
+        blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, overwrite=True)
+        with self.assertRaises(sigmf.error.SigMFFileError) as context:
+            blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, overwrite=False)
+        self.assertIn("already exists", str(context.exception))
+
+        # test overwrite works
+        meta2 = blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, overwrite=True)
+        self.assertIsInstance(meta2, sigmf.SigMFFile)
+
+    def test_archive_overwrite_protection(self) -> None:
+        """test overwrite protection for archive output"""
+        self.write_minimal(b"CI")
+        sigmf_path = self.tmp_path / "archive_overwrite_test"
+        blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, create_archive=True, overwrite=True)
+        with self.assertRaises(sigmf.error.SigMFFileError) as context:
+            blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, create_archive=True, overwrite=False)
+        self.assertIn("already exists", str(context.exception))
+
+        # test overwrite works
+        meta2 = blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, create_archive=True, overwrite=True)
+        self.assertIsInstance(meta2, sigmf.SigMFFile)
+
+    def test_ncd_overwrite_protection(self) -> None:
+        """test overwrite protection for NCD output"""
+        self.write_minimal(b"SU")
+        sigmf_path = self.tmp_path / "ncd_overwrite_test"
+        blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, create_ncd=True, overwrite=True)
+        with self.assertRaises(sigmf.error.SigMFFileError) as context:
+            blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, create_ncd=True, overwrite=False)
+        self.assertIn("already exists", str(context.exception))
+
+        # test overwrite works
+        meta2 = blue_to_sigmf(blue_path=self.blue_path, out_path=sigmf_path, create_ncd=True, overwrite=True)
+        self.assertIsInstance(meta2, sigmf.SigMFFile)
 
 
 class TestBlueWithNonSigMFRepo(unittest.TestCase):

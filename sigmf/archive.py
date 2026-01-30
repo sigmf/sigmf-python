@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-from .error import SigMFFileError
+from .error import SigMFFileError, SigMFFileExistsError
 
 SIGMF_ARCHIVE_EXT = ".sigmf"
 SIGMF_METADATA_EXT = ".sigmf-meta"
@@ -22,11 +22,7 @@ SIGMF_COLLECTION_EXT = ".sigmf-collection"
 
 class SigMFArchive:
     """
-    Archive a SigMFFile
-
-    A `.sigmf` file must include both valid metadata and data.
-    If `self.data_file` is not set or the requested output file
-    is not writable, raises `SigMFFileError`.
+    Archive a SigMFFile into a tar file.
 
     Parameters
     ----------
@@ -35,7 +31,7 @@ class SigMFArchive:
         A SigMFFile object with valid metadata and data_file.
 
     name : PathLike | str | bytes
-        Path to archive file to create. If file exists, overwrite.
+        Path to archive file to create.
         If `name` doesn't end in .sigmf, it will be appended.
         For example: if `name` == "/tmp/archive1", then the
         following archive will be created:
@@ -56,12 +52,21 @@ class SigMFArchive:
             - archive1/
                 - archive1.sigmf-meta
                 - archive1.sigmf-data
+
+    overwrite : bool, default False
+        If False, raise exception if archive file already exists.
+
+    Raises
+    ------
+    SigMFFileError
+        If `sigmffile` has no data_file set, or if `name` is not writable.
+
     """
 
-    def __init__(self, sigmffile, name=None, fileobj=None):
+    def __init__(self, sigmffile, name=None, fileobj=None, overwrite=False):
         is_buffer = fileobj is not None
         self.sigmffile = sigmffile
-        self.path, arcname, fileobj = self._resolve(name, fileobj)
+        self.path, arcname, fileobj = self._resolve(name, fileobj, overwrite)
 
         self._ensure_data_file_set()
         self._validate()
@@ -106,13 +111,22 @@ class SigMFArchive:
     def _validate(self):
         self.sigmffile.validate()
 
-    def _resolve(self, name, fileobj):
+    def _resolve(self, name, fileobj, overwrite=False):
         """
         Resolve both (name, fileobj) into (path, arcname, fileobj) given either or both.
 
+        Parameters
+        ----------
+        name : PathLike | str | bytes | None
+            Path to archive file to create.
+        fileobj : BufferedWriter | None
+            Open file handle object.
+        overwrite : bool, default False
+            If False, raise exception if archive file already exists.
+
         Returns
         -------
-        path : PathLike
+        path : Path
             Path of the archive file.
         arcname : str
             Name of the sigmf object within the archive.
@@ -143,6 +157,10 @@ class SigMFArchive:
                 # ensure suffix is correct
                 raise SigMFFileError(f"Invalid extension ({path.suffix} != {SIGMF_ARCHIVE_EXT}).")
             arcname = path.stem
+
+            # check if file exists and overwrite is disabled
+            if not overwrite and path.exists():
+                raise SigMFFileExistsError(path, "Archive file")
 
             try:
                 fileobj = open(path, "wb")

@@ -52,7 +52,7 @@ class TestArchiveReader(unittest.TestCase):
                             SigMFFile.NUM_CHANNELS_KEY: num_channels,
                         },
                     )
-                    temp_meta.tofile(temp_archive.name, toarchive=True)
+                    temp_meta.tofile(temp_archive.name, toarchive=True, overwrite=True)
 
                     readback = SigMFArchiveReader(temp_archive.name)
                     readback_samples = readback[:]
@@ -85,7 +85,7 @@ class TestArchiveReader(unittest.TestCase):
 def test_archiveread_data_file_unchanged(test_sigmffile):
     with NamedTemporaryFile(suffix=".sigmf") as temp_file:
         input_samples = test_sigmffile.read_samples()
-        test_sigmffile.archive(temp_file.name)
+        test_sigmffile.archive(temp_file.name, overwrite=True)
         arc = sigmf.fromfile(temp_file.name)
         output_samples = arc.read_samples()
 

@@ -23,7 +23,13 @@ from .archive import (
     SIGMF_METADATA_EXT,
     SigMFArchive,
 )
-from .error import SigMFAccessError, SigMFConversionError, SigMFError, SigMFFileError
+from .error import (
+    SigMFAccessError,
+    SigMFConversionError,
+    SigMFError,
+    SigMFFileError,
+    SigMFFileExistsError,
+)
 from .utils import dict_merge, get_magic_bytes
 
 
@@ -790,16 +796,24 @@ class SigMFFile(SigMFMetafile):
         """
         validate.validate(self._metadata, self.get_schema())
 
-    def archive(self, name=None, fileobj=None):
+    def archive(self, name=None, fileobj=None, overwrite=False):
         """Dump contents to SigMF archive format.
 
         `name` and `fileobj` are passed to SigMFArchive and are defined there.
 
+        Parameters
+        ----------
+        name : str, optional
+            Name of the archive file to create. If None, a temporary file will be created.
+        fileobj : file-like object, optional
+            A file-like object to write the archive to. If None, a file will be created at `name`.
+        overwrite : bool, default False
+            If False, raise exception if archive file already exists.
         """
-        archive = SigMFArchive(self, name, fileobj)
+        archive = SigMFArchive(self, name, fileobj, overwrite=overwrite)
         return archive.path
 
-    def tofile(self, file_path, pretty=True, toarchive=False, skip_validate=False):
+    def tofile(self, file_path, pretty=True, toarchive=False, skip_validate=False, overwrite=False):
         """
         Write metadata file or full archive containing metadata & dataset.
 
@@ -812,13 +826,21 @@ class SigMFFile(SigMFMetafile):
         toarchive : bool, default False
             If True will write both dataset & metadata into SigMF archive format as a single `tar` file.
             If False will only write metadata to `sigmf-meta`.
+        skip_validate : bool, default False
+            Skip validation of metadata before writing.
+        overwrite : bool, default False
+            If False, raise exception if output file already exists.
         """
         if not skip_validate:
             self.validate()
         fns = get_sigmf_filenames(file_path)
+
         if toarchive:
-            self.archive(fns["archive_fn"])
+            self.archive(fns["archive_fn"], overwrite=overwrite)
         else:
+            # check if metadata file exists
+            if not overwrite and fns["meta_fn"].exists():
+                raise SigMFFileExistsError(fns["meta_fn"], "Metadata file")
             with open(fns["meta_fn"], "w") as fp:
                 self.dump(fp, pretty=pretty)
                 fp.write("\n")  # text files should end in carriage return
@@ -1076,7 +1098,7 @@ class SigMFCollection(SigMFMetafile):
         """
         return self._metadata[self.COLLECTION_KEY].get(key, default)
 
-    def tofile(self, file_path, pretty: bool = True) -> None:
+    def tofile(self, file_path, pretty: bool = True, overwrite: bool = False) -> None:
         """
         Write metadata file
 
@@ -1086,8 +1108,15 @@ class SigMFCollection(SigMFMetafile):
             Location to save.
         pretty : bool, default True
             When True will write more human-readable output, otherwise will be flat JSON.
+        overwrite : bool, default False
+            If False, raise exception if collection file already exists.
         """
         filenames = get_sigmf_filenames(file_path)
+
+        # check if collection file exists
+        if not overwrite and filenames["collection_fn"].exists():
+            raise SigMFFileExistsError(filenames["collection_fn"], "Collection file")
+
         with open(filenames["collection_fn"], "w") as handle:
             self.dump(handle, pretty=pretty)
             handle.write("\n")  # text files should end in carriage return

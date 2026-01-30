@@ -498,8 +498,9 @@ def _build_common_metadata(
     tuple[dict, dict]
         (global_info, capture_info) dictionaries.
     """
-    # helper to look up extended header values by tag
+
     def get_tag(tag):
+        """helper to look up extended header values by tag"""
         for entry in h_extended:
             if entry["tag"] == tag:
                 return entry["value"]
@@ -670,6 +671,7 @@ def construct_sigmf(
     h_extended: list,
     is_metadata_only: bool = False,
     create_archive: bool = False,
+    overwrite: bool = False,
 ) -> SigMFFile:
     """
     Built & write a SigMF object from BLUE metadata.
@@ -688,6 +690,8 @@ def construct_sigmf(
         If True, creates a metadata-only SigMF file.
     create_archive : bool, optional
         When True, package output as SigMF archive instead of a meta/data pair.
+    overwrite : bool, optional
+        If False, raise exception if output files already exist.
 
     Returns
     -------
@@ -723,12 +727,12 @@ def construct_sigmf(
     meta.add_capture(0, metadata=capture_info)
 
     if create_archive:
-        meta.tofile(filenames["archive_fn"], toarchive=True)
+        meta.tofile(filenames["archive_fn"], toarchive=True, overwrite=overwrite)
         log.info("wrote SigMF archive to %s", filenames["archive_fn"])
         # metadata returned should be for this archive
         meta = fromfile(filenames["archive_fn"])
     else:
-        meta.tofile(filenames["meta_fn"], toarchive=False)
+        meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
         log.info("wrote SigMF metadata to %s", filenames["meta_fn"])
 
     log.debug("created %r", meta)
@@ -790,6 +794,7 @@ def blue_to_sigmf(
     out_path: Optional[str] = None,
     create_archive: bool = False,
     create_ncd: bool = False,
+    overwrite: bool = False,
 ) -> SigMFFile:
     """
     Read a MIDAS Bluefile, optionally write SigMF, return associated SigMF object.
@@ -804,6 +809,8 @@ def blue_to_sigmf(
         When True, package output as a .sigmf archive.
     create_ncd : bool, optional
         When True, create Non-Conforming Dataset with header_bytes and trailing_bytes.
+    overwrite : bool, optional
+        If False, raise exception if output files already exist.
 
     Returns
     -------
@@ -846,7 +853,7 @@ def blue_to_sigmf(
 
         # write NCD metadata to specified output path if provided
         if out_path is not None:
-            ncd_meta.tofile(filenames["meta_fn"])
+            ncd_meta.tofile(filenames["meta_fn"], overwrite=overwrite)
             log.info("wrote SigMF non-conforming metadata to %s", filenames["meta_fn"])
 
         return ncd_meta
@@ -872,6 +879,7 @@ def blue_to_sigmf(
             h_extended=h_extended,
             is_metadata_only=metadata_only,
             create_archive=create_archive,
+            overwrite=overwrite,
         )
 
     log.debug(">>>>>>>>> Fixed Header")
