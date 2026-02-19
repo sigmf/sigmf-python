@@ -16,6 +16,8 @@ from ..error import SigMFConversionError
 from ..utils import get_magic_bytes
 from .blue import blue_to_sigmf
 from .wav import wav_to_sigmf
+from .signalhound import signalhound_to_sigmf
+
 
 
 def main() -> None:
@@ -60,8 +62,8 @@ def main() -> None:
     exclusive_group.add_argument(
         "--ncd", action="store_true", help="Output .sigmf-meta only and process as a Non-Conforming Dataset (NCD)"
     )
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
+
     args = parser.parse_args()
 
     level_lut = {
@@ -90,28 +92,29 @@ def main() -> None:
 
     if magic_bytes == b"RIFF":
         # WAV file
-        _ = wav_to_sigmf(
-            wav_path=input_path,
-            out_path=output_path,
-            create_archive=args.archive,
-            create_ncd=args.ncd,
-            overwrite=args.overwrite,
-        )
+        _ = wav_to_sigmf(wav_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
 
     elif magic_bytes == b"BLUE":
         # BLUE file
-        _ = blue_to_sigmf(
-            blue_path=input_path,
-            out_path=output_path,
-            create_archive=args.archive,
-            create_ncd=args.ncd,
-            overwrite=args.overwrite,
-        )
+        _ = blue_to_sigmf(blue_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
 
+    ## TODO: Determine proper way to integrate Signal Hound files. 
+    elif magic_bytes == b"<?xm": # <?xml version="1.0" encoding="UTF-8"?> <SignalHoundIQFile Version="1.0">
+       # Signal Hound Spike 1.0 file
+        # Of the 66 Byte string move 43 bytes in to skip the XML declaration
+        # and get to the root element and take 18 chars for a more specific detection of Signal Hound Spike files
+        expanded_magic_bytes = get_magic_bytes(input_path, count=17, offset=40)
+        if expanded_magic_bytes == b"SignalHoundIQFile":
+            _ = signalhound_to_sigmf(signalhound_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
+        else:
+          raise SigMFConversionError(
+            f"Unsupported XML file format. Expanded Magic bytes: {expanded_magic_bytes}. "
+            f"Supported formats for conversion are WAV, BLUE/Platinum and Signal Hound Spike."
+        )
     else:
         raise SigMFConversionError(
             f"Unsupported file format. Magic bytes: {magic_bytes}. "
-            f"Supported formats for conversion are WAV and BLUE/Platinum."
+            f"Supported formats for conversion are WAV, BLUE/Platinum and Signal Hound Spike."
         )
 
 
