@@ -3,7 +3,7 @@
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
-# last updated 2-16-26
+# last updated 3-02-26
 
 """converter for signalhound files to SigMF format."""
 
@@ -30,17 +30,7 @@ from ..utils import SIGMF_DATETIME_ISO8601_FMT
 
 import sys
 
-# Define constants for Spike
-ENDIANNESS = "<"
-DATATYPE = "ci16_le"  # complex short int16 little-endian
-# DATATYPE_SIZE = 4  # bytes per complex int16 sample (2 bytes I + 2 bytes Q)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    stream=sys.stdout,   # ensure logs go to stdout (or use sys.stderr)
-)
-
+# Use logging defined in __main__.py
 log = logging.getLogger()
 
 def _to_float(x)  -> Optional[float]:
@@ -58,7 +48,7 @@ def _to_int(x) -> Optional[int]:
     except Exception:
         return None
 
-def _parse_preview_trace(text) -> list[float]:
+def _parse_preview_trace(text) -> List[float]:
     """Parse PreviewTrace string into list of floats."""
     if text is None:
         return []
@@ -354,7 +344,8 @@ def signalhound_to_sigmf(
     if out_path is None:
         create_ncd = True
 
-    # TODO: Should time be based on file modification time or the EpochNanos field in the XML metadata? For now using file modification time since it is more likely to be present and accurate for the actual data capture time, whereas the EpochNanos field may be missing or inaccurate in some cases. This can be revisited in the future if needed based on user feedback or specific use cases.
+    # TODO: Should time be based on file modification time or the EpochNanos field in the XML metadata? 
+    # For now using file modification time
     modify_time = signalhound_path.lstat().st_mtime
     signalhound_datetime = datetime.fromtimestamp(modify_time, tz=timezone.utc)
 
@@ -389,18 +380,12 @@ def signalhound_to_sigmf(
         annot_metadata = {k: v for k, v in annotation.items() 
                          if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]}
         meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
-    
-  
+      
     # Manually set the fields that set_data_file() would normally populate
+    # TODO: Consider refactoring to use set_data_file() for better consistency
     meta._data_file_offset = header_bytes
     meta._data_file_size = data_bytes
     meta._data_file_skip_checksum = True
- 
-    # TODO: Determine how to use memmap to avoid issues in SigMFFile.
-    # Explicitly disable memmap for SignalHound files since they may not be compatible with memmap
-    # meta._data_file_is_memmap = False
-    # meta._data_file_memmap_shape = None
-    # meta._data_file_is_binary = True
 
     # Get filenames for metadata, data, and archive based on output path and input file name
     filenames = get_sigmf_filenames(out_path)
