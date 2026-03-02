@@ -18,7 +18,7 @@ import numpy as np
 from datetime import datetime, timezone, timedelta
 
 import xml.etree.ElementTree as ET
-from typing import Optional
+from typing import Optional, List
 
 from .. import SigMFFile
 from ..error import SigMFConversionError
