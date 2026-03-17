@@ -507,9 +507,9 @@ class SigMFFile(SigMFMetafile):
         new_capture[self.START_INDEX_KEY] = start_index
         # merge if capture exists
         merged = False
-        for existing_capture in self._metadata[self.CAPTURE_KEY]:
+        for idx, existing_capture in enumerate(self._metadata[self.CAPTURE_KEY]):
             if existing_capture[self.START_INDEX_KEY] == start_index:
-                existing_capture = dict_merge(existing_capture, new_capture)
+                self._metadata[self.CAPTURE_KEY][idx] = dict_merge(existing_capture, new_capture)
                 merged = True
         if not merged:
             capture_list += [new_capture]

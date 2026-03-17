@@ -366,6 +366,31 @@ def test_add_capture():
     sigf.add_capture(start_index=0, metadata={})
 
 
+def test_add_capture_metadata_merge():
+    '''test that adding capture with existing start_index properly merges metadata'''
+    sigf = SigMFFile()
+    
+    # add initial capture with some metadata
+    initial_meta = {"core:frequency": 915e6, "core:sample_rate": 1e6}
+    sigf.add_capture(start_index=0, metadata=initial_meta)
+    
+    # add capture with same start_index but additional metadata
+    additional_meta = {"core:datetime": "2026-03-17T10:00:00Z", "custom:gain": 30}
+    sigf.add_capture(start_index=0, metadata=additional_meta)
+    
+    # verify metadata was merged properly
+    captures = sigf.get_captures()
+    assert len(captures) == 1, "should have exactly one capture"
+    
+    merged_capture = captures[0]
+    # original metadata should be preserved
+    assert merged_capture["core:frequency"] == 915e6
+    assert merged_capture["core:sample_rate"] == 1e6
+    # new metadata should be added
+    assert merged_capture["core:datetime"] == "2026-03-17T10:00:00Z"
+    assert merged_capture["custom:gain"] == 30
+
+
 def test_add_annotation():
     sigf = SigMFFile()
     sigf.add_capture(start_index=0)
