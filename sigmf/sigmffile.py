@@ -1363,6 +1363,11 @@ def fromfile(filename, skip_checksum=False, autoscale=True):
 
             return blue_to_sigmf(file_path, create_ncd=True)
 
+        elif ext == ".xml" and magic_bytes.startswith(b"<?xm"):
+            from .convert.signalhound import signalhound_to_sigmf
+
+            return signalhound_to_sigmf(file_path, create_ncd=True)
+
     # if file doesn't exist at all or no valid files found, raise original error
     raise SigMFFileError(f"Cannot read {filename} as SigMF or supported non-SigMF format.")
 

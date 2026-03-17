@@ -32,6 +32,7 @@ sample_rate = meta.sample_rate  # get sample rate
 # read other formats containing RF time series as SigMF
 meta = sigmf.fromfile("recording.wav")   # WAV
 meta = sigmf.fromfile("recording.cdif")  # BLUE / Platinum
+meta = sigmf.fromfile("recording.xml")   # Signal Hound Spike
 ```
 
 ### Docs

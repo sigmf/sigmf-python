@@ -63,7 +63,8 @@ class TestSignalHoundWithNonSigMFRepo(unittest.TestCase):
         """test direct NCD conversion"""
         for hound_path in self.hound_paths:
             meta = signalhound_to_sigmf(signalhound_path=hound_path)
-            _validate_ncd(self, meta, hound_path)
+            target_path = hound_path.with_suffix(".iq")
+            _validate_ncd(self, meta, target_path)
             if len(meta):
                 # check sample read consistency
                 np.testing.assert_array_equal(meta.read_samples(count=10), meta[0:10])
@@ -72,4 +73,5 @@ class TestSignalHoundWithNonSigMFRepo(unittest.TestCase):
         """test automatic NCD conversion with fromfile"""
         for hound_path in self.hound_paths:
             meta = sigmf.fromfile(hound_path)
-            _validate_ncd(self, meta, hound_path)
+            target_path = hound_path.with_suffix(".iq")
+            _validate_ncd(self, meta, target_path)

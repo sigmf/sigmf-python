@@ -98,7 +98,6 @@ def main() -> None:
         # BLUE file
         _ = blue_to_sigmf(blue_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
 
-    ## TODO: Determine proper way to integrate Signal Hound files. 
     elif magic_bytes == b"<?xm": # <?xml version="1.0" encoding="UTF-8"?> <SignalHoundIQFile Version="1.0">
        # Signal Hound Spike 1.0 file
         # Of the 66 Byte string move 43 bytes in to skip the XML declaration
@@ -109,12 +108,12 @@ def main() -> None:
         else:
           raise SigMFConversionError(
             f"Unsupported XML file format. Expanded Magic bytes: {expanded_magic_bytes}. "
-            f"Supported formats for conversion are WAV, BLUE/Platinum and Signal Hound Spike."
+            f"Supported formats for conversion are WAV, BLUE/Platinum, and Signal Hound Spike."
         )
     else:
         raise SigMFConversionError(
             f"Unsupported file format. Magic bytes: {magic_bytes}. "
-            f"Supported formats for conversion are WAV, BLUE/Platinum and Signal Hound Spike."
+            f"Supported formats for conversion are WAV, BLUE/Platinum, and Signal Hound Spike."
         )
 
 

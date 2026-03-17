@@ -30,7 +30,9 @@ def _validate_ncd(test: unittest.TestCase, meta: sigmf.SigMFFile, target_path: P
     # validate NCD SigMF spec compliance
     test.assertGreater(len(capture_info), 0, "Should have at least one capture")
     test.assertIn("core:header_bytes", capture_info[0])
-    test.assertGreater(capture_info[0]["core:header_bytes"], 0, "Should have non-zero core:header_bytes field")
+    if target_path.suffix != ".iq":
+        # skip for Signal Hound
+        test.assertGreater(capture_info[0]["core:header_bytes"], 0, "Should have non-zero core:header_bytes field")
     test.assertIn("core:trailing_bytes", global_info, "Should have core:trailing_bytes field.")
     test.assertIn("core:dataset", global_info, "Should have core:dataset field.")
     test.assertNotIn("core:metadata_only", global_info, "Should NOT have core:metadata_only field.")

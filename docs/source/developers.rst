@@ -60,6 +60,7 @@ To build the docs and host locally:
 .. code-block:: console
 
    $ cd docs
+   $ pip install -r requirements.txt
    $ make clean
    $ make html
    $ python3 -m http.server --directory build/html/
