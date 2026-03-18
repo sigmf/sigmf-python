@@ -13,11 +13,10 @@ from pathlib import Path
 
 from .. import __version__ as toolversion
 from ..error import SigMFConversionError
-from ..utils import get_magic_bytes
+from . import detect_converter
 from .blue import blue_to_sigmf
-from .wav import wav_to_sigmf
 from .signalhound import signalhound_to_sigmf
-
+from .wav import wav_to_sigmf
 
 
 def main() -> None:
@@ -87,33 +86,16 @@ def main() -> None:
     if output_path.is_dir():
         raise SigMFConversionError(f"Output path must be a filename, not a directory: {output_path}")
 
-    # detect file type using magic bytes (same logic as fromfile())
-    magic_bytes = get_magic_bytes(input_path, count=4, offset=0)
+    # detect file type using magic bytes
+    converter_type = detect_converter(input_path)
 
-    if magic_bytes == b"RIFF":
-        # WAV file
+    if converter_type == "wav":
         _ = wav_to_sigmf(wav_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
-
-    elif magic_bytes == b"BLUE":
-        # BLUE file
+    elif converter_type == "blue":
         _ = blue_to_sigmf(blue_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
-
-    elif magic_bytes == b"<?xm": # <?xml version="1.0" encoding="UTF-8"?> <SignalHoundIQFile Version="1.0">
-       # Signal Hound Spike 1.0 file
-        # Of the 66 Byte string move 43 bytes in to skip the XML declaration
-        # and get to the root element and take 18 chars for a more specific detection of Signal Hound Spike files
-        expanded_magic_bytes = get_magic_bytes(input_path, count=17, offset=40)
-        if expanded_magic_bytes == b"SignalHoundIQFile":
-            _ = signalhound_to_sigmf(signalhound_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
-        else:
-          raise SigMFConversionError(
-            f"Unsupported XML file format. Expanded Magic bytes: {expanded_magic_bytes}. "
-            f"Supported formats for conversion are WAV, BLUE/Platinum, and Signal Hound Spike."
-        )
-    else:
-        raise SigMFConversionError(
-            f"Unsupported file format. Magic bytes: {magic_bytes}. "
-            f"Supported formats for conversion are WAV, BLUE/Platinum, and Signal Hound Spike."
+    elif converter_type == "signalhound":
+        _ = signalhound_to_sigmf(
+            signalhound_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd
         )
 
 

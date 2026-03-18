@@ -207,6 +207,8 @@ Examples
     center_freq = meta.get_captures()[0]["core:frequency"]
 
     # access Signal Hound-specific metadata in spike: namespace
-    reference_level = meta.get_global_field("spike:reference_level")
-    if_bandwidth = meta.get_global_field("spike:if_bandwidth")
-    decimation = meta.get_global_field("spike:decimation")
+    reference_level_dbm = meta.get_global_field("spike:reference_level_dbm")
+    scale_factor_mw = meta.get_global_field("spike:scale_factor_mw")
+    if_bandwidth_hz = meta.get_global_field("spike:if_bandwidth_hz")
+    iq_filename = meta.get_global_field("spike:iq_filename")  # original IQ file name
+    preview_trace = meta.get_global_field("spike:preview_trace")  # max-hold trace

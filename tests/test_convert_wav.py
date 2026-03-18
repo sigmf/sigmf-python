@@ -16,26 +16,7 @@ import numpy as np
 import sigmf
 from sigmf.convert.wav import wav_to_sigmf
 
-from .testdata import get_nonsigmf_path
-
-
-def _validate_ncd(test: unittest.TestCase, meta: sigmf.SigMFFile, target_path: Path):
-    """non-conforming dataset has a specific structure"""
-    test.assertEqual(str(meta.data_file), str(target_path), "Auto-detected NCD should point to original file")
-    test.assertIsInstance(meta, sigmf.SigMFFile)
-
-    global_info = meta.get_global_info()
-    capture_info = meta.get_captures()
-
-    # validate NCD SigMF spec compliance
-    test.assertGreater(len(capture_info), 0, "Should have at least one capture")
-    test.assertIn("core:header_bytes", capture_info[0])
-    if target_path.suffix != ".iq":
-        # skip for Signal Hound
-        test.assertGreater(capture_info[0]["core:header_bytes"], 0, "Should have non-zero core:header_bytes field")
-    test.assertIn("core:trailing_bytes", global_info, "Should have core:trailing_bytes field.")
-    test.assertIn("core:dataset", global_info, "Should have core:dataset field.")
-    test.assertNotIn("core:metadata_only", global_info, "Should NOT have core:metadata_only field.")
+from .testdata import get_nonsigmf_path, validate_ncd
 
 
 class TestWAVConverter(unittest.TestCase):
@@ -111,7 +92,7 @@ class TestWAVConverter(unittest.TestCase):
     def test_wav_to_sigmf_ncd(self) -> None:
         """test wav to sigmf conversion as Non-Conforming Dataset"""
         meta = wav_to_sigmf(wav_path=self.wav_path, create_ncd=True)
-        _validate_ncd(self, meta, self.wav_path)
+        validate_ncd(self, meta, self.wav_path)
 
         # verify data
         data = meta.read_samples()
@@ -175,7 +156,7 @@ class TestWAVWithNonSigMFRepo(unittest.TestCase):
         """test direct NCD conversion"""
         for wav_path in self.wav_paths:
             meta = wav_to_sigmf(wav_path=wav_path)
-            _validate_ncd(self, meta, wav_path)
+            validate_ncd(self, meta, wav_path)
 
             # test file read
             _ = meta.read_samples(count=10)
@@ -184,4 +165,4 @@ class TestWAVWithNonSigMFRepo(unittest.TestCase):
         """test automatic NCD conversion"""
         for wav_path in self.wav_paths:
             meta = sigmf.fromfile(wav_path)
-            _validate_ncd(self, meta, wav_path)
+            validate_ncd(self, meta, wav_path)

@@ -16,8 +16,7 @@ import numpy as np
 import sigmf
 from sigmf.convert.signalhound import signalhound_to_sigmf
 
-from .test_convert_wav import _validate_ncd
-from .testdata import get_nonsigmf_path
+from .testdata import get_nonsigmf_path, validate_ncd
 
 
 class TestSignalHoundWithNonSigMFRepo(unittest.TestCase):
@@ -64,7 +63,7 @@ class TestSignalHoundWithNonSigMFRepo(unittest.TestCase):
         for hound_path in self.hound_paths:
             meta = signalhound_to_sigmf(signalhound_path=hound_path)
             target_path = hound_path.with_suffix(".iq")
-            _validate_ncd(self, meta, target_path)
+            validate_ncd(self, meta, target_path)
             if len(meta):
                 # check sample read consistency
                 np.testing.assert_array_equal(meta.read_samples(count=10), meta[0:10])
@@ -74,4 +73,4 @@ class TestSignalHoundWithNonSigMFRepo(unittest.TestCase):
         for hound_path in self.hound_paths:
             meta = sigmf.fromfile(hound_path)
             target_path = hound_path.with_suffix(".iq")
-            _validate_ncd(self, meta, target_path)
+            validate_ncd(self, meta, target_path)

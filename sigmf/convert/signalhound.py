@@ -27,8 +27,8 @@ log = logging.getLogger()
 
 def _text_of(root: ET.Element, tag: str) -> Optional[str]:
     """Extract and strip text from XML element."""
-    element = root.find(tag)
-    return element.text.strip() if (element is not None and element.text is not None) else None
+    elem = root.find(tag)
+    return elem.text.strip() if (elem is not None and elem.text is not None) else None
 
 
 def _parse_preview_trace(text: Optional[str]) -> List[float]:
@@ -89,13 +89,6 @@ def validate_spike(xml_path: Path) -> None:
     if sample_rate <= 0:
         raise SigMFConversionError(f"Invalid SampleRate: {sample_rate} (must be > 0)")
 
-    # validate EpochNanos
-    epoch_nanos_raw = _text_of(root, "EpochNanos")
-    try:
-        int(epoch_nanos_raw)
-    except (TypeError, ValueError) as err:
-        raise SigMFConversionError(f"Invalid or missing EpochNanos: {epoch_nanos_raw}") from err
-
     # validate DataType
     data_type_raw = _text_of(root, "DataType")
     if data_type_raw is None:
@@ -120,12 +113,12 @@ def validate_spike(xml_path: Path) -> None:
 
 def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
     """
-    Build a SigMF metadata components from the spike xml file.
+    Build SigMF metadata components from the Spike XML file.
 
     Parameters
     ----------
     xml_path : Path
-        Path to the spike xml file.
+        Path to the Spike XML file.
 
     Returns
     -------
@@ -149,8 +142,16 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
     # extract and convert required fields
     center_frequency = float(_text_of(root, "CenterFrequency"))
     sample_rate = float(_text_of(root, "SampleRate"))
-    epoch_nanos = int(_text_of(root, "EpochNanos"))
     data_type_raw = _text_of(root, "DataType")
+
+    # optional EpochNanos field
+    epoch_nanos = None
+    epoch_nanos_raw = _text_of(root, "EpochNanos")
+    if epoch_nanos_raw:
+        try:
+            epoch_nanos = int(epoch_nanos_raw)
+        except ValueError:
+            log.warning(f"could not parse EpochNanos: {epoch_nanos_raw}")
 
     # map datatype
     if data_type_raw == "Complex Short":
@@ -161,7 +162,7 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
     # optional fields - only convert if present and valid
     reference_level = None
     reference_level_raw = _text_of(root, "ReferenceLevel")
-    if reference_level_raw is not None:
+    if reference_level_raw:
         try:
             reference_level = float(reference_level_raw)
         except ValueError:
@@ -169,7 +170,7 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     decimation = None
     decimation_raw = _text_of(root, "Decimation")
-    if decimation_raw is not None:
+    if decimation_raw:
         try:
             decimation = int(float(decimation_raw))
         except ValueError:
@@ -177,7 +178,7 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     if_bandwidth = None
     if_bandwidth_raw = _text_of(root, "IFBandwidth")
-    if if_bandwidth_raw is not None:
+    if if_bandwidth_raw:
         try:
             if_bandwidth = float(if_bandwidth_raw)
         except ValueError:
@@ -185,21 +186,34 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     scale_factor = None
     scale_factor_raw = _text_of(root, "ScaleFactor")
-    if scale_factor_raw is not None:
+    if scale_factor_raw:
         try:
             scale_factor = float(scale_factor_raw)
         except ValueError:
             log.warning(f"could not parse ScaleFactor: {scale_factor_raw}")
 
     device_type = _text_of(root, "DeviceType")
+    serial_number = _text_of(root, "SerialNumber")
     iq_file_name = _text_of(root, "IQFileName")
 
     # parse preview trace if present
     preview_trace_raw = _text_of(root, "PreviewTrace")
     preview_trace = _parse_preview_trace(preview_trace_raw) if preview_trace_raw else None
 
-    # check for devicetype field for hardware description, otherwise use generic description
-    hardware_description = device_type if device_type is not None else "Signal Hound Device"
+    # build hardware description with available information
+    hw_parts = []
+    if device_type:
+        hw_parts.append(f"Recorded with {device_type}")
+    else:
+        hw_parts.append("Recorded with Signal Hound Device")
+
+    if serial_number:
+        hw_parts.append(f"S/N: {serial_number}")
+
+    if decimation:
+        hw_parts.append(f"decimation: {decimation}")
+
+    hardware_description = ", ".join(hw_parts) if hw_parts else "Signal Hound Device"
 
     # strip the extension from the original file path
     base_file_name = xml_path.with_suffix("")
@@ -209,27 +223,24 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     # complex 16-bit integer IQ data > ci16_le in SigMF
     elem_size = np.dtype(np.int16).itemsize
-    elem_count = filesize // elem_size
-    log.debug("element count: %d", elem_count)
-    frame_bytes = 2 * elem_size
-    if filesize % frame_bytes != 0:
-        raise SigMFConversionError(f"File size {filesize} not divisible by {frame_bytes}; partial sample present")
+    frame_bytes = 2 * elem_size  # I and Q components
 
     # calculate sample count using the original IQ data file size
     sample_count_calculated = filesize // frame_bytes
     log.debug("sample count: %d", sample_count_calculated)
 
-    # convert the datetime object to an ISO 8601 formatted string
-    secs = epoch_nanos // 1_000_000_000
-    rem_ns = epoch_nanos % 1_000_000_000
-    dt = datetime.fromtimestamp(secs, tz=timezone.utc) + timedelta(microseconds=rem_ns / 1000)
-    iso_8601_string = dt.strftime(SIGMF_DATETIME_ISO8601_FMT)
+    # convert the datetime object to an ISO 8601 formatted string if EpochNanos is present
+    iso_8601_string = None
+    if epoch_nanos is not None:
+        secs = epoch_nanos // 1_000_000_000
+        rem_ns = epoch_nanos % 1_000_000_000
+        dt = datetime.fromtimestamp(secs, tz=timezone.utc) + timedelta(microseconds=rem_ns / 1000)
+        iso_8601_string = dt.strftime(SIGMF_DATETIME_ISO8601_FMT)
 
     # base global metadata
     global_md = {
         SigMFFile.AUTHOR_KEY: getpass.getuser(),
         SigMFFile.DATATYPE_KEY: data_type,
-        SigMFFile.DESCRIPTION_KEY: "Signal Hound Spike Zero Span File converted to SigMF format",
         SigMFFile.HW_KEY: hardware_description,
         SigMFFile.NUM_CHANNELS_KEY: 1,
         SigMFFile.RECORDER_KEY: "Official SigMF Signal Hound converter",
@@ -238,28 +249,28 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
     }
 
     # add optional spike-specific fields to global metadata using spike: namespace
-    if reference_level is not None:
-        global_md["spike:reference_level"] = reference_level
-    if decimation is not None:
-        global_md["spike:decimation"] = decimation
-    if if_bandwidth is not None:
-        global_md["spike:if_bandwidth"] = if_bandwidth
-    if scale_factor is not None:
-        global_md["spike:scale_factor"] = scale_factor
-    if iq_file_name is not None:
-        global_md["spike:iq_filename"] = iq_file_name
-    # if preview_trace is not None and len(preview_trace) > 0:
-    #     global_md["spike:preview_trace"] = preview_trace
+    # only include fields that aren't already represented in standard SigMF metadata
+    if reference_level:
+        global_md["spike:reference_level_dbm"] = reference_level
+    if scale_factor:
+        global_md["spike:scale_factor_mw"] = scale_factor  # to convert raw to mW
+    if if_bandwidth:
+        global_md["spike:if_bandwidth_hz"] = if_bandwidth
+    if iq_file_name:
+        global_md["spike:iq_filename"] = iq_file_name  # provenance
+    if preview_trace:
+        global_md["spike:preview_trace"] = preview_trace  # max-hold trace
 
     # capture info
     capture_info = {
-        SigMFFile.DATETIME_KEY: iso_8601_string,
         SigMFFile.FREQUENCY_KEY: center_frequency,
     }
+    if iso_8601_string:
+        capture_info[SigMFFile.DATETIME_KEY] = iso_8601_string
 
     # create annotations array using calculated values
     annotations = []
-    if if_bandwidth is not None:
+    if if_bandwidth:
         upper_frequency_edge = center_frequency + (if_bandwidth / 2.0)
         lower_frequency_edge = center_frequency - (if_bandwidth / 2.0)
         annotations.append(
@@ -277,12 +288,12 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
 def convert_iq_data(xml_path: Path, sample_count: int) -> np.ndarray:
     """
-    Convert IQ data in .iq file to SigMF based on values in Zero Span XML file.
+    Convert IQ data in .iq file to SigMF based on values in Spike XML file.
 
     Parameters
     ----------
     xml_path : Path
-        Path to the spike zero span XML file.
+        Path to the spike XML file.
     sample_count : int
         Number of samples to read.
 
@@ -292,8 +303,7 @@ def convert_iq_data(xml_path: Path, sample_count: int) -> np.ndarray:
         Parsed samples.
     """
     log.debug("parsing spike file data values")
-    base_file_name = Path(xml_path).with_suffix("")
-    iq_file_path = base_file_name.with_suffix(".iq")
+    iq_file_path = xml_path.with_suffix(".iq")
 
     # calculate element count (I and Q samples)
     elem_count = sample_count * 2  # *2 for I and Q samples
@@ -366,11 +376,10 @@ def signalhound_to_sigmf(
 
     # create NCD if specified, otherwise create standard SigMF dataset or archive
     if create_ncd:
-        # add ncd-specific fields
-        global_info[SigMFFile.DATASET_KEY] = signalhound_path.with_suffix(".iq").name
         # spike files have no header or trailing bytes
-        capture_info[SigMFFile.HEADER_BYTES_KEY] = 0
+        global_info[SigMFFile.DATASET_KEY] = signalhound_path.with_suffix(".iq").name
         global_info[SigMFFile.TRAILING_BYTES_KEY] = 0
+        capture_info[SigMFFile.HEADER_BYTES_KEY] = 0
 
         # build the .iq file path for data file
         base_file_name = signalhound_path.with_suffix("")
@@ -441,7 +450,7 @@ def signalhound_to_sigmf(
 
     else:
         # write separate meta and data files
-        # convert iq data for zero span spike file
+        # convert iq data for spike file
         try:
             iq_data = convert_iq_data(signalhound_path, sample_count)
         except Exception as e:

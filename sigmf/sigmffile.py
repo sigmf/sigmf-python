@@ -30,7 +30,7 @@ from .error import (
     SigMFFileError,
     SigMFFileExistsError,
 )
-from .utils import dict_merge, get_magic_bytes
+from .utils import dict_merge
 
 
 class SigMFMetafile:
@@ -1285,7 +1285,7 @@ def fromfile(filename, skip_checksum=False, autoscale=True):
     * a SigMF Metadata file (.sigmf-meta)
     * a SigMF Dataset file (.sigmf-data)
     * a SigMF Collection file (.sigmf-collection)
-    * a non-SigMF RF recording that can be converted (.wav, .cdif)
+    * a non-SigMF RF recording that can be converted (.wav, .cdif, .xml, etc.)
 
     Parameters
     ----------
@@ -1351,22 +1351,28 @@ def fromfile(filename, skip_checksum=False, autoscale=True):
         if not autoscale:
             # TODO: allow autoscale=False for converters
             warnings.warn("non-SigMF auto-detection conversion only supports autoscale=True; ignoring autoscale=False")
-        magic_bytes = get_magic_bytes(file_path, count=4, offset=0)
 
-        if magic_bytes == b"RIFF":
-            from .convert.wav import wav_to_sigmf
+        # lazy imports to avoid circular dependency
+        from .convert import detect_converter
 
-            return wav_to_sigmf(file_path, create_ncd=True)
+        try:
+            converter_type = detect_converter(file_path)
 
-        elif magic_bytes == b"BLUE":
-            from .convert.blue import blue_to_sigmf
+            if converter_type == "wav":
+                from .convert.wav import wav_to_sigmf
 
-            return blue_to_sigmf(file_path, create_ncd=True)
+                return wav_to_sigmf(file_path, create_ncd=True)
+            elif converter_type == "blue":
+                from .convert.blue import blue_to_sigmf
 
-        elif ext == ".xml" and magic_bytes.startswith(b"<?xm"):
-            from .convert.signalhound import signalhound_to_sigmf
+                return blue_to_sigmf(file_path, create_ncd=True)
+            elif converter_type == "signalhound":
+                from .convert.signalhound import signalhound_to_sigmf
 
-            return signalhound_to_sigmf(file_path, create_ncd=True)
+                return signalhound_to_sigmf(file_path, create_ncd=True)
+        except SigMFConversionError:
+            # unsupported format, fall through to raise SigMFFileError
+            pass
 
     # if file doesn't exist at all or no valid files found, raise original error
     raise SigMFFileError(f"Cannot read {filename} as SigMF or supported non-SigMF format.")
