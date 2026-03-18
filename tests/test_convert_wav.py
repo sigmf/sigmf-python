@@ -46,6 +46,15 @@ class TestWAVConverter(unittest.TestCase):
         """clean up temporary directory"""
         self.tmp_dir.cleanup()
 
+    def _verify(self, meta: sigmf.SigMFFile) -> None:
+        """Verify metadata fields and data integrity."""
+        self.assertIsInstance(meta, sigmf.SigMFFile)
+        # verify data
+        data = meta.read_samples()
+        self.assertGreater(len(data), 0, "Should read some samples")
+        # allow numerical differences due to PCM quantization
+        self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
+
     def test_wav_to_sigmf_pair(self) -> None:
         """test standard wav to sigmf conversion with file pairs"""
         sigmf_path = self.tmp_path / "bar"
@@ -53,11 +62,7 @@ class TestWAVConverter(unittest.TestCase):
         filenames = sigmf.sigmffile.get_sigmf_filenames(sigmf_path)
         self.assertTrue(filenames["data_fn"].exists(), "dataset path missing")
         self.assertTrue(filenames["meta_fn"].exists(), "metadata path missing")
-        # verify data
-        data = meta.read_samples()
-        self.assertGreater(len(data), 0, "Should read some samples")
-        # allow numerical differences due to PCM quantization
-        self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
+        self._verify(meta)
 
         # test overwrite protection
         with self.assertRaises(sigmf.error.SigMFFileError) as context:
@@ -74,11 +79,7 @@ class TestWAVConverter(unittest.TestCase):
         meta = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, create_archive=True)
         filenames = sigmf.sigmffile.get_sigmf_filenames(sigmf_path)
         self.assertTrue(filenames["archive_fn"].exists(), "archive path missing")
-        # verify data
-        data = meta.read_samples()
-        self.assertGreater(len(data), 0, "Should read some samples")
-        # allow numerical differences due to PCM quantization
-        self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
+        self._verify(meta)
 
         # test overwrite protection
         with self.assertRaises(sigmf.error.SigMFFileError) as context:
@@ -93,12 +94,7 @@ class TestWAVConverter(unittest.TestCase):
         """test wav to sigmf conversion as Non-Conforming Dataset"""
         meta = wav_to_sigmf(wav_path=self.wav_path, create_ncd=True)
         validate_ncd(self, meta, self.wav_path)
-
-        # verify data
-        data = meta.read_samples()
-        # allow numerical differences due to PCM quantization
-        self.assertGreater(len(data), 0, "Should read some samples")
-        self.assertTrue(np.allclose(self.audio_data, data, atol=1e-4))
+        self._verify(meta)
 
         # test overwrite protection when creating NCD with output path
         sigmf_path = self.tmp_path / "ncd_test"

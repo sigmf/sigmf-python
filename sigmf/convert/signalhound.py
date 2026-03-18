@@ -203,9 +203,9 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
     # build hardware description with available information
     hw_parts = []
     if device_type:
-        hw_parts.append(f"Recorded with {device_type}")
+        hw_parts.append(f"{device_type}")
     else:
-        hw_parts.append("Recorded with Signal Hound Device")
+        hw_parts.append("Signal Hound Device")
 
     if serial_number:
         hw_parts.append(f"S/N: {serial_number}")
