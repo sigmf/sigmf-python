@@ -10,6 +10,7 @@ import copy
 import shutil
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -61,3 +62,38 @@ class TestNonConformingDataset(unittest.TestCase):
         Path.unlink(data_path)
         with self.assertRaises(SigMFFileError):
             _ = fromfile(meta_path)
+
+    def test_ncd_priority_over_conforming_dataset(self) -> None:
+        """test that NCD file specified in core:dataset is prioritized over .sigmf-data file"""
+        base_name = "conflicting_dataset"
+        meta_path = self.temp_dir / f"{base_name}.sigmf-meta"
+        ncd_path = self.temp_dir / f"{base_name}.fleeb"
+        conforming_path = self.temp_dir / f"{base_name}.sigmf-data"
+
+        # create two different datasets with distinct data for verification
+        ncd_data = np.array([100, 200, 300, 400], dtype=np.float32)
+        conforming_data = np.array([1, 2, 3, 4], dtype=np.float32)
+
+        # write both data files
+        ncd_data.tofile(ncd_path)
+        conforming_data.tofile(conforming_path)
+
+        # create metadata that references the ncd file
+        ncd_metadata = copy.deepcopy(TEST_METADATA)
+        ncd_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.DATASET_KEY] = f"{base_name}.fleeb"
+        ncd_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.NUM_CHANNELS_KEY] = 1
+        ncd_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.DATATYPE_KEY] = "rf32_le"
+        ncd_metadata[SigMFFile.GLOBAL_KEY].pop(SigMFFile.HASH_KEY, None)
+        ncd_metadata[SigMFFile.ANNOTATION_KEY] = [{SigMFFile.LENGTH_INDEX_KEY: 4, SigMFFile.START_INDEX_KEY: 0}]
+
+        # write metadata file
+        meta = SigMFFile(metadata=ncd_metadata)
+        meta.tofile(meta_path, overwrite=True)
+
+        # verify warning is generated about conflicting datasets
+        with self.assertWarns(UserWarning):
+            loaded_meta = fromfile(meta_path)
+
+        # verify that the ncd data is loaded, not the conforming data
+        loaded_data = loaded_meta.read_samples()
+        self.assertTrue(np.array_equal(ncd_data, loaded_data), "NCD file should be prioritized over .sigmf-data")
