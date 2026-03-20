@@ -1217,22 +1217,19 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
 
     Priority for conflicting datasets:
 
-    1. Use the file named ``<stem>.SIGMF_DATASET_EXT`` if it exists.
-    2. Use the file in the ``DATASET_KEY`` field (non-compliant dataset) if it exists.
+    1. Use the file in the ``DATASET_KEY`` field (non-compliant dataset) if it exists.
+    2. Use the file named ``<stem>.SIGMF_DATASET_EXT`` if it exists.
     3. Return ``None`` (may be a metadata-only distribution).
     """
     compliant_filename = get_sigmf_filenames(meta_fn)["data_fn"]
     noncompliant_filename = metadata["global"].get(SigMFFile.DATASET_KEY, None)
 
-    if Path.is_file(compliant_filename):
-        if noncompliant_filename:
+    if noncompliant_filename:
+        if Path.is_file(compliant_filename):
             warnings.warn(
-                f"Compliant Dataset `{compliant_filename}` exists but "
-                f"{SigMFFile.DATASET_KEY} is also defined; using `{compliant_filename}`"
+                f"{SigMFFile.DATASET_KEY} is defined but compliant dataset `{compliant_filename}` exists; "
+                f"using `{noncompliant_filename}` specified by {SigMFFile.DATASET_KEY}"
             )
-        return compliant_filename
-
-    elif noncompliant_filename:
         dir_path = Path(meta_fn).parent
         noncompliant_data_file_path = Path.joinpath(dir_path, noncompliant_filename)
         if Path.is_file(noncompliant_data_file_path):
@@ -1247,6 +1244,8 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
                 f"Non-Compliant Dataset `{noncompliant_filename}` is specified in {SigMFFile.DATASET_KEY} "
                 "but does not exist!"
             )
+    elif Path.is_file(compliant_filename):
+        return compliant_filename
     return None
 
 
