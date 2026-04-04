@@ -84,6 +84,18 @@ def detect_converter(file_path: Path):
                 f"Expected SignalHoundIQFile for Signal Hound Spike files."
             )
 
+    elif file_path.suffix in [".tar"]:
+        # iq.tar file extensions are used by Rohde & Schwarz for their IQ data, but the .tar extension is also used by other formats.
+        # So parse the tar file to determine if it is a Rohde & Schwarz file or not. 
+        rohde_schwarz_expanded_magic_bytes = get_magic_bytes(file_path, count=20, offset=314) # <RS_IQ_TAR_FileFormat>
+        if rohde_schwarz_expanded_magic_bytes == b"RS_IQ_TAR_FileFormat":
+            return "rohdeschwarz"
+        else:
+            raise SigMFConversionError(
+                f"Unsupported XML file format. Root element: {rohde_schwarz_expanded_magic_bytes}. "
+                f"Expected RS_IQ_TAR_FileFormat for IQ.TAR files."
+            )
+
     else:
         raise SigMFConversionError(
             f"Unsupported file format. Magic bytes: {magic_bytes}. "
