@@ -4,16 +4,19 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # 
-# Last Updated: 4-03-2026
+# Last Updated: 4-04-2026
 
 """Rohde and Schwarz Converter"""
 
 import io
+import os
 import logging
 import tarfile
 import getpass
 import tempfile
-import xml.etree.ElementTree as ET
+from defusedxml.ElementTree import parse
+
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -60,6 +63,26 @@ def xml_to_dict(elem):
     return result
 
 
+def is_safe_member(tar, member, target_dir):
+    """
+    Ensure the member will extract inside target_dir.
+    Prevents path traversal attacks.
+    """
+    member_path = os.path.join(target_dir, member.name)
+    abs_target = os.path.abspath(target_dir)
+    abs_member = os.path.abspath(member_path)
+
+    return abs_member.startswith(abs_target)
+
+def safe_extract(tar, target_dir):
+    """
+    Extract only safe members from a tarfile.
+    """
+    for member in tar.getmembers():
+        if not is_safe_member(tar, member, target_dir):
+            raise Exception(f"Unsafe path detected in TAR: {member.name}")
+        tar.extract(member, target_dir)
+
 def extract_iq_tar_to_directory(rohdeschwarz_path, file_dest_dir=None):
     tar_path = Path(rohdeschwarz_path)
 
@@ -69,7 +92,7 @@ def extract_iq_tar_to_directory(rohdeschwarz_path, file_dest_dir=None):
     file_dest_dir.mkdir(parents=True, exist_ok=True)
 
     with tarfile.open(tar_path, "r") as tar:
-        tar.extractall(file_dest_dir)
+        safe_extract(tar, file_dest_dir)
     
     xml_files = list(file_dest_dir.glob("*.xml"))
     if not xml_files:
@@ -78,7 +101,7 @@ def extract_iq_tar_to_directory(rohdeschwarz_path, file_dest_dir=None):
     # Assuming there is only one XML file in the archive, return its path for further processing
     return xml_files[0]  
 
-def _text_of(root: ET.Element, tag: str) -> Optional[str]:
+def _text_of(root, tag: str) -> Optional[str]:
     """Extract and strip text from XML element."""
     elem = root.find(tag)
     return elem.text.strip() if (elem is not None and elem.text is not None) else None
@@ -97,7 +120,7 @@ def validate_rohdeschwarz(xml_path: Path) -> None:
     SigMFConversionError
         If required fields are missing or invalid, or IQ file doesn't exist.
     """
-    tree = ET.parse(xml_path)
+    tree = parse(xml_path)
     root = tree.getroot()
 
     # validate CenterFrequency
@@ -186,7 +209,7 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
     log.info("converting rohdeschwarz xml metadata to sigmf format")
 
     xml_path = Path(xml_path)
-    tree = ET.parse(xml_path)
+    tree = parse(xml_path)
     root = tree.getroot()
 
     # validate required fields and associated IQ file
