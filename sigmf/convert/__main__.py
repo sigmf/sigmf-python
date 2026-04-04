@@ -8,6 +8,7 @@
 
 import argparse
 import logging
+import sys
 import textwrap
 from pathlib import Path
 
@@ -16,7 +17,8 @@ from ..error import SigMFConversionError
 from ..utils import get_magic_bytes
 from .blue import blue_to_sigmf
 from .wav import wav_to_sigmf
-
+from .signalhound import signalhound_to_sigmf
+from .rohdeschwarz import rohdeschwarz_to_sigmf
 
 def main() -> None:
     """
@@ -60,8 +62,8 @@ def main() -> None:
     exclusive_group.add_argument(
         "--ncd", action="store_true", help="Output .sigmf-meta only and process as a Non-Conforming Dataset (NCD)"
     )
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
+
     args = parser.parse_args()
 
     level_lut = {
@@ -85,33 +87,47 @@ def main() -> None:
     if output_path.is_dir():
         raise SigMFConversionError(f"Output path must be a filename, not a directory: {output_path}")
 
+    if input_path.suffix in [".tar"]:
+        # iq.tar file extensions are used by Rohde & Schwarz for their IQ data, but the .tar extension is also used by other formats.
+        # But as it truns out the tar files contain different file names, so may need to parse the tar file
+        # to determine if it is a Rohde & Schwarz file or not. 
+        _ = rohdeschwarz_to_sigmf(rohdeschwarz_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
+        return
+
     # detect file type using magic bytes (same logic as fromfile())
     magic_bytes = get_magic_bytes(input_path, count=4, offset=0)
 
     if magic_bytes == b"RIFF":
         # WAV file
-        _ = wav_to_sigmf(
-            wav_path=input_path,
-            out_path=output_path,
-            create_archive=args.archive,
-            create_ncd=args.ncd,
-            overwrite=args.overwrite,
-        )
+        _ = wav_to_sigmf(wav_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
 
     elif magic_bytes == b"BLUE":
         # BLUE file
-        _ = blue_to_sigmf(
-            blue_path=input_path,
-            out_path=output_path,
-            create_archive=args.archive,
-            create_ncd=args.ncd,
-            overwrite=args.overwrite,
-        )
+        _ = blue_to_sigmf(blue_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
 
+    ## TODO: Determine if there is a better way to integrate Signal Hound files. 
+    elif magic_bytes == b"<?xm": # <?xml version="1.0" encoding="UTF-8"?> <SignalHoundIQFile Version="1.0">
+        # Signal Hound Spike 1.0 file
+        # Of the 66 Byte string move 43 bytes in to skip the XML declaration
+        # and get to the root element and take 18 chars for a more specific detection of Signal Hound Spike files
+        signalhound_expanded_magic_bytes = get_magic_bytes(input_path, count=17, offset=40)
+        rohde_schwarz_expanded_magic_bytes = get_magic_bytes(input_path, count=20, offset=314) # <RS_IQ_TAR_FileFormat Version="1.0">
+        if signalhound_expanded_magic_bytes == b"SignalHoundIQFile":
+            _ = signalhound_to_sigmf(signalhound_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
+        else:
+            raise SigMFConversionError(
+                f"Unsupported XML file format. Expanded R&S Magic bytes: {rohde_schwarz_expanded_magic_bytes}. "
+                f"Unsupported XML file format. Expanded SignalHound Magic bytes: {signalhound_expanded_magic_bytes}. "
+                f"Supported formats for conversion are WAV, BLUE/Platinum and Signal Hound Spike."
+            )
+
+
+            
     else:
+
         raise SigMFConversionError(
             f"Unsupported file format. Magic bytes: {magic_bytes}. "
-            f"Supported formats for conversion are WAV and BLUE/Platinum."
+            f"Supported formats for conversion are WAV, BLUE/Platinum, Rohde & Schwarz IQ.TAR, and Signal Hound Spike."
         )
 
 
