@@ -39,7 +39,7 @@ class TestHashCalculation(unittest.TestCase):
             # Create NCD file with header, data, and trailer
             handle.write(b"\x00" * 64)  # header
             handle.write(TEST_FLOAT32_DATA.tobytes())  # sample data
-            handle.write(b"\xFF" * 32)  # trailer
+            handle.write(b"\xff" * 32)  # trailer
 
         # Create SigMF metadata for NCD
         ncd_metadata = deepcopy(TEST_METADATA)

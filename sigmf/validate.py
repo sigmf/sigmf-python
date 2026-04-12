@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 """SigMF Validator"""
+
 import argparse
 import glob
 import json

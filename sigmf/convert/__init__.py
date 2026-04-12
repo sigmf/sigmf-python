@@ -41,8 +41,8 @@ def get_magic_bytes(file_path: Path, count: int = 4, offset: int = 0) -> bytes:
             if len(magic_bytes) < count:
                 raise SigMFConversionError(f"File {file_path} too small to read {count} magic bytes at offset {offset}")
             return magic_bytes
-    except OSError as err:
-        raise SigMFConversionError(f"Failed to read magic bytes from {file_path}: {err}") from err
+    except (IOError, OSError) as err:
+        raise SigMFConversionError(f"Cannot read magic bytes from {file_path}: {err}") from err
 
 
 def detect_converter(file_path: Path):

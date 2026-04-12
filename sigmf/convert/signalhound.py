@@ -323,6 +323,16 @@ def convert_iq_data(xml_path: Path, sample_count: int) -> np.ndarray:
     return samples
 
 
+def _add_annotations(meta: SigMFFile, annotations: list) -> None:
+    for annotation in annotations:
+        start_idx = annotation.get(SigMFFile.START_INDEX_KEY, 0)
+        length = annotation.get(SigMFFile.LENGTH_INDEX_KEY)
+        annot_metadata = {
+            k: v for k, v in annotation.items() if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]
+        }
+        meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
+
+
 def signalhound_to_sigmf(
     signalhound_path: Path,
     out_path: Optional[Path] = None,
@@ -390,16 +400,7 @@ def signalhound_to_sigmf(
         meta.set_data_file(data_file=data_file_path, offset=0)
         meta.data_buffer = io.BytesIO()
         meta.add_capture(0, metadata=capture_info)
-
-        # add annotations from metadata
-        for annotation in annotations:
-            start_idx = annotation.get(SigMFFile.START_INDEX_KEY, 0)
-            length = annotation.get(SigMFFile.LENGTH_INDEX_KEY)
-            # pass remaining fields as metadata (excluding standard annotation keys)
-            annot_metadata = {
-                k: v for k, v in annotation.items() if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]
-            }
-            meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
+        _add_annotations(meta, annotations)
 
         # write metadata file if output path specified
         if out_path is not None:
@@ -429,17 +430,7 @@ def signalhound_to_sigmf(
 
             meta = SigMFFile(data_file=data_path, global_info=global_info)
             meta.add_capture(0, metadata=capture_info)
-
-            # add annotations from metadata
-            for annotation in annotations:
-                start_idx = annotation.get(SigMFFile.START_INDEX_KEY, 0)
-                length = annotation.get(SigMFFile.LENGTH_INDEX_KEY)
-                annot_metadata = {
-                    k: v
-                    for k, v in annotation.items()
-                    if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]
-                }
-                meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
+            _add_annotations(meta, annotations)
 
             output_dir = filenames["archive_fn"].parent
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -465,16 +456,7 @@ def signalhound_to_sigmf(
         # create sigmffile with converted iq data
         meta = SigMFFile(data_file=filenames["data_fn"], global_info=global_info)
         meta.add_capture(0, metadata=capture_info)
-
-        # add annotations from metadata
-        for annotation in annotations:
-            start_idx = annotation.get(SigMFFile.START_INDEX_KEY, 0)
-            length = annotation.get(SigMFFile.LENGTH_INDEX_KEY)
-            # pass remaining fields as metadata (excluding standard annotation keys)
-            annot_metadata = {
-                k: v for k, v in annotation.items() if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]
-            }
-            meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
+        _add_annotations(meta, annotations)
 
         # write metadata file
         meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
