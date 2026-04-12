@@ -11,6 +11,7 @@ import io
 import logging
 import tempfile
 import defusedxml.ElementTree as ET
+from xml.etree.ElementTree import Element
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -25,7 +26,7 @@ from ..utils import SIGMF_DATETIME_ISO8601_FMT
 log = logging.getLogger()
 
 
-def _text_of(root: ET.Element, tag: str) -> Optional[str]:
+def _text_of(root: Element, tag: str) -> Optional[str]:
     """Extract and strip text from XML element."""
     elem = root.find(tag)
     return elem.text.strip() if (elem is not None and elem.text is not None) else None
