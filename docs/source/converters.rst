@@ -12,6 +12,7 @@ Conversion is available for:
 
 * **BLUE files** - MIDAS Blue and Platinum BLUE RF recordings (usually ``.cdif``)
 * **WAV files** - Audio recordings (``.wav``)
+* **Signal Hound Spike files** - Signal Hound zero-span recordings (``.xml`` + ``.iq``)
 
 All converters return a :class:`~sigmf.SigMFFile` object with converted metadata.
 
@@ -29,6 +30,7 @@ formats and reads without writing any output files:
     # auto-detect and create NCD for any supported format
     meta = sigmf.fromfile("recording.cdif")  # BLUE file
     meta = sigmf.fromfile("recording.wav")   # WAV file
+    meta = sigmf.fromfile("recording.xml")   # Signal Hound Spike file
     meta = sigmf.fromfile("recording.sigmf")  # SigMF archive
 
     all_samples = meta.read_samples()
@@ -44,12 +46,16 @@ For programmatic access, use the individual converter functions directly:
 
     from sigmf.convert.wav import wav_to_sigmf
     from sigmf.convert.blue import blue_to_sigmf
+    from sigmf.convert.signalhound import signalhound_to_sigmf
 
     # convert WAV to SigMF archive
     _ = wav_to_sigmf(wav_path="recording.wav", out_path="recording", create_archive=True)
 
     # convert BLUE to SigMF pair and return metadata for new files
     meta = blue_to_sigmf(blue_path="recording.cdif", out_path="recording")
+
+    # convert Signal Hound Spike to SigMF pair
+    meta = signalhound_to_sigmf(signalhound_path="recording.xml", out_path="recording")
 
 
 Command Line Usage
@@ -65,8 +71,9 @@ Converters are accessed through a unified command-line interface that automatica
     # examples
     sigmf_convert recording.cdif recording.sigmf
     sigmf_convert recording.wav recording.sigmf
+    sigmf_convert recording.xml recording.sigmf
 
-The converter uses magic byte detection to automatically identify BLUE and WAV file formats.
+The converter uses magic byte detection to automatically identify BLUE, WAV, and Signal Hound Spike file formats.
 No need to remember format-specific commands!
 
 
@@ -169,3 +176,39 @@ Examples
     # access standard SigMF data & metadata
     all_samples = meta.read_samples()
     sample_rate_hz = meta.sample_rate
+
+
+Signal Hound Spike Converter
+-----------------------------
+
+The Signal Hound Spike converter handles recordings from Signal Hound devices.
+These recordings consist of two files: an XML metadata file (``.xml``) and a binary IQ data file (``.iq``).
+The converter extracts metadata from the XML file and references the IQ data file, storing Signal Hound-specific
+fields in the ``spike:`` namespace extension.
+
+.. autofunction:: sigmf.convert.signalhound.signalhound_to_sigmf
+
+Examples
+~~~~~~~~
+
+.. code-block:: python
+
+    from sigmf.convert.signalhound import signalhound_to_sigmf
+
+    # standard conversion (provide path to XML file)
+    meta = signalhound_to_sigmf(signalhound_path="recording.xml", out_path="recording")
+
+    # create NCD automatically (metadata-only, references original .iq file)
+    meta = signalhound_to_sigmf(signalhound_path="recording.xml")
+
+    # access standard SigMF data & metadata
+    all_samples = meta.read_samples()
+    sample_rate = meta.sample_rate
+    center_freq = meta.get_captures()[0]["core:frequency"]
+
+    # access Signal Hound-specific metadata in spike: namespace
+    reference_level_dbm = meta.get_global_field("spike:reference_level_dbm")
+    scale_factor_mw = meta.get_global_field("spike:scale_factor_mw")
+    if_bandwidth_hz = meta.get_global_field("spike:if_bandwidth_hz")
+    iq_filename = meta.get_global_field("spike:iq_filename")  # original IQ file name
+    preview_trace = meta.get_global_field("spike:preview_trace")  # max-hold trace

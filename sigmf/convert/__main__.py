@@ -13,8 +13,9 @@ from pathlib import Path
 
 from .. import __version__ as toolversion
 from ..error import SigMFConversionError
-from ..utils import get_magic_bytes
+from . import detect_converter
 from .blue import blue_to_sigmf
+from .signalhound import signalhound_to_sigmf
 from .wav import wav_to_sigmf
 
 
@@ -60,8 +61,8 @@ def main() -> None:
     exclusive_group.add_argument(
         "--ncd", action="store_true", help="Output .sigmf-meta only and process as a Non-Conforming Dataset (NCD)"
     )
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
     parser.add_argument("--version", action="version", version=f"%(prog)s v{toolversion}")
+
     args = parser.parse_args()
 
     level_lut = {
@@ -85,33 +86,16 @@ def main() -> None:
     if output_path.is_dir():
         raise SigMFConversionError(f"Output path must be a filename, not a directory: {output_path}")
 
-    # detect file type using magic bytes (same logic as fromfile())
-    magic_bytes = get_magic_bytes(input_path, count=4, offset=0)
+    # detect file type using magic bytes
+    converter_type = detect_converter(input_path)
 
-    if magic_bytes == b"RIFF":
-        # WAV file
-        _ = wav_to_sigmf(
-            wav_path=input_path,
-            out_path=output_path,
-            create_archive=args.archive,
-            create_ncd=args.ncd,
-            overwrite=args.overwrite,
-        )
-
-    elif magic_bytes == b"BLUE":
-        # BLUE file
-        _ = blue_to_sigmf(
-            blue_path=input_path,
-            out_path=output_path,
-            create_archive=args.archive,
-            create_ncd=args.ncd,
-            overwrite=args.overwrite,
-        )
-
-    else:
-        raise SigMFConversionError(
-            f"Unsupported file format. Magic bytes: {magic_bytes}. "
-            f"Supported formats for conversion are WAV and BLUE/Platinum."
+    if converter_type == "wav":
+        _ = wav_to_sigmf(wav_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
+    elif converter_type == "blue":
+        _ = blue_to_sigmf(blue_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
+    elif converter_type == "signalhound":
+        _ = signalhound_to_sigmf(
+            signalhound_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd
         )
 
 

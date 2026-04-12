@@ -24,6 +24,7 @@ requires-python = ">=3.7"
 dependencies = [
     "numpy",        # for vector math
     "jsonschema",   # for spec validation
+    "defusedxml",   # for safe XML parsing (XXE protection)
 ]
     [project.urls]
     repository = "https://github.com/sigmf/sigmf-python"
