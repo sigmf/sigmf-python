@@ -10,7 +10,7 @@ import getpass
 import io
 import logging
 import tempfile
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
