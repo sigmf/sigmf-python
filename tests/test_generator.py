@@ -25,7 +25,7 @@ class TestSigMFGenerator(unittest.TestCase):
         self.test_seed = 0xDEADBEEF
         self.test_sample_rate = 48000
         self.test_duration = 1.0
-        self.test_freq = 1000.0
+        self.test_freq = -1000.0
 
     def test_deterministic_tone_generation(self):
         """test deterministic tone generation with specified parameters"""
@@ -38,7 +38,7 @@ class TestSigMFGenerator(unittest.TestCase):
         # verify metadata
         self.assertEqual(signal.sample_rate, self.test_sample_rate)
         self.assertEqual(signal.get_global_info()[SigMFFile.DATATYPE_KEY], "cf32_le")
-        self.assertIn("1000.0 hz tone", signal.get_global_info()[SigMFFile.DESCRIPTION_KEY])
+        self.assertIn("-1000.0 hz tone", signal.get_global_info()[SigMFFile.DESCRIPTION_KEY])
 
         # verify signal characteristics
         samples = signal.read_samples()
@@ -52,8 +52,8 @@ class TestSigMFGenerator(unittest.TestCase):
         fft_samples = np.fft.fft(samples)
         fft_freqs = np.fft.fftfreq(len(samples), 1 / self.test_sample_rate)
         dominant_freq_idx = np.argmax(np.abs(fft_samples))
-        dominant_freq = abs(fft_freqs[dominant_freq_idx])
-        self.assertAlmostEqual(dominant_freq, self.test_freq, delta=10)  # within 10 hz
+        dominant_freq = fft_freqs[dominant_freq_idx]
+        self.assertAlmostEqual(dominant_freq, self.test_freq, delta=10)  # within 10 hz, signed
 
     def test_random_tone_generation(self):
         """test random tone generation"""
@@ -92,7 +92,7 @@ class TestSigMFGenerator(unittest.TestCase):
 
     def test_sweep_generation(self):
         """test linear frequency sweep generation"""
-        start_freq = 500.0
+        start_freq = -500.0
         end_freq = 2000.0
 
         gen = SigMFGenerator(seed=self.test_seed)
@@ -101,7 +101,7 @@ class TestSigMFGenerator(unittest.TestCase):
         )
 
         # verify metadata
-        self.assertIn("500.0-2000.0 hz sweep", signal.get_global_info()[SigMFFile.DESCRIPTION_KEY])
+        self.assertIn("-500.0-2000.0 hz sweep", signal.get_global_info()[SigMFFile.DESCRIPTION_KEY])
 
         # verify signal properties
         samples = signal.read_samples()
@@ -187,13 +187,15 @@ class TestSigMFGenerator(unittest.TestCase):
         """test parameter validation and error handling"""
         gen = SigMFGenerator()
 
-        # should raise error if no signal type specified
-        with self.assertRaises(SigMFGeneratorError):
-            gen.generate()
+        # bare generate() should now work (auto-generates components)
+        signal = gen.generate()
+        self.assertIsInstance(signal, SigMFFile)
 
-        # should raise error for tone frequency exceeding nyquist
+        # should raise error for tone frequency exceeding nyquist (positive and negative)
         with self.assertRaises(SigMFGeneratorError):
             gen.tone(30000).sample_rate(48000).duration(1.0).generate()
+        with self.assertRaises(SigMFGeneratorError):
+            gen.tone(-30000).sample_rate(48000).duration(1.0).generate()
 
         # should raise error for negative duration
         with self.assertRaises(SigMFGeneratorError):
@@ -207,12 +209,15 @@ class TestSigMFGenerator(unittest.TestCase):
         """test sweep-specific parameter validation"""
         gen = SigMFGenerator()
 
-        # sweep frequencies exceeding nyquist should raise error
+        # sweep frequencies exceeding nyquist should raise error (positive and negative)
         with self.assertRaises(SigMFGeneratorError):
             gen.sweep(1000, 30000).sample_rate(48000).duration(1.0).generate()
-
         with self.assertRaises(SigMFGeneratorError):
             gen.sweep(30000, 1000).sample_rate(48000).duration(1.0).generate()
+        with self.assertRaises(SigMFGeneratorError):
+            gen.sweep(1000, -30000).sample_rate(48000).duration(1.0).generate()
+        with self.assertRaises(SigMFGeneratorError):
+            gen.sweep(-30000, 1000).sample_rate(48000).duration(1.0).generate()
 
     def test_random_parameters_reasonable(self):
         """test that random parameters are within reasonable ranges"""
@@ -363,31 +368,31 @@ class TestSigMFGenerator(unittest.TestCase):
         self.assertIn("+200.0 Hz", offset_annotation[SigMFFile.LABEL_KEY])
 
     def test_sweep_annotations(self):
-        """test sweep annotations have correct frequency bounds"""
+        """test sweep annotations have correct frequency bounds including negative"""
         gen = SigMFGenerator(seed=42)
-        signal = gen.sweep(500, 2500).sample_rate(22050).duration(0.1).generate()
+        signal = gen.sweep(-2500, 2500).sample_rate(22050).duration(0.1).generate()
 
         annotations = signal.get_annotations()
         self.assertEqual(len(annotations), 1)  # just main sweep annotation
 
         sweep_annotation = annotations[0]
-        self.assertEqual(sweep_annotation[SigMFFile.FLO_KEY], 500.0)
+        self.assertEqual(sweep_annotation[SigMFFile.FLO_KEY], -2500.0)
         self.assertEqual(sweep_annotation[SigMFFile.FHI_KEY], 2500.0)
-        self.assertIn("500.0-2500.0 Hz sweep", sweep_annotation[SigMFFile.LABEL_KEY])
+        self.assertIn("-2500.0-2500.0 Hz sweep", sweep_annotation[SigMFFile.LABEL_KEY])
 
     def test_reverse_sweep_annotations(self):
-        """test reverse sweep (high to low freq) has correct bounds"""
+        """test reverse sweep crossing DC has correct bounds"""
         gen = SigMFGenerator(seed=42)
-        signal = gen.sweep(3000, 800).sample_rate(48000).duration(0.1).generate()
+        signal = gen.sweep(3000, -800).sample_rate(48000).duration(0.1).generate()
 
         annotations = signal.get_annotations()
         sweep_annotation = annotations[0]
 
         # frequency bounds should be min/max regardless of sweep direction
-        self.assertEqual(sweep_annotation[SigMFFile.FLO_KEY], 800.0)
+        self.assertEqual(sweep_annotation[SigMFFile.FLO_KEY], -800.0)
         self.assertEqual(sweep_annotation[SigMFFile.FHI_KEY], 3000.0)
         # but label should show original order
-        self.assertIn("3000.0-800.0 Hz sweep", sweep_annotation[SigMFFile.LABEL_KEY])
+        self.assertIn("3000.0--800.0 Hz sweep", sweep_annotation[SigMFFile.LABEL_KEY])
 
     def test_minimal_annotations(self):
         """test that simple signals get minimal but complete annotations"""

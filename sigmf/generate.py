@@ -42,7 +42,7 @@ class SigMFGenerator:
     """
 
     def __init__(self, seed: Optional[int] = None):
-        # random state for reproducible generation
+        # random state for reproducible generation across arch / platforms
         self._rng = np.random.RandomState(seed)
         self._seed = seed
 
@@ -320,9 +320,18 @@ class SigMFGenerator:
         if self._duration_s is None:
             self._duration_s = self._rng.uniform(0.1, 5.0)
 
-        # fill parameters for each signal component
-        max_freq = self._sample_rate_hz / 4
+        # if no components specified, randomly generate some
+        if len(self._signal_components) == 0:
+            while True:
+                if self._rng.random() < 0.5:
+                    self._signal_components.append({"type": "tone"})
+                else:
+                    self._signal_components.append({"type": "sweep"})
+                if self._rng.random() <= 0.2:
+                    # E[N] = 1 / threshold -> 5 components on average
+                    break
 
+        # fill parameters for each signal component
         for component in self._signal_components:
             # add random timing for each component
             if "start_time_s" not in component:
@@ -342,33 +351,28 @@ class SigMFGenerator:
 
             if component["type"] == "tone":
                 if "frequency_hz" not in component:
-                    # random frequency between 100hz and 1/4 sample rate
-                    component["frequency_hz"] = round(self._rng.uniform(100.0, max_freq), 1)
+                    # random frequency across full baseband: -nyquist to +nyquist (excluding DC ±100 Hz)
+                    nyquist = self._sample_rate_hz / 2
+                    freq = self._rng.uniform(-nyquist + 100.0, nyquist - 100.0)
+                    component["frequency_hz"] = round(freq, 1)
 
             elif component["type"] == "sweep":
                 if "start_frequency_hz" not in component:
-                    component["start_frequency_hz"] = round(self._rng.uniform(100.0, max_freq * 0.8), 1)
+                    component["start_frequency_hz"] = round(self._rng.uniform(100.0, self._sample_rate_hz / 4 * 0.8), 1)
                 if "end_frequency_hz" not in component:
                     start_freq = component["start_frequency_hz"]
                     # ensure end freq is different from start
-                    if start_freq < max_freq * 0.5:
-                        component["end_frequency_hz"] = round(self._rng.uniform(start_freq * 1.5, max_freq), 1)
+                    if start_freq < self._sample_rate_hz / 4 * 0.5:
+                        component["end_frequency_hz"] = round(
+                            self._rng.uniform(start_freq * 1.5, self._sample_rate_hz / 4), 1
+                        )
                     else:
                         component["end_frequency_hz"] = round(self._rng.uniform(100.0, start_freq * 0.7), 1)
 
     def _validate_parameters(self) -> None:
         """Validate current parameters."""
-        if len(self._signal_components) == 0:
-            raise SigMFGeneratorError("no signal components specified - call tone() or sweep()")
-
-        if self._sample_rate_hz is None:
-            raise SigMFGeneratorError("sample rate not specified")
-
         if self._sample_rate_hz <= 0:
             raise SigMFGeneratorError(f"sample rate must be positive, got {self._sample_rate_hz}")
-
-        if self._duration_s is None:
-            raise SigMFGeneratorError("duration not specified")
 
         if self._duration_s <= 0:
             raise SigMFGeneratorError(f"duration must be positive, got {self._duration_s}")
@@ -388,7 +392,7 @@ class SigMFGenerator:
                 ]
 
             for freq, freq_name in frequencies_to_check:
-                if freq >= nyquist:
+                if abs(freq) >= nyquist:
                     raise SigMFGeneratorError(f"{freq_name} {freq} hz exceeds nyquist limit {nyquist} hz")
 
     def _generate_samples(self) -> np.ndarray:
@@ -430,9 +434,6 @@ class SigMFGenerator:
                 # integrate to get phase
                 phase = 2 * np.pi * (start_freq * component_time + 0.5 * freq_slope * component_time**2)
                 component_signal = amplitude * np.exp(1j * phase)
-
-            else:
-                raise SigMFGeneratorError(f"unknown signal type: {component['type']}")
 
             # apply tapering to avoid clicks (5ms taper or 10% of component duration, whichever is smaller)
             taper_samples = min(int(0.005 * self._sample_rate_hz), component_samples // 10)
