@@ -9,7 +9,17 @@ __version__ = "1.8.0"
 # matching version of the SigMF specification
 __specification__ = "1.2.6"
 
-from . import archive, archivereader, error, schema, sigmffile, utils, validate
+from . import (
+    archive,
+    archivereader,
+    error,
+    generate,
+    schema,
+    sigmffile,
+    utils,
+    validate,
+)
 from .archive import SigMFArchive
 from .archivereader import SigMFArchiveReader
+from .generate import SigMFGenerator
 from .sigmffile import SigMFCollection, SigMFFile, fromarchive, fromfile
