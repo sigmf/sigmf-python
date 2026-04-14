@@ -38,7 +38,7 @@ class SigMFGenerator:
     >>> signal = gen.tone(1000).tone(1500).tone(2000).generate()
 
     >>> # tone plus sweep
-    >>> signal = SigMFGenerator().tone(440).sweep(1000, 5000).duration(0.5).generate()
+    >>> signal = SigMFGenerator().sample_rate(100e3).tone(440).sweep(1000, 5000).duration(0.5).generate()
     """
 
     def __init__(self, seed: Optional[int] = None):
