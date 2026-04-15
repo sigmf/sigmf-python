@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 # version of this python module
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 # matching version of the SigMF specification
 __specification__ = "1.2.6"
 
@@ -13,13 +13,13 @@ from . import (
     archive,
     archivereader,
     error,
-    generate,
     schema,
+    siggen,
     sigmffile,
     utils,
     validate,
 )
 from .archive import SigMFArchive
 from .archivereader import SigMFArchiveReader
-from .generate import SigMFGenerator
+from .siggen import SigMFGenerator
 from .sigmffile import SigMFCollection, SigMFFile, fromarchive, fromfile

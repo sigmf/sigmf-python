@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-"""Synthetic signal generation utilities for SigMF."""
+"""Simple signal generator utilities for SigMF."""
 
 import io
 from typing import Optional
@@ -586,9 +586,9 @@ class SigMFGenerator:
             self._description = desc
 
         # build generator info
-        generator_info = f"sigmf-python generate.SigMFGenerator"
+        generator_info = f"sigmf-python siggen.SigMFGenerator"
         if self._seed is not None:
-            generator_info += f" (seed={self._seed})"
+            generator_info += f" (seed={self._seed:#x})"
 
         # create metadata structure
         global_info = {
