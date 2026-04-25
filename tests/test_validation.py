@@ -102,7 +102,7 @@ class FailingCases(unittest.TestCase):
 
     def test_invalid_capture_order(self):
         """metadata must have captures in order"""
-        self.metadata[SigMFFile.CAPTURE_KEY] = [{SigMFFile.START_INDEX_KEY: 10}, {SigMFFile.START_INDEX_KEY: 9}]
+        self.metadata[SigMFFile.CAPTURE_KEY] = [{SigMFFile.SAMPLE_START_KEY: 10}, {SigMFFile.SAMPLE_START_KEY: 9}]
         with self.assertRaises(ValidationError):
             SigMFFile(self.metadata).validate()
 
@@ -110,12 +110,12 @@ class FailingCases(unittest.TestCase):
         """metadata must have annotations in order"""
         self.metadata[SigMFFile.ANNOTATION_KEY] = [
             {
-                SigMFFile.START_INDEX_KEY: 2,
-                SigMFFile.LENGTH_INDEX_KEY: 120000,
+                SigMFFile.SAMPLE_START_KEY: 2,
+                SigMFFile.SAMPLE_COUNT_KEY: 120000,
             },
             {
-                SigMFFile.START_INDEX_KEY: 1,
-                SigMFFile.LENGTH_INDEX_KEY: 120000,
+                SigMFFile.SAMPLE_START_KEY: 1,
+                SigMFFile.SAMPLE_COUNT_KEY: 120000,
             },
         ]
         with self.assertRaises(ValidationError):
@@ -123,14 +123,14 @@ class FailingCases(unittest.TestCase):
 
     def test_annotation_without_sample_count(self):
         """annotation without length should be accepted"""
-        self.metadata[SigMFFile.ANNOTATION_KEY] = [{SigMFFile.START_INDEX_KEY: 2}]
+        self.metadata[SigMFFile.ANNOTATION_KEY] = [{SigMFFile.SAMPLE_START_KEY: 2}]
         SigMFFile(self.metadata).validate()
 
     def test_invalid_hash(self):
         """wrong hash raises error on creation"""
         with tempfile.NamedTemporaryFile() as temp_file:
             TEST_FLOAT32_DATA.tofile(temp_file.name)
-            self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.HASH_KEY] = "derp"
+            self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.SHA512_KEY] = "derp"
             with self.assertRaises(sigmf.error.SigMFFileError):
                 SigMFFile(metadata=self.metadata, data_file=temp_file.name)
 

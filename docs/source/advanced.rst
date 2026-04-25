@@ -29,8 +29,8 @@ the recording of the SigMF logo used in this example `from the specification
 
     # Iterate over annotations
     for adx, annotation in enumerate(annotations):
-        annotation_start_idx = annotation[SigMFFile.START_INDEX_KEY]
-        annotation_length = annotation[SigMFFile.LENGTH_INDEX_KEY]
+        annotation_start_idx = annotation[SigMFFile.SAMPLE_START_KEY]
+        annotation_length = annotation[SigMFFile.SAMPLE_COUNT_KEY]
         annotation_comment = annotation.get(SigMFFile.COMMENT_KEY, "[annotation {}]".format(adx))
 
         # Get capture info associated with the start of annotation
@@ -40,8 +40,8 @@ the recording of the SigMF logo used in this example `from the specification
         freq_max = freq_center + 0.5*sample_rate
 
         # Get frequency edges of annotation (default to edges of capture)
-        freq_start = annotation.get(SigMFFile.FLO_KEY)
-        freq_stop = annotation.get(SigMFFile.FHI_KEY)
+        freq_start = annotation.get(SigMFFile.FREQ_LOWER_EDGE_KEY)
+        freq_stop = annotation.get(SigMFFile.FREQ_UPPER_EDGE_KEY)
 
         # Get the samples corresponding to annotation
         samples = signal.read_samples(annotation_start_idx, annotation_length)
@@ -87,8 +87,8 @@ First, create a single SigMF Recording and save it to disk:
 
     # add an annotation at sample 100 with length 200 & 10 KHz width
     meta.add_annotation(100, 200, metadata = {
-        SigMFFile.FLO_KEY: 914995000.0,
-        SigMFFile.FHI_KEY: 915005000.0,
+        SigMFFile.FREQ_LOWER_EDGE_KEY: 914995000.0,
+        SigMFFile.FREQ_UPPER_EDGE_KEY: 915005000.0,
         SigMFFile.COMMENT_KEY: 'example annotation',
     })
 

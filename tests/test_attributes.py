@@ -28,7 +28,7 @@ class TestDynamicAttributeAccess(unittest.TestCase):
         # self.assertEqual(self.meta.sample_rate, self.meta.get_global_field(SigMFFile.SAMPLE_RATE_KEY))
         # self.assertEqual(self.meta.author, self.meta.get_global_field(SigMFFile.AUTHOR_KEY))
         self.assertEqual(self.meta.datatype, self.meta.get_global_field(SigMFFile.DATATYPE_KEY))
-        self.assertEqual(self.meta.sha512, self.meta.get_global_field(SigMFFile.HASH_KEY))
+        self.assertEqual(self.meta.sha512, self.meta.get_global_field(SigMFFile.SHA512_KEY))
         # self.assertEqual(self.meta.description, self.meta.get_global_field(SigMFFile.DESCRIPTION_KEY))
 
     def test_getter_missing_core_fields(self):

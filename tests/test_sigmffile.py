@@ -68,7 +68,7 @@ class TestClassMethods(unittest.TestCase):
         """Ensure checksum fails when incorrect or empty string."""
         for new_checksum in ("", "a", 0):
             bad_checksum_metadata = copy.deepcopy(TEST_METADATA)
-            bad_checksum_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.HASH_KEY] = new_checksum
+            bad_checksum_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.SHA512_KEY] = new_checksum
             with self.assertRaises(error.SigMFFileError):
                 _ = SigMFFile(bad_checksum_metadata, self.temp_path_data)
 
@@ -91,8 +91,8 @@ class TestAnnotationHandling(unittest.TestCase):
         self.assertListEqual(
             annotations_idx10,
             [
-                {SigMFFile.START_INDEX_KEY: 0, SigMFFile.LENGTH_INDEX_KEY: 16},
-                {SigMFFile.START_INDEX_KEY: 1},
+                {SigMFFile.SAMPLE_START_KEY: 0, SigMFFile.SAMPLE_COUNT_KEY: 16},
+                {SigMFFile.SAMPLE_START_KEY: 1},
             ],
         )
 
@@ -593,3 +593,50 @@ class TestTofileConvenience(unittest.TestCase):
         sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000, toarchive=True)
         readback = sigmf.fromfile(str(self.temp_dir / "rt_arch.sigmf"))
         np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
+
+
+class TestDeprecatedKeyAliases(unittest.TestCase):
+    """ensure deprecated key constant names emit DeprecationWarning and return correct values"""
+
+    DEPRECATED_PAIRS = [
+        ("START_INDEX_KEY", "SAMPLE_START_KEY"),
+        ("LENGTH_INDEX_KEY", "SAMPLE_COUNT_KEY"),
+        ("START_OFFSET_KEY", "OFFSET_KEY"),
+        ("HASH_KEY", "SHA512_KEY"),
+        ("FLO_KEY", "FREQ_LOWER_EDGE_KEY"),
+        ("FHI_KEY", "FREQ_UPPER_EDGE_KEY"),
+        ("LAT_KEY", "LATITUDE_KEY"),
+        ("LON_KEY", "LONGITUDE_KEY"),
+    ]
+
+    def test_deprecated_names_emit_warning(self):
+        """accessing old names on SigMFFile should emit DeprecationWarning"""
+        for old_name, new_name in self.DEPRECATED_PAIRS:
+            with self.subTest(old_name=old_name):
+                with self.assertWarns(DeprecationWarning):
+                    getattr(SigMFFile, old_name)
+
+    def test_deprecated_names_return_correct_value(self):
+        """old names should return same value as new names"""
+        for old_name, new_name in self.DEPRECATED_PAIRS:
+            with self.subTest(old_name=old_name, new_name=new_name):
+                import warnings
+
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", DeprecationWarning)
+                    old_val = getattr(SigMFFile, old_name)
+                new_val = getattr(SigMFFile, new_name)
+                self.assertEqual(old_val, new_val)
+
+    def test_new_keys_accessible_at_module_level(self):
+        """new key constants should be importable directly from sigmf"""
+        import sigmf as _sigmf
+
+        self.assertEqual(_sigmf.SAMPLE_START_KEY, "core:sample_start")
+        self.assertEqual(_sigmf.SHA512_KEY, "core:sha512")
+        self.assertEqual(_sigmf.FREQ_LOWER_EDGE_KEY, "core:freq_lower_edge")
+        self.assertEqual(_sigmf.SIGMF_ARCHIVE_EXT, ".sigmf")
+
+
+if __name__ == "__main__":
+    unittest.main()

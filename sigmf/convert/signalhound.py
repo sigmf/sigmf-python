@@ -19,6 +19,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from .. import SigMFFile, fromfile
+from .. import keys
 from ..error import SigMFConversionError
 from ..sigmffile import get_sigmf_filenames
 from ..utils import SIGMF_DATETIME_ISO8601_FMT
@@ -276,10 +277,10 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
         lower_frequency_edge = center_frequency - (if_bandwidth / 2.0)
         annotations.append(
             {
-                SigMFFile.START_INDEX_KEY: 0,
-                SigMFFile.LENGTH_INDEX_KEY: sample_count_calculated,
-                SigMFFile.FLO_KEY: lower_frequency_edge,
-                SigMFFile.FHI_KEY: upper_frequency_edge,
+                SigMFFile.SAMPLE_START_KEY: 0,
+                SigMFFile.SAMPLE_COUNT_KEY: sample_count_calculated,
+                SigMFFile.FREQ_LOWER_EDGE_KEY: lower_frequency_edge,
+                SigMFFile.FREQ_UPPER_EDGE_KEY: upper_frequency_edge,
                 SigMFFile.LABEL_KEY: "Spike",
             }
         )
@@ -326,10 +327,10 @@ def convert_iq_data(xml_path: Path, sample_count: int) -> np.ndarray:
 
 def _add_annotations(meta: SigMFFile, annotations: list) -> None:
     for annotation in annotations:
-        start_idx = annotation.get(SigMFFile.START_INDEX_KEY, 0)
-        length = annotation.get(SigMFFile.LENGTH_INDEX_KEY)
+        start_idx = annotation.get(SigMFFile.SAMPLE_START_KEY, 0)
+        length = annotation.get(SigMFFile.SAMPLE_COUNT_KEY)
         annot_metadata = {
-            k: v for k, v in annotation.items() if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]
+            k: v for k, v in annotation.items() if k not in [SigMFFile.SAMPLE_START_KEY, SigMFFile.SAMPLE_COUNT_KEY]
         }
         meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
 

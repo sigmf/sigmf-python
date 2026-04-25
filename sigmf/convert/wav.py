@@ -17,6 +17,7 @@ from typing import Optional, Tuple
 import numpy as np
 
 from .. import SigMFFile
+from .. import keys
 from .. import __version__ as toolversion
 from .. import fromfile
 from ..error import SigMFFileExistsError

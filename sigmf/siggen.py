@@ -11,6 +11,7 @@ from typing import Optional
 
 import numpy as np
 
+from . import keys
 from .error import SigMFGeneratorError
 from .sigmffile import SigMFFile
 from .utils import get_data_type_str, get_sigmf_iso8601_datetime_now
@@ -492,8 +493,8 @@ class SigMFGenerator:
 
             # base annotation common to all components
             base_annotation = {
-                SigMFFile.START_INDEX_KEY: start_sample,
-                SigMFFile.LENGTH_INDEX_KEY: end_sample - start_sample,
+                SigMFFile.SAMPLE_START_KEY: start_sample,
+                SigMFFile.SAMPLE_COUNT_KEY: end_sample - start_sample,
                 SigMFFile.GENERATOR_KEY: generator_name,
             }
 
@@ -504,8 +505,8 @@ class SigMFGenerator:
 
                 base_annotation.update(
                     {
-                        SigMFFile.FLO_KEY: total_freq - bandwidth / 2,
-                        SigMFFile.FHI_KEY: total_freq + bandwidth / 2,
+                        SigMFFile.FREQ_LOWER_EDGE_KEY: total_freq - bandwidth / 2,
+                        SigMFFile.FREQ_UPPER_EDGE_KEY: total_freq + bandwidth / 2,
                         SigMFFile.LABEL_KEY: f"tone at {base_freq:.0f} Hz",
                     }
                 )
@@ -516,8 +517,8 @@ class SigMFGenerator:
 
                 base_annotation.update(
                     {
-                        SigMFFile.FLO_KEY: min(start_freq, end_freq),
-                        SigMFFile.FHI_KEY: max(start_freq, end_freq),
+                        SigMFFile.FREQ_LOWER_EDGE_KEY: min(start_freq, end_freq),
+                        SigMFFile.FREQ_UPPER_EDGE_KEY: max(start_freq, end_freq),
                         SigMFFile.LABEL_KEY: f"sweep from {component['start_frequency_hz']:.0f} to {component['end_frequency_hz']:.0f} Hz",
                     }
                 )
@@ -531,8 +532,8 @@ class SigMFGenerator:
         # helper function to create full-signal annotations
         def create_full_signal_annotation(label: str) -> dict:
             return {
-                SigMFFile.START_INDEX_KEY: 0,
-                SigMFFile.LENGTH_INDEX_KEY: len(samples),
+                SigMFFile.SAMPLE_START_KEY: 0,
+                SigMFFile.SAMPLE_COUNT_KEY: len(samples),
                 SigMFFile.GENERATOR_KEY: generator_name,
                 SigMFFile.LABEL_KEY: label,
             }
@@ -542,8 +543,8 @@ class SigMFGenerator:
             noise_annotation = create_full_signal_annotation(f"AWGN {self._snr_db:.1f} dB SNR")
             noise_annotation.update(
                 {
-                    SigMFFile.FLO_KEY: 0.0,
-                    SigMFFile.FHI_KEY: self._sample_rate_hz / 2,  # full nyquist bandwidth
+                    SigMFFile.FREQ_LOWER_EDGE_KEY: 0.0,
+                    SigMFFile.FREQ_UPPER_EDGE_KEY: self._sample_rate_hz / 2,  # full nyquist bandwidth
                 }
             )
             annotations.append(noise_annotation)
@@ -604,7 +605,7 @@ class SigMFGenerator:
 
         # create capture info
         capture_info = {
-            SigMFFile.START_INDEX_KEY: 0,
+            SigMFFile.SAMPLE_START_KEY: 0,
             SigMFFile.DATETIME_KEY: get_sigmf_iso8601_datetime_now(),
         }
 

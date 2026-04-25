@@ -24,7 +24,7 @@ from typing import Optional, Tuple
 import jsonschema
 
 from . import __version__ as toolversion
-from . import error, schema, sigmffile
+from . import error, keys, schema, sigmffile
 
 
 def _get_namespaces_declared(metadata: dict) -> set:
@@ -91,7 +91,7 @@ def validate(metadata, ref_schema=schema.get_schema()) -> None:
     for key in ["captures", "annotations"]:
         count = -1
         for item in metadata[key]:
-            new_count = item[sigmffile.SigMFFile.START_INDEX_KEY]
+            new_count = item[sigmffile.SigMFFile.SAMPLE_START_KEY]
             if new_count < count:
                 raise jsonschema.exceptions.ValidationError(f"{key} has incorrect sample start ordering.")
             count = new_count

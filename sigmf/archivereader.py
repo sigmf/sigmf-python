@@ -11,16 +11,16 @@ import tarfile
 import zipfile
 from pathlib import Path
 
-from . import __version__
-from .archive import (
+from . import __version__, keys
+from .archive import _detect_compression
+from .error import SigMFFileError
+from .hashing import calculate_sha512
+from .keys import (
     SIGMF_ARCHIVE_EXT,
     SIGMF_ARCHIVE_EXTS,
     SIGMF_DATASET_EXT,
     SIGMF_METADATA_EXT,
-    _detect_compression,
 )
-from .error import SigMFFileError
-from .hashing import calculate_sha512
 from .sigmffile import SigMFFile
 
 
@@ -197,10 +197,10 @@ class SigMFArchiveReader:
         # compute hash of data portion only (not full tar file)
         if not skip_checksum:
             data_hash = calculate_sha512(filename=path, offset=data_offset, size=data_size_bytes)
-            old_hash = self.sigmffile.get_global_field(SigMFFile.HASH_KEY)
+            old_hash = self.sigmffile.get_global_field(keys.SHA512_KEY)
             if old_hash is not None and old_hash != data_hash:
                 raise SigMFFileError("Calculated file hash does not match associated metadata.")
-            self.sigmffile.set_global_field(SigMFFile.HASH_KEY, data_hash)
+            self.sigmffile.set_global_field(keys.SHA512_KEY, data_hash)
 
         # memmap directly into the tar file at the data offset
         self.sigmffile.set_data_file(
@@ -212,8 +212,8 @@ class SigMFArchiveReader:
         )
         # set_data_file sets DATASET_KEY for non-.sigmf-data files (NCD),
         # but the tar archive path is not a dataset — clear it
-        if SigMFFile.DATASET_KEY in self.sigmffile.get_global_info():
-            del self.sigmffile._metadata[SigMFFile.GLOBAL_KEY][SigMFFile.DATASET_KEY]
+        if keys.DATASET_KEY in self.sigmffile.get_global_info():
+            del self.sigmffile._metadata[SigMFFile.GLOBAL_KEY][keys.DATASET_KEY]
 
         self.ndim = self.sigmffile.ndim
         self.shape = self.sigmffile.shape

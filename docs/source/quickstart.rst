@@ -102,8 +102,8 @@ For full control over global fields, captures, and annotations:
 
     # add an annotation at sample 100 with length 200 & 10 KHz width
     meta.add_annotation(100, 200, metadata = {
-        SigMFFile.FLO_KEY: 914995000.0,
-        SigMFFile.FHI_KEY: 915005000.0,
+        SigMFFile.FREQ_LOWER_EDGE_KEY: 914995000.0,
+        SigMFFile.FREQ_UPPER_EDGE_KEY: 915005000.0,
         SigMFFile.COMMENT_KEY: "example annotation",
     })
 
