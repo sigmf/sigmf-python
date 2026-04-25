@@ -25,6 +25,7 @@ To get started, see `quickstart`.
    quickstart
    advanced
    converters
+   siggen
    developers
 
 .. toctree::
