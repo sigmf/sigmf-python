@@ -19,6 +19,7 @@ from . import __specification__, __version__, hashing, schema, validate
 from .archive import (
     SIGMF_ARCHIVE_EXT,
     SIGMF_COLLECTION_EXT,
+    SIGMF_COMPRESSED_EXTS,
     SIGMF_DATASET_EXT,
     SIGMF_METADATA_EXT,
     SigMFArchive,
@@ -573,7 +574,9 @@ class SigMFFile(SigMFMetafile):
 
         end_byte = start_byte
         if index == len(self.get_captures()) - 1:  # last captures...data is the rest of the file
-            if self.data_file is not None:
+            if self.data_size_bytes is not None:
+                file_size = self.data_size_bytes
+            elif self.data_file is not None:
                 file_size = self.data_file.stat().st_size
             elif self.data_buffer is not None:
                 file_size = len(self.data_buffer.getbuffer())
@@ -796,7 +799,7 @@ class SigMFFile(SigMFMetafile):
         """
         validate.validate(self._metadata, self.get_schema())
 
-    def archive(self, name=None, fileobj=None, overwrite=False):
+    def archive(self, name=None, fileobj=None, compression=None, overwrite=False):
         """Dump contents to SigMF archive format.
 
         `name` and `fileobj` are passed to SigMFArchive and are defined there.
@@ -807,13 +810,17 @@ class SigMFFile(SigMFMetafile):
             Name of the archive file to create. If None, a temporary file will be created.
         fileobj : file-like object, optional
             A file-like object to write the archive to. If None, a file will be created at `name`.
+        compression : str, optional
+            Compression type: "gz", "xz", "zip", or None (default).
+            If None and `name` has a recognized compressed extension,
+            compression is auto-detected from the extension.
         overwrite : bool, default False
             If False, raise exception if archive file already exists.
         """
-        archive = SigMFArchive(self, name, fileobj, overwrite=overwrite)
+        archive = SigMFArchive(self, name, fileobj, compression=compression, overwrite=overwrite)
         return archive.path
 
-    def tofile(self, file_path, pretty=True, toarchive=False, skip_validate=False, overwrite=False):
+    def tofile(self, file_path, pretty=True, toarchive=False, compression=None, skip_validate=False, overwrite=False):
         """
         Write metadata file or full archive containing metadata & dataset.
 
@@ -824,8 +831,10 @@ class SigMFFile(SigMFMetafile):
         pretty : bool, default True
             When True will write more human-readable output, otherwise will be flat JSON.
         toarchive : bool, default False
-            If True will write both dataset & metadata into SigMF archive format as a single `tar` file.
+            If True will write both dataset & metadata into SigMF archive format.
             If False will only write metadata to `sigmf-meta`.
+        compression : str, optional
+            Compression type when toarchive=True: "gz", "xz", "zip", or None.
         skip_validate : bool, default False
             Skip validation of metadata before writing.
         overwrite : bool, default False
@@ -836,7 +845,7 @@ class SigMFFile(SigMFMetafile):
         fns = get_sigmf_filenames(file_path)
 
         if toarchive:
-            self.archive(fns["archive_fn"], overwrite=overwrite)
+            self.archive(fns["archive_fn"], compression=compression, overwrite=overwrite)
         else:
             # check if metadata file exists
             if not overwrite and fns["meta_fn"].exists():
@@ -1319,6 +1328,11 @@ def fromfile(filename, skip_checksum=False, autoscale=True):
 
     # group SigMF extensions for cleaner checking
     sigmf_extensions = (SIGMF_METADATA_EXT, SIGMF_DATASET_EXT, SIGMF_COLLECTION_EXT, SIGMF_ARCHIVE_EXT)
+
+    # try compressed SigMF archive (.sigmf.gz, .sigmf.xz, .sigmf.zip)
+    for comp_ext in SIGMF_COMPRESSED_EXTS.values():
+        if file_path.name.lower().endswith(comp_ext) and Path.is_file(file_path):
+            return fromarchive(file_path, skip_checksum=skip_checksum, autoscale=autoscale)
 
     # try SigMF archive
     if (ext.endswith(SIGMF_ARCHIVE_EXT) or not Path.is_file(meta_fn)) and Path.is_file(archive_fn):
