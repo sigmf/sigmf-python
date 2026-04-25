@@ -29,6 +29,11 @@ samples = meta[0:1024]  # get first 1024 samples
 sample_rate = meta.sample_rate  # get sample rate
 
 
+# read compressed SigMF archives
+meta = sigmf.fromfile("recording.sigmf.gz")   # gzip-compressed
+meta = sigmf.fromfile("recording.sigmf.xz")   # xz-compressed
+meta = sigmf.fromfile("recording.sigmf.zip")  # zip archive
+
 # read other formats containing RF time series as SigMF
 meta = sigmf.fromfile("recording.wav")   # WAV
 meta = sigmf.fromfile("recording.cdif")  # BLUE / Platinum

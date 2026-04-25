@@ -10,7 +10,7 @@ import hashlib
 from pathlib import Path
 
 
-def calculate_sha512(filename=None, fileobj=None):
+def calculate_sha512(filename=None, fileobj=None, offset=0, size=None):
     """
     Calculate SHA512 hash of a dataset for integrity verification.
 
@@ -24,6 +24,10 @@ def calculate_sha512(filename=None, fileobj=None):
     fileobj : file-like object, optional
         An open file-like object (e.g., BytesIO) to hash. Must have read() and
         seek() methods. Cannot be used together with filename.
+    offset : int, optional
+        Byte offset into the file to start hashing from. Default is 0.
+    size : int, optional
+        Number of bytes to hash. If None, hash from offset to end of file.
 
     Returns
     -------
@@ -40,7 +44,11 @@ def calculate_sha512(filename=None, fileobj=None):
 
     if filename is not None:
         fileobj = open(filename, "rb")
-        bytes_to_hash = Path(filename).stat().st_size
+        if size is not None:
+            bytes_to_hash = size
+        else:
+            bytes_to_hash = Path(filename).stat().st_size
+        fileobj.seek(offset)
     elif fileobj is not None:
         current_pos = fileobj.tell()
         # seek to end

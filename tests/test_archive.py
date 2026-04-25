@@ -20,6 +20,7 @@ import numpy as np
 
 from sigmf import SigMFFile, __specification__, error, fromfile
 from sigmf.archive import SIGMF_DATASET_EXT, SIGMF_METADATA_EXT
+from sigmf.archivereader import SigMFArchiveReader
 
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 
@@ -178,3 +179,102 @@ class TestSigMFArchive(unittest.TestCase):
         # FIXME: Should this raise a SigMFFileError instead?
         with self.assertRaises(OSError):
             meta.read_samples(start_index=meta.sample_count + 10, count=5)
+
+
+class TestCompressedArchive(unittest.TestCase):
+    """Tests for compressed SigMF archive support."""
+
+    def setUp(self):
+        """create test data and sigmf object"""
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.temp_path_data = self.temp_dir / "test.sigmf-data"
+        TEST_FLOAT32_DATA.tofile(self.temp_path_data)
+        self.sigmf_object = SigMFFile(copy.deepcopy(TEST_METADATA), data_file=self.temp_path_data)
+        self.original_samples = self.sigmf_object.read_samples()
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    def _roundtrip(self, archive_path, compression=None):
+        """write archive, read it back, verify samples match"""
+        self.sigmf_object.archive(name=archive_path, compression=compression, overwrite=True)
+        self.assertTrue(archive_path.exists())
+        readback = fromfile(str(archive_path))
+        np.testing.assert_array_equal(self.original_samples, readback[:])
+        return readback
+
+    def test_roundtrip_gz(self):
+        """test gz compressed archive round-trip"""
+        self._roundtrip(self.temp_dir / "test.sigmf.gz")
+
+    def test_roundtrip_xz(self):
+        """test xz compressed archive round-trip"""
+        self._roundtrip(self.temp_dir / "test.sigmf.xz")
+
+    def test_roundtrip_zip(self):
+        """test zip compressed archive round-trip"""
+        self._roundtrip(self.temp_dir / "test.sigmf.zip")
+
+    def test_explicit_compression_parameter(self):
+        """test explicit compression= parameter without matching extension"""
+        path = self.temp_dir / "test_explicit"
+        self.sigmf_object.archive(name=path, compression="gz", overwrite=True)
+        actual_path = self.temp_dir / "test_explicit.sigmf.gz"
+        self.assertTrue(actual_path.exists())
+        readback = fromfile(str(actual_path))
+        np.testing.assert_array_equal(self.original_samples, readback[:])
+
+    def test_extension_autodetect(self):
+        """test that compression is auto-detected from extension"""
+        path = self.temp_dir / "test_auto.sigmf.xz"
+        self.sigmf_object.archive(name=path, overwrite=True)
+        self.assertTrue(path.exists())
+        readback = fromfile(str(path))
+        np.testing.assert_array_equal(self.original_samples, readback[:])
+
+    def test_metadata_preserved(self):
+        """test that metadata survives compression round-trip"""
+        for ext in ["sigmf.gz", "sigmf.xz", "sigmf.zip"]:
+            path = self.temp_dir / f"meta_test.{ext}"
+            readback = self._roundtrip(path)
+            self.assertEqual(
+                self.sigmf_object.get_global_field(SigMFFile.DATATYPE_KEY),
+                readback.get_global_field(SigMFFile.DATATYPE_KEY),
+            )
+            self.assertEqual(len(self.sigmf_object.get_annotations()), len(readback.get_annotations()))
+
+    def test_compressed_smaller_than_uncompressed(self):
+        """test that compressed archives are smaller than uncompressed"""
+        uncompressed_path = self.temp_dir / "size_test.sigmf"
+        gz_path = self.temp_dir / "size_test.sigmf.gz"
+        xz_path = self.temp_dir / "size_test.sigmf.xz"
+        zip_path = self.temp_dir / "size_test.sigmf.zip"
+
+        self.sigmf_object.archive(name=uncompressed_path, overwrite=True)
+        self.sigmf_object.archive(name=gz_path, overwrite=True)
+        self.sigmf_object.archive(name=xz_path, overwrite=True)
+        self.sigmf_object.archive(name=zip_path, overwrite=True)
+
+        uncompressed_size = uncompressed_path.stat().st_size
+        for compressed_path in [gz_path, xz_path, zip_path]:
+            self.assertLess(compressed_path.stat().st_size, uncompressed_size)
+
+    def test_invalid_compression_raises_error(self):
+        """test that invalid compression type raises error"""
+        path = self.temp_dir / "bad.sigmf"
+        for unsupported in ["bz2", "7z"]:
+            with self.assertRaises(error.SigMFFileError, msg=f"{unsupported} is not yet supported"):
+                self.sigmf_object.archive(name=path, compression=unsupported, overwrite=True)
+
+    def test_mismatched_extension_and_compression_raises_error(self):
+        """test that mismatched extension and compression raises error"""
+        path = self.temp_dir / "mismatch.sigmf.gz"
+        with self.assertRaises(error.SigMFFileError):
+            self.sigmf_object.archive(name=path, compression="xz", overwrite=True)
+
+    def test_uncompressed_archive_uses_memmap(self):
+        """test that uncompressed archives use memmap for data access"""
+        path = self.temp_dir / "memmap_test.sigmf"
+        self.sigmf_object.archive(name=path, overwrite=True)
+        reader = SigMFArchiveReader(path)
+        self.assertIsInstance(reader.sigmffile._memmap, np.memmap)
