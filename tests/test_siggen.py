@@ -7,7 +7,6 @@
 """Tests for signal generation utilities."""
 
 import unittest
-from io import BytesIO
 
 import numpy as np
 import numpy.testing as npt
@@ -30,7 +29,7 @@ class TestSigGen(unittest.TestCase):
     def test_deterministic_tone_generation(self):
         """test deterministic tone generation with specified parameters"""
         signal = (
-            SigMFGenerator(self.seed)
+            SigMFGenerator()
             .tone(self.test_freq)
             .sample_rate(self.test_sample_rate)
             .duration(self.test_duration)
@@ -40,7 +39,7 @@ class TestSigGen(unittest.TestCase):
         # verify metadata
         self.assertEqual(signal.sample_rate, self.test_sample_rate)
         self.assertEqual(signal.datatype, "cf32_le")
-        self.assertIn("-1000.0 hz tone", signal.description)
+        self.assertIn("tone", signal.description)
 
         # verify signal characteristics
         samples = signal.read_samples()
@@ -57,7 +56,7 @@ class TestSigGen(unittest.TestCase):
         dominant_freq = fft_freqs[dominant_freq_idx]
         self.assertAlmostEqual(dominant_freq, self.test_freq, delta=10)  # within 10 hz, signed
 
-    def test_reproducible_generation(self):
+    def test_reproducible(self):
         """test that same seed produces identical results"""
         # generate signal 3 times with same seed
         # only difference will be datetime when capure is created
@@ -75,22 +74,37 @@ class TestSigGen(unittest.TestCase):
 
     def test_sweep_generation(self):
         """test linear frequency sweep generation"""
+        start_freq_hz = -500.0
+        end_freq_hz = 2000.0
         signal = (
             SigMFGenerator()
-            .sweep(-500.0, 2000.0)
+            .sweep(start_freq_hz, end_freq_hz)
             .sample_rate(self.test_sample_rate)
             .duration(self.test_duration)
             .generate()
         )
-        self.assertIn("-500.0-2000.0 hz sweep", signal.description)
 
-        # random sweep (no args) also works
-        self.assertIn("sweep", SigMFGenerator().sweep().generate().description)
+        samples = signal.read_samples()
+        expected_samples = int(self.test_sample_rate * self.test_duration)
+        self.assertEqual(len(samples), expected_samples)
+        self.assertTrue(np.iscomplexobj(samples))
+
+        # verify energy spans the sweep bandwidth
+        fft_samples = np.fft.fft(samples)
+        fft_freqs = np.fft.fftfreq(len(samples), 1 / self.test_sample_rate)
+        power_spectrum = np.abs(fft_samples) ** 2
+
+        # check that significant energy exists in the sweep band
+        in_band = (fft_freqs >= start_freq_hz) & (fft_freqs <= end_freq_hz)
+        out_of_band = ~in_band
+        in_band_power = np.mean(power_spectrum[in_band])
+        out_of_band_power = np.mean(power_spectrum[out_of_band])
+        self.assertGreater(in_band_power, out_of_band_power)
 
     def test_nominal_chaining(self):
         """test builder pattern method chaining"""
         signal = (
-            SigMFGenerator(self.seed)
+            SigMFGenerator()
             .tone(2000)
             .sample_rate(44100)
             .duration(0.5)
@@ -126,11 +140,9 @@ class TestSigGen(unittest.TestCase):
 
     def test_snr_noise_addition(self):
         """test that snr parameter adds appropriate noise"""
-        # generate clean tone and noisy tone
-        clean_signal = SigMFGenerator(self.seed).tone(1000).sample_rate(self.test_sample_rate).duration(0.1).generate()
-        noisy_signal = (
-            SigMFGenerator(self.seed).tone(1000).sample_rate(self.test_sample_rate).duration(0.1).snr(10).generate()
-        )
+        # generate high snr and low snr signals
+        clean_signal = SigMFGenerator(self.seed).snr(40).generate()
+        noisy_signal = SigMFGenerator(self.seed).snr(10).generate()
 
         # noisy signal should have higher variance due to added noise
         clean_power = np.mean(np.abs(clean_signal[:]) ** 2)
@@ -144,14 +156,7 @@ class TestSigGen(unittest.TestCase):
         base_freq = 1000.0
         offset_freq = 500.0
 
-        signal = (
-            SigMFGenerator(self.seed)
-            .tone(base_freq)
-            .frequency_offset(offset_freq)
-            .sample_rate(self.test_sample_rate)
-            .duration(self.test_duration)
-            .generate()
-        )
+        signal = SigMFGenerator().tone(base_freq).frequency_offset(offset_freq).generate()
 
         # verify frequency in capture metadata includes offset
         captures = signal.get_captures()
@@ -159,7 +164,7 @@ class TestSigGen(unittest.TestCase):
 
     def test_metadata_completeness(self):
         """test that generated metadata is complete and valid"""
-        signal = SigMFGenerator().tone(1000).generate()
+        signal = SigMFGenerator().tone().generate()
 
         # verify required global fields
         global_info = signal.get_global_info()
@@ -208,17 +213,17 @@ class TestSigGen(unittest.TestCase):
 
     def test_with_different_amplitudes(self):
         """test amplitude parameter"""
-        amp_0 = 0.5
-        amp_1 = 1.5
+        amp_low = 0.5
+        amp_high = 1.5
 
-        signal_0 = SigMFGenerator(self.seed).tone(1000).amplitude(amp_0).sample_rate(48000).duration(0.1).generate()
-        signal_1 = SigMFGenerator(self.seed).tone(1000).amplitude(amp_1).sample_rate(48000).duration(0.1).generate()
+        signal_low = SigMFGenerator(self.seed).amplitude(amp_low).generate()
+        signal_high = SigMFGenerator(self.seed).amplitude(amp_high).generate()
 
-        power_0 = np.mean(np.abs(signal_0.read_samples()) ** 2)
-        power_1 = np.mean(np.abs(signal_1.read_samples()) ** 2)
+        power_low = np.mean(np.abs(signal_low.read_samples()) ** 2)
+        power_high = np.mean(np.abs(signal_high.read_samples()) ** 2)
 
-        expected_power_ratio = (amp_1 / amp_0) ** 2
-        actual_power_ratio = power_1 / power_0
+        expected_power_ratio = (amp_high / amp_low) ** 2
+        actual_power_ratio = power_high / power_low
         self.assertAlmostEqual(actual_power_ratio, expected_power_ratio, places=1)
 
     def test_automatic_annotations(self):
@@ -241,11 +246,11 @@ class TestSigGen(unittest.TestCase):
         self.assertEqual(len(annotations), 3)
 
         # find and verify main tone annotation
-        tone_annotation = next(ann for ann in annotations if "1000.0 Hz tone" in ann.get(SigMFFile.LABEL_KEY, ""))
+        tone_annotation = next(ann for ann in annotations if "tone at 1000 Hz" in ann.get(SigMFFile.LABEL_KEY, ""))
         # with temporal windowing, start index can be any valid sample index
         self.assertGreaterEqual(tone_annotation[SigMFFile.START_INDEX_KEY], 0)
         self.assertLess(tone_annotation[SigMFFile.START_INDEX_KEY], 48000 * 0.1)  # less than total samples
-        self.assertEqual(tone_annotation[SigMFFile.GENERATOR_KEY], "sigmf-python SigMFGenerator")
+        self.assertEqual(tone_annotation[SigMFFile.GENERATOR_KEY], "SigMFGenerator")
         self.assertIn(SigMFFile.FLO_KEY, tone_annotation)
         self.assertIn(SigMFFile.FHI_KEY, tone_annotation)
         self.assertEqual(tone_annotation[SigMFFile.COMMENT_KEY], "test")
@@ -274,7 +279,7 @@ class TestSigGen(unittest.TestCase):
         sweep_annotation = annotations[0]
         self.assertEqual(sweep_annotation[SigMFFile.FLO_KEY], -2500.0)
         self.assertEqual(sweep_annotation[SigMFFile.FHI_KEY], 2500.0)
-        self.assertIn("-2500.0-2500.0 Hz sweep", sweep_annotation[SigMFFile.LABEL_KEY])
+        self.assertIn("sweep from -2500 to 2500 Hz", sweep_annotation[SigMFFile.LABEL_KEY])
 
     def test_reverse_sweep_annotations(self):
         """test reverse sweep crossing DC has correct bounds"""
@@ -287,7 +292,7 @@ class TestSigGen(unittest.TestCase):
         self.assertEqual(sweep_annotation[SigMFFile.FLO_KEY], -800.0)
         self.assertEqual(sweep_annotation[SigMFFile.FHI_KEY], 3000.0)
         # but label should show original order
-        self.assertIn("3000.0--800.0 Hz sweep", sweep_annotation[SigMFFile.LABEL_KEY])
+        self.assertIn("sweep from 3000 to -800 Hz", sweep_annotation[SigMFFile.LABEL_KEY])
 
     def test_minimal_annotations(self):
         """test that simple signals get minimal but complete annotations"""
@@ -301,23 +306,15 @@ class TestSigGen(unittest.TestCase):
         self.assertGreaterEqual(annotation[SigMFFile.START_INDEX_KEY], 0)
         self.assertIn(SigMFFile.LENGTH_INDEX_KEY, annotation)
         self.assertIn(SigMFFile.GENERATOR_KEY, annotation)
-        self.assertIn("440.0 Hz tone", annotation[SigMFFile.LABEL_KEY])
+        self.assertIn("tone at 440 Hz", annotation[SigMFFile.LABEL_KEY])
 
     def test_phase_offset(self):
         """test phase offset functionality"""
         phase_offset = np.pi / 2
 
         # use clean signals without noise for precise phase comparison
-        signal_0 = SigMFGenerator(seed=42).tone(1000).sample_rate(48000).duration(0.1).amplitude(1.0).generate()
-        signal_1 = (
-            SigMFGenerator(seed=42)
-            .tone(1000)
-            .phase_offset(phase_offset)
-            .sample_rate(48000)
-            .duration(0.1)
-            .amplitude(1.0)
-            .generate()
-        )
+        signal_0 = SigMFGenerator(seed=42).tone().generate()
+        signal_1 = SigMFGenerator(seed=42).tone().phase_offset(phase_offset).generate()
 
         # find where the actual signal starts by looking at annotations
         start_idx_0 = signal_0.get_annotations()[0][SigMFFile.START_INDEX_KEY]

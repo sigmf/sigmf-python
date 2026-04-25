@@ -309,8 +309,12 @@ class SigMFGenerator:
 
     def _fill_random_parameters(self) -> None:
         """Fill unspecified parameters with random values."""
-        # common sample rates to choose from
-        common_sample_rates = [8000, 22050, 44100, 48000, 96000, 192000, 1e6, 2e6]
+        # sample rates to choose from
+        common_sample_rates = []
+        # typical audio rates
+        common_sample_rates += [8000, 22050, 44100, 48000, 96000, 192000]
+        # typical SDR rates
+        common_sample_rates += [250e3, 250e3, 400e3, 500e3, 800e3, 1.25e6, 2.5e6, 5e6, 6.25e6]
 
         # set random sample rate if not specified
         if self._sample_rate_hz is None:
@@ -474,7 +478,7 @@ class SigMFGenerator:
     def _build_annotations(self, samples: np.ndarray) -> list:
         """Build annotations describing each signal component with timing."""
         annotations = []
-        generator_name = "sigmf-python SigMFGenerator"
+        generator_name = "SigMFGenerator"
 
         # create annotation for each signal component
         for component in self._signal_components:
@@ -502,7 +506,7 @@ class SigMFGenerator:
                     {
                         SigMFFile.FLO_KEY: total_freq - bandwidth / 2,
                         SigMFFile.FHI_KEY: total_freq + bandwidth / 2,
-                        SigMFFile.LABEL_KEY: f"{base_freq:.1f} Hz tone ({component['start_time_s']:.3f}-{component['start_time_s'] + component['component_duration_s']:.3f}s)",
+                        SigMFFile.LABEL_KEY: f"tone at {base_freq:.0f} Hz",
                     }
                 )
 
@@ -510,15 +514,11 @@ class SigMFGenerator:
                 start_freq = component["start_frequency_hz"] + self._frequency_offset_hz
                 end_freq = component["end_frequency_hz"] + self._frequency_offset_hz
 
-                # include timing information in sweep label
-                start_time_ms = component["start_time_s"] * 1000
-                end_time_ms = (component["start_time_s"] + component["component_duration_s"]) * 1000
-
                 base_annotation.update(
                     {
                         SigMFFile.FLO_KEY: min(start_freq, end_freq),
                         SigMFFile.FHI_KEY: max(start_freq, end_freq),
-                        SigMFFile.LABEL_KEY: f"{component['start_frequency_hz']:.1f}-{component['end_frequency_hz']:.1f} Hz {component['type']} ({start_time_ms:.1f}-{end_time_ms:.1f} ms)",
+                        SigMFFile.LABEL_KEY: f"sweep from {component['start_frequency_hz']:.0f} to {component['end_frequency_hz']:.0f} Hz",
                     }
                 )
 
@@ -565,20 +565,20 @@ class SigMFGenerator:
         """Build sigmf metadata dict."""
         # build description based on signal components
         if self._description is None:
+            counts = {}
+            for component in self._signal_components:
+                counts[component["type"]] = counts.get(component["type"], 0) + 1
 
-            def get_component_description(component):
-                if component["type"] == "tone":
-                    return f"{component['frequency_hz']:.1f} hz tone"
-                elif component["type"] == "sweep":
-                    return f"{component['start_frequency_hz']:.1f}-{component['end_frequency_hz']:.1f} hz {component['type']}"
-                return component["type"]
+            parts = []
+            for signal_type, count in counts.items():
+                parts.append(f"{count} {signal_type}{'s' if count != 1 else ''}")
 
-            component_descriptions = [get_component_description(c) for c in self._signal_components]
-
-            if len(component_descriptions) == 1:
-                desc = f"synthetic {component_descriptions[0]}"
+            if len(parts) == 0:
+                desc = "synthetic signal"
+            elif len(self._signal_components) == 1:
+                desc = f"synthetic {parts[0][2:]}"  # strip "1 "
             else:
-                desc = f"synthetic signal with {', '.join(component_descriptions)}"
+                desc = f"synthetic signal with {' and '.join(parts)}"
 
             if self._snr_db is not None:
                 desc += f" at {self._snr_db:.1f} db snr"
@@ -586,9 +586,9 @@ class SigMFGenerator:
             self._description = desc
 
         # build generator info
-        generator_info = f"sigmf-python siggen.SigMFGenerator"
+        generator_info = f"SigMFGenerator"
         if self._seed is not None:
-            generator_info += f" (seed={self._seed:#x})"
+            generator_info += f"(seed={self._seed:#x})"
 
         # create metadata structure
         global_info = {
