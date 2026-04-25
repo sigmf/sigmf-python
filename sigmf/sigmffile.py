@@ -23,6 +23,8 @@ from .archive import (
     SIGMF_DATASET_EXT,
     SIGMF_METADATA_EXT,
     SigMFArchive,
+    _detect_compression,
+    _get_archive_basename,
 )
 from .error import (
     SigMFAccessError,
@@ -31,7 +33,7 @@ from .error import (
     SigMFFileError,
     SigMFFileExistsError,
 )
-from .utils import dict_merge
+from .utils import dict_merge, get_data_type_str
 
 
 class SigMFMetafile:
@@ -1256,6 +1258,93 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     elif Path.is_file(compliant_filename):
         return compliant_filename
     return None
+
+
+def tofile(filename, data, sample_rate, frequency=None, toarchive=False, compression=None, global_info=None):
+    """
+    Convenience method to write a numpy array to a SigMF recording.
+
+    For quick saves — infers the SigMF datatype from the numpy dtype, writes
+    the data file, creates metadata with a single capture at index 0, and
+    saves to disk. For full control over captures, annotations, and global
+    fields, use ``SigMFFile`` directly.
+
+    Parameters
+    ----------
+    filename : str | PathLike
+        Base filename or archive path. Accepts:
+        - ``"recording"`` — produces ``recording.sigmf-data`` and ``recording.sigmf-meta``
+        - ``"recording.sigmf"`` — produces uncompressed archive (auto-detects toarchive)
+        - ``"recording.sigmf.xz"`` — produces compressed archive (auto-detects compression)
+    data : np.ndarray
+        Signal samples to write.
+    sample_rate : float
+        Sample rate in Hz.
+    frequency : float, optional
+        Center frequency in Hz for the capture.
+    toarchive : bool, default False
+        If True, produce a ``.sigmf`` archive instead of loose data/meta files.
+        Auto-detected from filename extension if not specified.
+    compression : str, optional
+        If set, also creates a compressed archive. One of "gz", "xz", "zip".
+        Auto-detected from filename extension if not specified. Implies toarchive.
+    global_info : dict, optional
+        Additional global metadata fields to include.
+
+    Returns
+    -------
+    SigMFFile
+        The SigMFFile object with data and metadata.
+    """
+    file_path = Path(filename)
+
+    # detect compressed extension and extract base name
+    detected = _detect_compression(file_path)
+    if detected is not None:
+        if compression is not None and compression != detected:
+            raise SigMFFileError(
+                f"Extension implies '{detected}' compression but compression='{compression}' was specified."
+            )
+        compression = detected
+        base_name = _get_archive_basename(file_path)
+        base_path = file_path.parent / base_name
+    elif file_path.name.endswith(SIGMF_ARCHIVE_EXT):
+        toarchive = True
+        base_path = file_path.parent / file_path.stem
+    else:
+        base_path = file_path
+
+    # compression implies archive
+    if compression is not None:
+        toarchive = True
+
+    fns = get_sigmf_filenames(base_path)
+    data_path = fns["data_fn"]
+
+    data.tofile(data_path)
+
+    info = {
+        SigMFFile.DATATYPE_KEY: get_data_type_str(data),
+        SigMFFile.SAMPLE_RATE_KEY: sample_rate,
+    }
+    if global_info is not None:
+        info.update(global_info)
+
+    capture_meta = None
+    if frequency is not None:
+        capture_meta = {SigMFFile.FREQUENCY_KEY: frequency}
+
+    meta = SigMFFile(data_file=data_path, global_info=info)
+    meta.add_capture(0, metadata=capture_meta)
+
+    if toarchive:
+        # create archive only — no loose files
+        meta.archive(str(fns["base_fn"]), compression=compression)
+        data_path.unlink()
+    else:
+        meta.tofile(base_path)
+
+    return meta
 
 
 def fromarchive(archive_path, dir=None, skip_checksum=False, autoscale=True):

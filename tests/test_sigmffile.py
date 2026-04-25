@@ -519,3 +519,77 @@ class TestOverwrite(unittest.TestCase):
 
         with self.assertRaises(error.SigMFFileError):
             self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+
+
+class TestTofileConvenience(unittest.TestCase):
+    """Tests for the sigmf.tofile() convenience function."""
+
+    def setUp(self):
+        self.temp_dir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    def test_basic_write(self):
+        """test writing with a bare filename"""
+        path = self.temp_dir / "basic"
+        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000)
+        self.assertTrue((self.temp_dir / "basic.sigmf-data").exists())
+        self.assertTrue((self.temp_dir / "basic.sigmf-meta").exists())
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
+
+    def test_write_with_frequency(self):
+        """test that frequency kwarg populates capture metadata"""
+        path = self.temp_dir / "freq"
+        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000, frequency=915e6)
+        self.assertEqual(meta.get_capture_info(0).get("core:frequency"), 915e6)
+
+    def test_write_compressed_by_extension(self):
+        """test that .sigmf.xz extension creates archive only"""
+        path = self.temp_dir / "comp.sigmf.xz"
+        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=100)
+        self.assertTrue((self.temp_dir / "comp.sigmf.xz").exists())
+        self.assertFalse((self.temp_dir / "comp.sigmf-data").exists())
+        self.assertFalse((self.temp_dir / "comp.sigmf-meta").exists())
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
+
+    def test_write_compressed_by_kwarg(self):
+        """test that compression kwarg creates archive only"""
+        path = self.temp_dir / "comp2"
+        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=100, compression="gz")
+        self.assertTrue((self.temp_dir / "comp2.sigmf.gz").exists())
+        self.assertFalse((self.temp_dir / "comp2.sigmf-data").exists())
+        self.assertFalse((self.temp_dir / "comp2.sigmf-meta").exists())
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
+
+    def test_roundtrip_through_compressed_archive(self):
+        """test write then read via compressed archive"""
+        path = self.temp_dir / "rt.sigmf.zip"
+        sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000)
+        readback = sigmf.fromfile(str(path))
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
+
+    def test_write_toarchive(self):
+        """test that toarchive=True creates .sigmf archive only"""
+        path = self.temp_dir / "archived"
+        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000, toarchive=True)
+        self.assertTrue((self.temp_dir / "archived.sigmf").exists())
+        self.assertFalse((self.temp_dir / "archived.sigmf-data").exists())
+        self.assertFalse((self.temp_dir / "archived.sigmf-meta").exists())
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
+
+    def test_write_toarchive_by_extension(self):
+        """test that .sigmf extension auto-detects toarchive"""
+        path = self.temp_dir / "autoarch.sigmf"
+        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000)
+        self.assertTrue((self.temp_dir / "autoarch.sigmf").exists())
+        self.assertFalse((self.temp_dir / "autoarch.sigmf-data").exists())
+        self.assertFalse((self.temp_dir / "autoarch.sigmf-meta").exists())
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
+
+    def test_roundtrip_through_archive(self):
+        """test write then read via uncompressed archive"""
+        path = self.temp_dir / "rt_arch"
+        sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000, toarchive=True)
+        readback = sigmf.fromfile(str(self.temp_dir / "rt_arch.sigmf"))
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])

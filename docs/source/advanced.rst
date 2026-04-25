@@ -143,7 +143,7 @@ The SigMF Collection and its associated Recordings can now be loaded like this:
 Load a SigMF Archive and slice without untaring
 -----------------------------------------------
 
-Since an *archive* is merely a tarball (uncompressed), and since there any many
+Since an *archive* is a tarball (uncompressed by default), and since there are many
 excellent tools for manipulating tar files, it's fairly straightforward to
 access the *data* part of a SigMF archive without un-taring it. This is a
 compelling feature because **1** archives make it harder for the ``-data`` and
@@ -195,3 +195,51 @@ read it, this can be done "in mid air" or "without touching the ground (disk)".
     >>> arc[:10]
     array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
             48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
+
+------------------------------
+Compressed SigMF Archives
+------------------------------
+
+SigMF archives can be compressed using gzip, xz, or zip. The compression format
+is determined by the file extension:
+
++---------------------+-------------+
+| Extension           | Format      |
++=====================+=============+
+| ``.sigmf``          | uncompressed|
++---------------------+-------------+
+| ``.sigmf.gz``       | gzip tar    |
++---------------------+-------------+
+| ``.sigmf.xz``       | xz tar      |
++---------------------+-------------+
+| ``.sigmf.zip``      | zip archive |
++---------------------+-------------+
+
+**Writing compressed archives:**
+
+::
+
+    >>> import sigmf
+    >>> signal = sigmf.sigmffile.fromfile('recording.sigmf-meta')
+
+    # compress by extension
+    >>> signal.archive('recording.sigmf.xz')
+
+    # or specify compression explicitly
+    >>> signal.archive('recording.sigmf', compression='gz')
+
+**Reading compressed archives:**
+
+::
+
+    >>> arc = sigmf.SigMFArchiveReader('recording.sigmf.xz')
+    >>> arc[:10]
+    array([-20.+11.j, ...], dtype=complex64)
+
+**Memory behavior:**
+
+Uncompressed ``.sigmf`` archives use ``numpy.memmap`` to access the data
+directly inside the tar file — no extra memory is needed, even for very large
+recordings. Compressed archives (``.sigmf.gz``, ``.sigmf.xz``, ``.sigmf.zip``)
+must decompress the data into RAM before it can be accessed. Keep this in mind
+when working with large compressed recordings.

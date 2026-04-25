@@ -22,4 +22,4 @@ from . import (
 from .archive import SigMFArchive
 from .archivereader import SigMFArchiveReader
 from .siggen import SigMFGenerator
-from .sigmffile import SigMFCollection, SigMFFile, fromarchive, fromfile
+from .sigmffile import SigMFCollection, SigMFFile, fromarchive, fromfile, tofile
