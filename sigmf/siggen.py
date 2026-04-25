@@ -595,7 +595,7 @@ class SigMFGenerator:
             SigMFFile.DATATYPE_KEY: get_data_type_str(samples),
             SigMFFile.SAMPLE_RATE_KEY: self._sample_rate_hz,
             SigMFFile.NUM_CHANNELS_KEY: 1,
-            SigMFFile.GENERATOR_KEY: generator_info,
+            SigMFFile.RECORDER_KEY: generator_info,
             SigMFFile.DESCRIPTION_KEY: self._description,
         }
 

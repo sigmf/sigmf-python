@@ -127,20 +127,9 @@ class TestSigGen(unittest.TestCase):
     def test_snr_noise_addition(self):
         """test that snr parameter adds appropriate noise"""
         # generate clean tone and noisy tone
-        clean_signal = (
-            SigMFGenerator(self.seed)
-            .tone(1000)
-            .sample_rate(self.test_sample_rate)
-            .duration(0.1)
-            .generate()
-        )
+        clean_signal = SigMFGenerator(self.seed).tone(1000).sample_rate(self.test_sample_rate).duration(0.1).generate()
         noisy_signal = (
-            SigMFGenerator(self.seed)
-            .tone(1000)
-            .sample_rate(self.test_sample_rate)
-            .duration(0.1)
-            .snr(10)
-            .generate()
+            SigMFGenerator(self.seed).tone(1000).sample_rate(self.test_sample_rate).duration(0.1).snr(10).generate()
         )
 
         # noisy signal should have higher variance due to added noise
@@ -179,7 +168,7 @@ class TestSigGen(unittest.TestCase):
             SigMFFile.SAMPLE_RATE_KEY,
             SigMFFile.VERSION_KEY,
             SigMFFile.NUM_CHANNELS_KEY,
-            SigMFFile.GENERATOR_KEY,
+            SigMFFile.RECORDER_KEY,
             SigMFFile.DESCRIPTION_KEY,
         ]
 
@@ -195,19 +184,15 @@ class TestSigGen(unittest.TestCase):
         # should be valid sigmf
         signal.validate()
 
-    def test_generator_info_includes_seed(self):
-        """test that generator metadata includes seed when provided"""
-        signal = SigMFGenerator(seed=self.seed).generate()
+    def test_recorder_info(self):
+        """test that recorder metadata includes seed when provided and excludes it when not"""
+        with_seed = SigMFGenerator(seed=self.seed).generate()
+        recorder_info = with_seed.get_global_info()[SigMFFile.RECORDER_KEY]
+        self.assertIn(f"seed={self.seed:#x}", recorder_info)
 
-        generator_info = signal.get_global_info()[SigMFFile.GENERATOR_KEY]
-        self.assertIn(f"seed={self.seed:#x}", generator_info)
-
-    def test_no_seed_in_generator_info(self):
-        """test that generator metadata excludes seed when not provided"""
-        signal = SigMFGenerator().generate()
-
-        generator_info = signal.get_global_info()[SigMFFile.GENERATOR_KEY]
-        self.assertNotIn("seed=", generator_info)
+        without_seed = SigMFGenerator().generate()
+        recorder_info = without_seed.get_global_info()[SigMFFile.RECORDER_KEY]
+        self.assertNotIn("seed=", recorder_info)
 
     def test_data_buffer_creation(self):
         """test that signals are created with in-memory buffers"""
@@ -226,22 +211,8 @@ class TestSigGen(unittest.TestCase):
         amp_0 = 0.5
         amp_1 = 1.5
 
-        signal_0 = (
-            SigMFGenerator(self.seed)
-            .tone(1000)
-            .amplitude(amp_0)
-            .sample_rate(48000)
-            .duration(0.1)
-            .generate()
-        )
-        signal_1 = (
-            SigMFGenerator(self.seed)
-            .tone(1000)
-            .amplitude(amp_1)
-            .sample_rate(48000)
-            .duration(0.1)
-            .generate()
-        )
+        signal_0 = SigMFGenerator(self.seed).tone(1000).amplitude(amp_0).sample_rate(48000).duration(0.1).generate()
+        signal_1 = SigMFGenerator(self.seed).tone(1000).amplitude(amp_1).sample_rate(48000).duration(0.1).generate()
 
         power_0 = np.mean(np.abs(signal_0.read_samples()) ** 2)
         power_1 = np.mean(np.abs(signal_1.read_samples()) ** 2)
@@ -337,14 +308,7 @@ class TestSigGen(unittest.TestCase):
         phase_offset = np.pi / 2
 
         # use clean signals without noise for precise phase comparison
-        signal_0 = (
-            SigMFGenerator(seed=42)
-            .tone(1000)
-            .sample_rate(48000)
-            .duration(0.1)
-            .amplitude(1.0)
-            .generate()
-        )
+        signal_0 = SigMFGenerator(seed=42).tone(1000).sample_rate(48000).duration(0.1).amplitude(1.0).generate()
         signal_1 = (
             SigMFGenerator(seed=42)
             .tone(1000)
@@ -365,7 +329,9 @@ class TestSigGen(unittest.TestCase):
         # compare samples from the actual signal start + some offset to avoid edge effects
         sample_offset = 100
         if start_idx_0 + sample_offset < len(signal_0) and start_idx_1 + sample_offset < len(signal_1):
-            phase_diff = np.angle(signal_1[start_idx_0 + sample_offset]) - np.angle(signal_0[start_idx_0 + sample_offset])
+            phase_diff = np.angle(signal_1[start_idx_0 + sample_offset]) - np.angle(
+                signal_0[start_idx_0 + sample_offset]
+            )
 
             # normalize to [-pi, pi]
             phase_diff = (phase_diff + np.pi) % (2 * np.pi) - np.pi
@@ -413,7 +379,6 @@ class TestEdgeCases(unittest.TestCase):
         """test sweep with same start and end frequency"""
         # should generate successfully (effectively a tone)
         SigMFGenerator().sweep(333, 333).sample_rate(8000).duration(0.1).generate()
-
 
 
 if __name__ == "__main__":
