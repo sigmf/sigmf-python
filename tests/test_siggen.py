@@ -1,3 +1,4 @@
+import sigmf
 # Copyright: Multiple Authors
 #
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
@@ -66,7 +67,7 @@ class TestSigGen(unittest.TestCase):
 
         # set capture datetime identical
         for sig in [signal0, signal1, signal2]:
-            sig.add_capture(0, {SigMFFile.DATETIME_KEY: "2026-01-01T00:00:00Z"})
+            sig.add_capture(0, {sigmf.DATETIME_KEY: "2026-01-01T00:00:00Z"})
 
         # compare metadata (which includes checksums)
         self.assertEqual(signal0, signal1)
@@ -119,7 +120,7 @@ class TestSigGen(unittest.TestCase):
         )
 
         # verify chaining worked
-        self.assertEqual(signal.get_global_info()[SigMFFile.AUTHOR_KEY], "test@example.com")
+        self.assertEqual(signal.get_global_info()[sigmf.AUTHOR_KEY], "test@example.com")
         self.assertEqual(signal.description, "test signal")
 
         # should have multiple annotations: main signal + noise + freq offset + phase offset
@@ -127,15 +128,15 @@ class TestSigGen(unittest.TestCase):
         self.assertGreaterEqual(len(annotations), 3)  # at least main + noise + offsets
 
         # find main signal annotation (has comment)
-        main_annotation = next(ann for ann in annotations if SigMFFile.COMMENT_KEY in ann)
-        self.assertEqual(main_annotation[SigMFFile.COMMENT_KEY], "test comment")
+        main_annotation = next(ann for ann in annotations if sigmf.COMMENT_KEY in ann)
+        self.assertEqual(main_annotation[sigmf.COMMENT_KEY], "test comment")
 
         # verify there's a noise annotation
-        noise_annotations = [ann for ann in annotations if "AWGN" in ann.get(SigMFFile.LABEL_KEY, "")]
+        noise_annotations = [ann for ann in annotations if "AWGN" in ann.get(sigmf.LABEL_KEY, "")]
         self.assertEqual(len(noise_annotations), 1)
 
         # verify there's a frequency offset annotation
-        freq_offset_annotations = [ann for ann in annotations if "freq offset" in ann.get(SigMFFile.LABEL_KEY, "")]
+        freq_offset_annotations = [ann for ann in annotations if "freq offset" in ann.get(sigmf.LABEL_KEY, "")]
         self.assertEqual(len(freq_offset_annotations), 1)
 
     def test_snr_noise_addition(self):
@@ -160,7 +161,7 @@ class TestSigGen(unittest.TestCase):
 
         # verify frequency in capture metadata includes offset
         captures = signal.get_captures()
-        self.assertEqual(captures[0][SigMFFile.FREQUENCY_KEY], base_freq + offset_freq)
+        self.assertEqual(captures[0][sigmf.FREQUENCY_KEY], base_freq + offset_freq)
 
     def test_metadata_completeness(self):
         """test that generated metadata is complete and valid"""
@@ -169,12 +170,12 @@ class TestSigGen(unittest.TestCase):
         # verify required global fields
         global_info = signal.get_global_info()
         required_keys = [
-            SigMFFile.DATATYPE_KEY,
-            SigMFFile.SAMPLE_RATE_KEY,
-            SigMFFile.VERSION_KEY,
-            SigMFFile.NUM_CHANNELS_KEY,
-            SigMFFile.RECORDER_KEY,
-            SigMFFile.DESCRIPTION_KEY,
+            sigmf.DATATYPE_KEY,
+            sigmf.SAMPLE_RATE_KEY,
+            sigmf.VERSION_KEY,
+            sigmf.NUM_CHANNELS_KEY,
+            sigmf.RECORDER_KEY,
+            sigmf.DESCRIPTION_KEY,
         ]
 
         for key in required_keys:
@@ -183,8 +184,8 @@ class TestSigGen(unittest.TestCase):
         # verify captures exist
         captures = signal.get_captures()
         self.assertEqual(len(captures), 1)
-        self.assertIn(SigMFFile.SAMPLE_START_KEY, captures[0])
-        self.assertIn(SigMFFile.DATETIME_KEY, captures[0])
+        self.assertIn(sigmf.SAMPLE_START_KEY, captures[0])
+        self.assertIn(sigmf.DATETIME_KEY, captures[0])
 
         # should be valid sigmf
         signal.validate()
@@ -192,11 +193,11 @@ class TestSigGen(unittest.TestCase):
     def test_recorder_info(self):
         """test that recorder metadata includes seed when provided and excludes it when not"""
         with_seed = SigMFGenerator(seed=self.seed).generate()
-        recorder_info = with_seed.get_global_info()[SigMFFile.RECORDER_KEY]
+        recorder_info = with_seed.get_global_info()[sigmf.RECORDER_KEY]
         self.assertIn(f"seed={self.seed:#x}", recorder_info)
 
         without_seed = SigMFGenerator().generate()
-        recorder_info = without_seed.get_global_info()[SigMFFile.RECORDER_KEY]
+        recorder_info = without_seed.get_global_info()[sigmf.RECORDER_KEY]
         self.assertNotIn("seed=", recorder_info)
 
     def test_data_buffer_creation(self):
@@ -246,30 +247,30 @@ class TestSigGen(unittest.TestCase):
         self.assertEqual(len(annotations), 3)
 
         # find and verify main tone annotation
-        tone_annotation = next(ann for ann in annotations if "tone at 1000 Hz" in ann.get(SigMFFile.LABEL_KEY, ""))
+        tone_annotation = next(ann for ann in annotations if "tone at 1000 Hz" in ann.get(sigmf.LABEL_KEY, ""))
         # with temporal windowing, start index can be any valid sample index
-        self.assertGreaterEqual(tone_annotation[SigMFFile.SAMPLE_START_KEY], 0)
-        self.assertLess(tone_annotation[SigMFFile.SAMPLE_START_KEY], 48000 * 0.1)  # less than total samples
-        self.assertEqual(tone_annotation[SigMFFile.GENERATOR_KEY], "SigMFGenerator")
-        self.assertIn(SigMFFile.FREQ_LOWER_EDGE_KEY, tone_annotation)
-        self.assertIn(SigMFFile.FREQ_UPPER_EDGE_KEY, tone_annotation)
-        self.assertEqual(tone_annotation[SigMFFile.COMMENT_KEY], "test")
+        self.assertGreaterEqual(tone_annotation[sigmf.SAMPLE_START_KEY], 0)
+        self.assertLess(tone_annotation[sigmf.SAMPLE_START_KEY], 48000 * 0.1)  # less than total samples
+        self.assertEqual(tone_annotation[sigmf.GENERATOR_KEY], "SigMFGenerator")
+        self.assertIn(sigmf.FREQ_LOWER_EDGE_KEY, tone_annotation)
+        self.assertIn(sigmf.FREQ_UPPER_EDGE_KEY, tone_annotation)
+        self.assertEqual(tone_annotation[sigmf.COMMENT_KEY], "test")
 
         # verify tone frequency edges account for offset (1000 + 200 = 1200 Hz center)
         center_freq = (
-            tone_annotation[SigMFFile.FREQ_LOWER_EDGE_KEY] + tone_annotation[SigMFFile.FREQ_UPPER_EDGE_KEY]
+            tone_annotation[sigmf.FREQ_LOWER_EDGE_KEY] + tone_annotation[sigmf.FREQ_UPPER_EDGE_KEY]
         ) / 2
         self.assertAlmostEqual(center_freq, 1200.0, places=1)
 
         # find and verify noise annotation
-        noise_annotation = next(ann for ann in annotations if "AWGN" in ann.get(SigMFFile.LABEL_KEY, ""))
-        self.assertIn("15.0 dB SNR", noise_annotation[SigMFFile.LABEL_KEY])
-        self.assertEqual(noise_annotation[SigMFFile.FREQ_LOWER_EDGE_KEY], 0.0)
-        self.assertEqual(noise_annotation[SigMFFile.FREQ_UPPER_EDGE_KEY], 24000.0)  # nyquist
+        noise_annotation = next(ann for ann in annotations if "AWGN" in ann.get(sigmf.LABEL_KEY, ""))
+        self.assertIn("15.0 dB SNR", noise_annotation[sigmf.LABEL_KEY])
+        self.assertEqual(noise_annotation[sigmf.FREQ_LOWER_EDGE_KEY], 0.0)
+        self.assertEqual(noise_annotation[sigmf.FREQ_UPPER_EDGE_KEY], 24000.0)  # nyquist
 
         # find and verify frequency offset annotation
-        offset_annotation = next(ann for ann in annotations if "freq offset" in ann.get(SigMFFile.LABEL_KEY, ""))
-        self.assertIn("+200.0 Hz", offset_annotation[SigMFFile.LABEL_KEY])
+        offset_annotation = next(ann for ann in annotations if "freq offset" in ann.get(sigmf.LABEL_KEY, ""))
+        self.assertIn("+200.0 Hz", offset_annotation[sigmf.LABEL_KEY])
 
     def test_sweep_annotations(self):
         """test sweep annotations have correct frequency bounds including negative"""
@@ -279,9 +280,9 @@ class TestSigGen(unittest.TestCase):
         self.assertEqual(len(annotations), 1)  # just main sweep annotation
 
         sweep_annotation = annotations[0]
-        self.assertEqual(sweep_annotation[SigMFFile.FREQ_LOWER_EDGE_KEY], -2500.0)
-        self.assertEqual(sweep_annotation[SigMFFile.FREQ_UPPER_EDGE_KEY], 2500.0)
-        self.assertIn("sweep from -2500 to 2500 Hz", sweep_annotation[SigMFFile.LABEL_KEY])
+        self.assertEqual(sweep_annotation[sigmf.FREQ_LOWER_EDGE_KEY], -2500.0)
+        self.assertEqual(sweep_annotation[sigmf.FREQ_UPPER_EDGE_KEY], 2500.0)
+        self.assertIn("sweep from -2500 to 2500 Hz", sweep_annotation[sigmf.LABEL_KEY])
 
     def test_reverse_sweep_annotations(self):
         """test reverse sweep crossing DC has correct bounds"""
@@ -291,10 +292,10 @@ class TestSigGen(unittest.TestCase):
         sweep_annotation = annotations[0]
 
         # frequency bounds should be min/max regardless of sweep direction
-        self.assertEqual(sweep_annotation[SigMFFile.FREQ_LOWER_EDGE_KEY], -800.0)
-        self.assertEqual(sweep_annotation[SigMFFile.FREQ_UPPER_EDGE_KEY], 3000.0)
+        self.assertEqual(sweep_annotation[sigmf.FREQ_LOWER_EDGE_KEY], -800.0)
+        self.assertEqual(sweep_annotation[sigmf.FREQ_UPPER_EDGE_KEY], 3000.0)
         # but label should show original order
-        self.assertIn("sweep from 3000 to -800 Hz", sweep_annotation[SigMFFile.LABEL_KEY])
+        self.assertIn("sweep from 3000 to -800 Hz", sweep_annotation[sigmf.LABEL_KEY])
 
     def test_minimal_annotations(self):
         """test that simple signals get minimal but complete annotations"""
@@ -305,10 +306,10 @@ class TestSigGen(unittest.TestCase):
 
         annotation = annotations[0]
         # with temporal windowing, start index can be any valid sample index
-        self.assertGreaterEqual(annotation[SigMFFile.SAMPLE_START_KEY], 0)
-        self.assertIn(SigMFFile.SAMPLE_COUNT_KEY, annotation)
-        self.assertIn(SigMFFile.GENERATOR_KEY, annotation)
-        self.assertIn("tone at 440 Hz", annotation[SigMFFile.LABEL_KEY])
+        self.assertGreaterEqual(annotation[sigmf.SAMPLE_START_KEY], 0)
+        self.assertIn(sigmf.SAMPLE_COUNT_KEY, annotation)
+        self.assertIn(sigmf.GENERATOR_KEY, annotation)
+        self.assertIn("tone at 440 Hz", annotation[sigmf.LABEL_KEY])
 
     def test_phase_offset(self):
         """test phase offset functionality"""
@@ -319,8 +320,8 @@ class TestSigGen(unittest.TestCase):
         signal_1 = SigMFGenerator(seed=42).tone().phase_offset(phase_offset).generate()
 
         # find where the actual signal starts by looking at annotations
-        start_idx_0 = signal_0.get_annotations()[0][SigMFFile.SAMPLE_START_KEY]
-        start_idx_1 = signal_1.get_annotations()[0][SigMFFile.SAMPLE_START_KEY]
+        start_idx_0 = signal_0.get_annotations()[0][sigmf.SAMPLE_START_KEY]
+        start_idx_1 = signal_1.get_annotations()[0][sigmf.SAMPLE_START_KEY]
 
         # both should start at the same sample index (same seed)
         self.assertEqual(start_idx_0, start_idx_1)

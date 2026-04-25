@@ -1,3 +1,4 @@
+import sigmf
 """Tests for dynamic attribute access functionality."""
 
 import copy
@@ -25,17 +26,17 @@ class TestDynamicAttributeAccess(unittest.TestCase):
     def test_getter_existing_fields(self):
         """test attribute getters for existing core fields"""
         # test common core fields
-        # self.assertEqual(self.meta.sample_rate, self.meta.get_global_field(SigMFFile.SAMPLE_RATE_KEY))
-        # self.assertEqual(self.meta.author, self.meta.get_global_field(SigMFFile.AUTHOR_KEY))
-        self.assertEqual(self.meta.datatype, self.meta.get_global_field(SigMFFile.DATATYPE_KEY))
-        self.assertEqual(self.meta.sha512, self.meta.get_global_field(SigMFFile.SHA512_KEY))
-        # self.assertEqual(self.meta.description, self.meta.get_global_field(SigMFFile.DESCRIPTION_KEY))
+        # self.assertEqual(self.meta.sample_rate, self.meta.get_global_field(sigmf.SAMPLE_RATE_KEY))
+        # self.assertEqual(self.meta.author, self.meta.get_global_field(sigmf.AUTHOR_KEY))
+        self.assertEqual(self.meta.datatype, self.meta.get_global_field(sigmf.DATATYPE_KEY))
+        self.assertEqual(self.meta.sha512, self.meta.get_global_field(sigmf.SHA512_KEY))
+        # self.assertEqual(self.meta.description, self.meta.get_global_field(sigmf.DESCRIPTION_KEY))
 
     def test_getter_missing_core_fields(self):
         """test that getter raises SigMFAccessError for missing core fields"""
         with self.assertRaises(SigMFAccessError) as context:
             _ = self.meta.license
-        self.assertIn(SigMFFile.LICENSE_KEY, str(context.exception))
+        self.assertIn(sigmf.LICENSE_KEY, str(context.exception))
 
     def test_getter_nonexistent_attribute(self):
         """test that getter raises AttributeError for non-core attributes"""
@@ -74,12 +75,12 @@ class TestDynamicAttributeAccess(unittest.TestCase):
     def test_method_vs_attribute_equivalence(self):
         """test that method-based and attribute-based access are equivalent"""
         # set via method, access via attribute
-        self.meta.set_global_field(SigMFFile.LICENSE_KEY, SOME_LICENSE)
+        self.meta.set_global_field(sigmf.LICENSE_KEY, SOME_LICENSE)
         self.assertEqual(self.meta.license, SOME_LICENSE)
 
         # set via attribute, access via method
         self.meta.recorder = SOME_RECORDER
-        self.assertEqual(self.meta.get_global_field(SigMFFile.RECORDER_KEY), SOME_RECORDER)
+        self.assertEqual(self.meta.get_global_field(sigmf.RECORDER_KEY), SOME_RECORDER)
 
     def test_private_attributes_unaffected(self):
         """test that private attributes work normally"""

@@ -522,19 +522,19 @@ def _build_common_metadata(
 
     # base global metadata
     global_info = {
-        SigMFFile.AUTHOR_KEY: getpass.getuser(),
-        SigMFFile.DATATYPE_KEY: datatype,
-        SigMFFile.RECORDER_KEY: "Official SigMF BLUE converter",
-        SigMFFile.NUM_CHANNELS_KEY: num_channels,
-        SigMFFile.SAMPLE_RATE_KEY: sample_rate_hz,
-        SigMFFile.EXTENSIONS_KEY: [{"name": "blue", "version": "0.0.1", "optional": True}],
-        SigMFFile.DESCRIPTION_KEY: _description(h_fixed),
+        keys.AUTHOR_KEY: getpass.getuser(),
+        keys.DATATYPE_KEY: datatype,
+        keys.RECORDER_KEY: "Official SigMF BLUE converter",
+        keys.NUM_CHANNELS_KEY: num_channels,
+        keys.SAMPLE_RATE_KEY: sample_rate_hz,
+        keys.EXTENSIONS_KEY: [{"name": "blue", "version": "0.0.1", "optional": True}],
+        keys.DESCRIPTION_KEY: _description(h_fixed),
     }
 
     # add NCD-specific fields
     if is_ncd:
-        global_info[SigMFFile.DATASET_KEY] = blue_file_name
-        global_info[SigMFFile.TRAILING_BYTES_KEY] = trailing_bytes
+        global_info[keys.DATASET_KEY] = blue_file_name
+        global_info[keys.TRAILING_BYTES_KEY] = trailing_bytes
 
     # merge HCB values into metadata
     global_info["blue:fixed"] = h_fixed
@@ -572,11 +572,11 @@ def _build_common_metadata(
         # timecode uses 1950-01-01 as epoch, datetime uses 1970-01-01
         blue_epoch = blue_start_time - 631152000  # seconds between 1950 and 1970
         blue_datetime = datetime.fromtimestamp(blue_epoch, tz=timezone.utc)
-        capture_info[SigMFFile.DATETIME_KEY] = blue_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT)
+        capture_info[keys.DATETIME_KEY] = blue_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT)
 
     if get_tag("RF_FREQ") is not None:
         # it's possible other keys indicate tune frequency, but RF_FREQ is common
-        capture_info[SigMFFile.FREQUENCY_KEY] = float(get_tag("RF_FREQ"))
+        capture_info[keys.FREQUENCY_KEY] = float(get_tag("RF_FREQ"))
 
     return global_info, capture_info
 
@@ -704,12 +704,12 @@ def construct_sigmf(
     # set metadata-only flag for zero-sample files (only for non-NCD files)
     if is_metadata_only:
         # ensure we're not accidentally setting metadata_only for an NCD
-        if SigMFFile.DATASET_KEY in global_info:
+        if keys.DATASET_KEY in global_info:
             raise ValueError(
                 "Cannot set metadata_only=True for Non-Conforming Dataset files. "
                 "Per SigMF spec, metadata_only MAY NOT be used with core:dataset field."
             )
-        global_info[SigMFFile.METADATA_ONLY_KEY] = True
+        global_info[keys.METADATA_ONLY_KEY] = True
 
     # for metadata-only files, don't specify data_file and skip checksum
     if is_metadata_only:
@@ -777,7 +777,7 @@ def construct_sigmf_ncd(
     )
 
     # add NCD-specific capture info
-    capture_info[SigMFFile.HEADER_BYTES_KEY] = header_bytes
+    capture_info[keys.HEADER_BYTES_KEY] = header_bytes
 
     # create NCD metadata-only SigMF pointing to original file
     meta = SigMFFile(global_info=global_info, skip_checksum=True)

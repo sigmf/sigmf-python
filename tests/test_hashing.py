@@ -1,3 +1,4 @@
+import sigmf
 # Copyright: Multiple Authors
 #
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
@@ -43,13 +44,13 @@ class TestHashCalculation(unittest.TestCase):
 
         # Create SigMF metadata for NCD
         ncd_metadata = deepcopy(TEST_METADATA)
-        del ncd_metadata["global"][SigMFFile.SHA512_KEY]
-        ncd_metadata["global"][SigMFFile.TRAILING_BYTES_KEY] = 32
+        del ncd_metadata["global"][sigmf.SHA512_KEY]
+        ncd_metadata["global"][sigmf.TRAILING_BYTES_KEY] = 32
         meta = SigMFFile(metadata=ncd_metadata)
         meta.set_data_file(data_path, offset=64)
 
         file_hash = hashing.calculate_sha512(filename=data_path)
-        sigmf_hash = meta.get_global_field(SigMFFile.SHA512_KEY)
+        sigmf_hash = meta.get_global_field(sigmf.SHA512_KEY)
         self.assertEqual(file_hash, sigmf_hash)
 
     def test_edge_cases(self):

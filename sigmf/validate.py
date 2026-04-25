@@ -29,7 +29,7 @@ from . import error, keys, schema, sigmffile
 
 def _get_namespaces_declared(metadata: dict) -> set:
     """Get set of declared extension namespaces."""
-    extensions = metadata.get("global", {}).get(sigmffile.SigMFFile.EXTENSIONS_KEY, [])
+    extensions = metadata.get("global", {}).get(sigmffile.keys.EXTENSIONS_KEY, [])
     return {ext["name"].split(":")[0] for ext in extensions}
 
 
@@ -81,7 +81,7 @@ def validate(metadata, ref_schema=schema.get_schema()) -> None:
     if undeclared:
         warnings.warn(
             f"Found undeclared extensions in use: {', '.join(sorted(undeclared))}. "
-            f"All extensions should be declared in {sigmffile.SigMFFile.EXTENSIONS_KEY}. "
+            f"All extensions should be declared in {sigmffile.keys.EXTENSIONS_KEY}. "
             "This will raise a ValidationError in future versions.",
             DeprecationWarning,
             stacklevel=2,
@@ -91,7 +91,7 @@ def validate(metadata, ref_schema=schema.get_schema()) -> None:
     for key in ["captures", "annotations"]:
         count = -1
         for item in metadata[key]:
-            new_count = item[sigmffile.SigMFFile.SAMPLE_START_KEY]
+            new_count = item[sigmffile.keys.SAMPLE_START_KEY]
             if new_count < count:
                 raise jsonschema.exceptions.ValidationError(f"{key} has incorrect sample start ordering.")
             count = new_count

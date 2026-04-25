@@ -48,8 +48,8 @@ class TestArchiveReader(unittest.TestCase):
                     temp_meta = SigMFFile(
                         data_file=temp_data.name,
                         global_info={
-                            SigMFFile.DATATYPE_KEY: f"{complex_prefix}{key}_le",
-                            SigMFFile.NUM_CHANNELS_KEY: num_channels,
+                            sigmf.DATATYPE_KEY: f"{complex_prefix}{key}_le",
+                            sigmf.NUM_CHANNELS_KEY: num_channels,
                         },
                     )
                     temp_meta.tofile(temp_archive.name, toarchive=True, overwrite=True)

@@ -1,3 +1,4 @@
+import sigmf
 # Copyright: Multiple Authors
 #
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
@@ -238,8 +239,8 @@ class TestCompressedArchive(unittest.TestCase):
             path = self.temp_dir / f"meta_test.{ext}"
             readback = self._roundtrip(path)
             self.assertEqual(
-                self.sigmf_object.get_global_field(SigMFFile.DATATYPE_KEY),
-                readback.get_global_field(SigMFFile.DATATYPE_KEY),
+                self.sigmf_object.get_global_field(sigmf.DATATYPE_KEY),
+                readback.get_global_field(sigmf.DATATYPE_KEY),
             )
             self.assertEqual(len(self.sigmf_object.get_annotations()), len(readback.get_annotations()))
 

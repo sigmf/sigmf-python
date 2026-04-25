@@ -11,12 +11,14 @@ import json
 import shutil
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 
 import numpy as np
 
 import sigmf
 from sigmf import SigMFFile, error, utils
+from sigmf.sigmffile import _DeprecatingKey, _SigMFDeprecatingMeta
 
 from .testdata import *
 
@@ -68,7 +70,7 @@ class TestClassMethods(unittest.TestCase):
         """Ensure checksum fails when incorrect or empty string."""
         for new_checksum in ("", "a", 0):
             bad_checksum_metadata = copy.deepcopy(TEST_METADATA)
-            bad_checksum_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.SHA512_KEY] = new_checksum
+            bad_checksum_metadata[SigMFFile.GLOBAL_KEY][sigmf.SHA512_KEY] = new_checksum
             with self.assertRaises(error.SigMFFileError):
                 _ = SigMFFile(bad_checksum_metadata, self.temp_path_data)
 
@@ -91,8 +93,8 @@ class TestAnnotationHandling(unittest.TestCase):
         self.assertListEqual(
             annotations_idx10,
             [
-                {SigMFFile.SAMPLE_START_KEY: 0, SigMFFile.SAMPLE_COUNT_KEY: 16},
-                {SigMFFile.SAMPLE_START_KEY: 1},
+                {sigmf.SAMPLE_START_KEY: 0, sigmf.SAMPLE_COUNT_KEY: 16},
+                {sigmf.SAMPLE_START_KEY: 1},
             ],
         )
 
@@ -171,8 +173,8 @@ class TestMultichannel(unittest.TestCase):
                     temp_signal = SigMFFile(
                         data_file=self.temp_path,
                         global_info={
-                            SigMFFile.DATATYPE_KEY: f"{complex_prefix}{key}_le",
-                            SigMFFile.NUM_CHANNELS_KEY: num_channels,
+                            sigmf.DATATYPE_KEY: f"{complex_prefix}{key}_le",
+                            sigmf.NUM_CHANNELS_KEY: num_channels,
                         },
                     )
                     temp_samples = temp_signal.read_samples()
@@ -194,8 +196,8 @@ class TestMultichannel(unittest.TestCase):
         temp_signal = SigMFFile(
             data_file=self.temp_path,
             global_info={
-                SigMFFile.DATATYPE_KEY: "cu16_le",
-                SigMFFile.NUM_CHANNELS_KEY: 3,
+                sigmf.DATATYPE_KEY: "cu16_le",
+                sigmf.NUM_CHANNELS_KEY: 3,
             },
             autoscale=False,
         )
@@ -462,7 +464,7 @@ class TestOverwrite(unittest.TestCase):
 
         # create sigmf object with different data and metadata
         alt_sigmf = SigMFFile()
-        alt_sigmf.set_global_field(SigMFFile.DATATYPE_KEY, "rf32_le")
+        alt_sigmf.set_global_field(sigmf.DATATYPE_KEY, "rf32_le")
         alt_sigmf.set_global_field("core:description", "overwritten file")
         alt_sigmf.set_data_file(self.alt_data_path)
 
@@ -492,7 +494,7 @@ class TestOverwrite(unittest.TestCase):
 
         # create sigmf object with different data
         alt_sigmf = SigMFFile()
-        alt_sigmf.set_global_field(SigMFFile.DATATYPE_KEY, "rf32_le")
+        alt_sigmf.set_global_field(sigmf.DATATYPE_KEY, "rf32_le")
         alt_sigmf.set_global_field("core:description", "overwritten archive")
         alt_sigmf.set_data_file(self.alt_data_path)
 
@@ -598,6 +600,15 @@ class TestTofileConvenience(unittest.TestCase):
 class TestDeprecatedKeyAliases(unittest.TestCase):
     """ensure deprecated key constant names emit DeprecationWarning and return correct values"""
 
+    def setUp(self):
+        # reset warn-once guards so each test method starts clean
+        _DeprecatingKey._warned.clear()
+        _SigMFDeprecatingMeta._warned.clear()
+
+    def tearDown(self):
+        _DeprecatingKey._warned.clear()
+        _SigMFDeprecatingMeta._warned.clear()
+
     DEPRECATED_PAIRS = [
         ("START_INDEX_KEY", "SAMPLE_START_KEY"),
         ("LENGTH_INDEX_KEY", "SAMPLE_COUNT_KEY"),
@@ -620,22 +631,43 @@ class TestDeprecatedKeyAliases(unittest.TestCase):
         """old names should return same value as new names"""
         for old_name, new_name in self.DEPRECATED_PAIRS:
             with self.subTest(old_name=old_name, new_name=new_name):
-                import warnings
-
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", DeprecationWarning)
                     old_val = getattr(SigMFFile, old_name)
-                new_val = getattr(SigMFFile, new_name)
+                new_val = getattr(sigmf, new_name)
                 self.assertEqual(old_val, new_val)
 
     def test_new_keys_accessible_at_module_level(self):
         """new key constants should be importable directly from sigmf"""
-        import sigmf as _sigmf
+        self.assertEqual(sigmf.SAMPLE_START_KEY, "core:sample_start")
+        self.assertEqual(sigmf.SHA512_KEY, "core:sha512")
+        self.assertEqual(sigmf.FREQ_LOWER_EDGE_KEY, "core:freq_lower_edge")
+        self.assertEqual(sigmf.SIGMF_ARCHIVE_EXT, ".sigmf")
 
-        self.assertEqual(_sigmf.SAMPLE_START_KEY, "core:sample_start")
-        self.assertEqual(_sigmf.SHA512_KEY, "core:sha512")
-        self.assertEqual(_sigmf.FREQ_LOWER_EDGE_KEY, "core:freq_lower_edge")
-        self.assertEqual(_sigmf.SIGMF_ARCHIVE_EXT, ".sigmf")
+    def test_class_key_access_emits_warning(self):
+        """accessing any field key constant on SigMFFile class should emit DeprecationWarning"""
+        sample_keys = [
+            "SAMPLE_START_KEY", "SAMPLE_COUNT_KEY", "SHA512_KEY",
+            "FREQ_LOWER_EDGE_KEY", "DATATYPE_KEY", "SAMPLE_RATE_KEY",
+        ]
+        for name in sample_keys:
+            with self.subTest(name=name):
+                with self.assertWarns(DeprecationWarning):
+                    getattr(SigMFFile, name)
+
+    def test_class_key_access_returns_correct_value(self):
+        """class-level key access should still return the correct string value"""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            self.assertEqual(sigmf.SAMPLE_START_KEY, "core:sample_start")
+            self.assertEqual(sigmf.SAMPLE_COUNT_KEY, "core:sample_count")
+            self.assertEqual(sigmf.SHA512_KEY, "core:sha512")
+
+    def test_instance_key_access_emits_warning(self):
+        """accessing a field key constant on a SigMFFile instance should also emit DeprecationWarning"""
+        sig = SigMFFile()
+        with self.assertWarns(DeprecationWarning):
+            _ = sig.SAMPLE_START_KEY
 
 
 if __name__ == "__main__":
