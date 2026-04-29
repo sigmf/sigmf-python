@@ -126,8 +126,6 @@ Now lets add another SigMF Recording and associate them with a SigMF Collection:
             }
         }
     )
-    streams = collection.get_stream_names()
-    sigmf = [collection.get_SigMFFile(stream) for stream in streams]
     collection.tofile('example_zeros.sigmf-collection')
 
 The SigMF Collection and its associated Recordings can now be loaded like this:
@@ -136,6 +134,8 @@ The SigMF Collection and its associated Recordings can now be loaded like this:
 
     import sigmf
     collection = sigmf.fromfile('example_zeros')
+    all_sigmffiles = [collection.get_SigMFFile(stream_name=stream_name)
+                      for stream_name in collection.get_stream_names()]
     ci16_sigmffile = collection.get_SigMFFile(stream_name='example_ci16')
     cf32_sigmffile = collection.get_SigMFFile(stream_name='example_cf32')
 
