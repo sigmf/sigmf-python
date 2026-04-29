@@ -319,7 +319,7 @@ class TestSigGen(unittest.TestCase):
         signal_0 = SigMFGenerator(seed=42).tone().generate()
         signal_1 = SigMFGenerator(seed=42).tone().phase_offset(phase_offset).generate()
 
-        # find where the actual signal starts by looking at annotations
+        # tone annotations are last after sorting (full-signal annotations start at 0)
         start_idx_0 = signal_0.get_annotations()[0][sigmf.SAMPLE_START_KEY]
         start_idx_1 = signal_1.get_annotations()[0][sigmf.SAMPLE_START_KEY]
 
