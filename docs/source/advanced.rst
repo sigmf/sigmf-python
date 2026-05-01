@@ -171,12 +171,14 @@ file resides on a network file share) or simply obnoxious to untar it first.
     >>> signal.ndim
     1
     >>> signal[:10]
-    array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
-            48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
+    array([-0.023+0.012j, -0.021-0.006j, -0.017-0.020j, -0.013-0.052j,
+            0.000-0.075j,  0.022-0.058j,  0.048-0.044j,  0.049-0.060j,
+            0.031-0.056j,  0.023-0.047j], dtype=complex64)
 
-If the archive contains ``complex-int16`` data on disk (which has no
-corresponding ``numpy`` type), the data is automatically converted to
-``numpy.complex64`` after slicing:
+Archives can contain fixed-point data types like ``complex-int16`` (``ci16``),
+which have no direct ``numpy`` equivalent. By default, this data is automatically
+scaled to floating-point values in the range ``[-1.0, 1.0]`` and returned as
+``numpy.complex64``:
 
 ::
 
@@ -223,7 +225,7 @@ The file extension determines the archive format:
 
     >>> signal = sigmf.fromfile('recording.sigmf.xz')
     >>> signal[:10]
-    array([-20.+11.j, ...], dtype=complex64)
+    array([-0.023+0.012j, -0.021-0.006j, ...], dtype=complex64)
 
 **Memory behavior:**
 
