@@ -64,8 +64,8 @@ A seed ensures reproducibility across runs.
     signal = SigMFGenerator(seed=0xDEADBEEF).generate()
 
     # the number and type of components are randomly chosen
-    print(signal.description)       # e.g. "synthetic signal with 3 tones and 2 sweeps"
-    print(signal.get_annotations()) # one annotation per component
+    print(signal.description)  # e.g. "synthetic signal with 3 tones and 2 sweeps"
+    print(signal.get_annotations())  # one annotation per component
 
 Without a seed, each call produces a different signal.
 

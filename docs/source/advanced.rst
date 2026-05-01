@@ -18,7 +18,7 @@ the recording of the SigMF logo used in this example `from the specification
     from sigmf import SigMFFile, sigmffile
 
     # Load a dataset
-    path = 'logo/sigmf_logo' # extension is optional
+    path = "logo/sigmf_logo"  # extension is optional
     signal = sigmffile.fromfile(path)
 
     # Get some metadata and all annotations
@@ -29,15 +29,15 @@ the recording of the SigMF logo used in this example `from the specification
 
     # Iterate over annotations
     for adx, annotation in enumerate(annotations):
-        annotation_start_idx = annotation[SigMFFile.SAMPLE_START_KEY]
-        annotation_length = annotation[SigMFFile.SAMPLE_COUNT_KEY]
+        annotation_start_idx = annotation[SigMFFile.START_INDEX_KEY]
+        annotation_length = annotation[SigMFFile.LENGTH_INDEX_KEY]
         annotation_comment = annotation.get(SigMFFile.COMMENT_KEY, "[annotation {}]".format(adx))
 
         # Get capture info associated with the start of annotation
         capture = signal.get_capture_info(annotation_start_idx)
         freq_center = capture.get(SigMFFile.FREQUENCY_KEY, 0)
-        freq_min = freq_center - 0.5*sample_rate
-        freq_max = freq_center + 0.5*sample_rate
+        freq_min = freq_center - 0.5 * sample_rate
+        freq_max = freq_center + 0.5 * sample_rate
 
         # Get frequency edges of annotation (default to edges of capture)
         freq_start = annotation.get(SigMFFile.FREQ_LOWER_EDGE_KEY)
@@ -66,34 +66,41 @@ First, create a single SigMF Recording and save it to disk:
     data = np.zeros(1024, dtype=np.complex64)
 
     # write those samples to file in cf32_le
-    data.tofile('example_cf32.sigmf-data')
+    data.tofile("example_cf32.sigmf-data")
 
     # create the metadata
     meta = SigMFFile(
-        data_file='example_cf32.sigmf-data', # extension is optional
-        global_info = {
+        data_file="example_cf32.sigmf-data",  # extension is optional
+        global_info={
             SigMFFile.DATATYPE_KEY: get_data_type_str(data),  # in this case, 'cf32_le'
             SigMFFile.SAMPLE_RATE_KEY: 48000,
-            SigMFFile.AUTHOR_KEY: 'jane.doe@domain.org',
-            SigMFFile.DESCRIPTION_KEY: 'All zero complex float32 example file.',
-        }
+            SigMFFile.AUTHOR_KEY: "jane.doe@domain.org",
+            SigMFFile.DESCRIPTION_KEY: "All zero complex float32 example file.",
+        },
     )
 
     # create a capture key at time index 0
-    meta.add_capture(0, metadata={
-        SigMFFile.FREQUENCY_KEY: 915000000,
-        SigMFFile.DATETIME_KEY: get_sigmf_iso8601_datetime_now(),
-    })
+    meta.add_capture(
+        0,
+        metadata={
+            SigMFFile.FREQUENCY_KEY: 915000000,
+            SigMFFile.DATETIME_KEY: get_sigmf_iso8601_datetime_now(),
+        },
+    )
 
     # add an annotation at sample 100 with length 200 & 10 KHz width
-    meta.add_annotation(100, 200, metadata = {
-        SigMFFile.FREQ_LOWER_EDGE_KEY: 914995000.0,
-        SigMFFile.FREQ_UPPER_EDGE_KEY: 915005000.0,
-        SigMFFile.COMMENT_KEY: 'example annotation',
-    })
+    meta.add_annotation(
+        100,
+        200,
+        metadata={
+            SigMFFile.FLO_KEY: 914995000.0,
+            SigMFFile.FHI_KEY: 915005000.0,
+            SigMFFile.COMMENT_KEY: "example annotation",
+        },
+    )
 
     # check for mistakes & write to disk
-    meta.tofile('example_cf32.sigmf-meta') # extension is optional
+    meta.tofile("example_cf32.sigmf-meta")  # extension is optional
 
 Now lets add another SigMF Recording and associate them with a SigMF Collection:
 
@@ -103,41 +110,44 @@ Now lets add another SigMF Recording and associate them with a SigMF Collection:
 
     data_ci16 = np.zeros(1024, dtype=np.complex64)
 
-    #rescale and save as a complex int16 file:
+    # rescale and save as a complex int16 file:
     data_ci16 *= pow(2, 15)
-    data_ci16.view(np.float32).astype(np.int16).tofile('example_ci16.sigmf-data')
+    data_ci16.view(np.float32).astype(np.int16).tofile("example_ci16.sigmf-data")
 
     # create the metadata for the second file
     meta_ci16 = SigMFFile(
-        data_file='example_ci16.sigmf-data', # extension is optional
-        global_info = {
-            SigMFFile.DATATYPE_KEY: 'ci16_le', # get_data_type_str() is only valid for numpy types
+        data_file="example_ci16.sigmf-data",  # extension is optional
+        global_info={
+            SigMFFile.DATATYPE_KEY: "ci16_le",  # get_data_type_str() is only valid for numpy types
             SigMFFile.SAMPLE_RATE_KEY: 48000,
-            SigMFFile.DESCRIPTION_KEY: 'All zero complex int16 file.',
-        }
+            SigMFFile.DESCRIPTION_KEY: "All zero complex int16 file.",
+        },
     )
     meta_ci16.add_capture(0, metadata=meta.get_capture_info(0))
-    meta_ci16.tofile('example_ci16.sigmf-meta')
+    meta_ci16.tofile("example_ci16.sigmf-meta")
 
-    collection = SigMFCollection(['example_cf32.sigmf-meta', 'example_ci16.sigmf-meta'],
-            metadata = {'collection': {
-                SigMFCollection.AUTHOR_KEY: 'sigmf@sigmf.org',
-                SigMFCollection.DESCRIPTION_KEY: 'Collection of two all zero files.',
+    collection = SigMFCollection(
+        ["example_cf32.sigmf-meta", "example_ci16.sigmf-meta"],
+        metadata={
+            "collection": {
+                SigMFCollection.AUTHOR_KEY: "sigmf@sigmf.org",
+                SigMFCollection.DESCRIPTION_KEY: "Collection of two all zero files.",
             }
-        }
+        },
     )
     streams = collection.get_stream_names()
     sigmf = [collection.get_SigMFFile(stream) for stream in streams]
-    collection.tofile('example_zeros.sigmf-collection')
+    collection.tofile("example_zeros.sigmf-collection")
 
 The SigMF Collection and its associated Recordings can now be loaded like this:
 
 .. code-block:: python
 
     import sigmf
-    collection = sigmf.fromfile('example_zeros')
-    ci16_sigmffile = collection.get_SigMFFile(stream_name='example_ci16')
-    cf32_sigmffile = collection.get_SigMFFile(stream_name='example_cf32')
+
+    collection = sigmf.fromfile("example_zeros")
+    ci16_sigmffile = collection.get_SigMFFile(stream_name="example_ci16")
+    cf32_sigmffile = collection.get_SigMFFile(stream_name="example_cf32")
 
 -----------------------------------------------
 Load a SigMF Archive and slice without untaring
@@ -200,8 +210,8 @@ read it, this can be done "in mid air" or "without touching the ground (disk)".
 Compressed SigMF Archives
 ------------------------------
 
-SigMF archives can be compressed using gzip, xz, or zip. The compression format
-is determined by the file extension:
+SigMF archives can be compressed using gzip, xz, or zip.
+The file extension determines the archive format:
 
 +---------------------+-------------+
 | Extension           | Format      |
@@ -222,24 +232,23 @@ is determined by the file extension:
     >>> import sigmf
     >>> signal = sigmf.sigmffile.fromfile('recording.sigmf-meta')
 
-    # compress by extension
-    >>> signal.archive('recording.sigmf.xz')
+    # extension determines format
+    >>> signal.tofile('recording.sigmf.xz')
+    >>> signal.archive('recording.sigmf.gz')
 
-    # or specify compression explicitly
-    >>> signal.archive('recording.sigmf', compression='gz')
+    # compression parameter creates archive with correct extension
+    >>> signal.tofile('recording', compression='xz')  # → recording.sigmf.xz
+    >>> signal.archive('recording', compression='gz') # → recording.sigmf.gz
 
 **Reading compressed archives:**
 
 ::
 
-    >>> arc = sigmf.SigMFArchiveReader('recording.sigmf.xz')
-    >>> arc[:10]
+    >>> signal = sigmf.fromfile('recording.sigmf.xz')
+    >>> signal[:10]
     array([-20.+11.j, ...], dtype=complex64)
 
 **Memory behavior:**
 
-Uncompressed ``.sigmf`` archives use ``numpy.memmap`` to access the data
-directly inside the tar file — no extra memory is needed, even for very large
-recordings. Compressed archives (``.sigmf.gz``, ``.sigmf.xz``, ``.sigmf.zip``)
-must decompress the data into RAM before it can be accessed. Keep this in mind
-when working with large compressed recordings.
+Uncompressed ``.sigmf`` archives use ``numpy.memmap`` for zero-copy access.
+Compressed archives must decompress into RAM before access.

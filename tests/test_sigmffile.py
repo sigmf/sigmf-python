@@ -332,7 +332,7 @@ class TestCaptures(unittest.TestCase):
         # get a meta pair and archive
         meta = self.prepare(TEST_U8_DATA3, TEST_U8_META3, np.uint8)
         arc_path = self.temp_dir / "arc.sigmf"
-        meta.tofile(arc_path, toarchive=True)
+        meta.tofile(arc_path)
         arc = sigmf.fromfile(arc_path)
         for bdx in range(3):
             self.assertEqual(meta.get_capture_byte_boundaries(bdx), arc.get_capture_byte_boundaries(bdx))
@@ -480,15 +480,15 @@ class TestOverwrite(unittest.TestCase):
     def test_prevent_archive_overwrite(self):
         """tofile archive raises exception when archive exists and overwrite=False"""
         # create existing archive
-        self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+        self.sigmf_obj.tofile(self.test_archive_path)
         with self.assertRaises(error.SigMFFileError) as context:
-            self.sigmf_obj.tofile(self.test_archive_path, toarchive=True, overwrite=False)
+            self.sigmf_obj.tofile(self.test_archive_path, overwrite=False)
         self.assertIn("already exists", str(context.exception))
 
     def test_archive_overwrite_works(self):
         """tofile archive succeeds when archive exists and overwrite=True"""
         # create existing archive
-        self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+        self.sigmf_obj.tofile(self.test_archive_path)
         self.assertTrue(self.test_archive_path.exists())
         original_checksum = self.sigmf_obj.get_global_field("core:sha512")
 
@@ -499,7 +499,7 @@ class TestOverwrite(unittest.TestCase):
         alt_sigmf.set_data_file(self.alt_data_path)
 
         # should succeed with overwrite=True and content should change
-        alt_sigmf.tofile(self.test_archive_path, toarchive=True, overwrite=True)
+        alt_sigmf.tofile(self.test_archive_path, overwrite=True)
         self.assertTrue(self.test_archive_path.exists())
 
         # verify by reading the archive content back
@@ -513,18 +513,18 @@ class TestOverwrite(unittest.TestCase):
         """overwrite defaults to False for safety"""
         # create existing files
         self.sigmf_obj.tofile(self.test_meta_path)
-        self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+        self.sigmf_obj.tofile(self.test_archive_path)
 
         # should raise exceptions with default overwrite=False
         with self.assertRaises(error.SigMFFileError):
             self.sigmf_obj.tofile(self.test_meta_path)
 
         with self.assertRaises(error.SigMFFileError):
-            self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+            self.sigmf_obj.tofile(self.test_archive_path)
 
 
-class TestTofileConvenience(unittest.TestCase):
-    """Tests for the sigmf.tofile() convenience function."""
+class TestFromarrayConvenience(unittest.TestCase):
+    """Tests for the sigmf.fromarray() convenience function."""
 
     def setUp(self):
         self.temp_dir = Path(tempfile.mkdtemp())
@@ -532,143 +532,54 @@ class TestTofileConvenience(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
-    def test_basic_write(self):
-        """test writing with a bare filename"""
-        path = self.temp_dir / "basic"
-        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000)
-        self.assertTrue((self.temp_dir / "basic.sigmf-data").exists())
-        self.assertTrue((self.temp_dir / "basic.sigmf-meta").exists())
+    def test_basic_creation(self):
+        """test creating SigMFFile from array"""
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        self.assertEqual(meta.get_global_field(SigMFFile.SAMPLE_RATE_KEY), 4000)
+        self.assertEqual(meta.get_global_field(SigMFFile.DATATYPE_KEY), "rf32_le")
         np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
 
-    def test_write_with_frequency(self):
+    def test_with_frequency(self):
         """test that frequency kwarg populates capture metadata"""
-        path = self.temp_dir / "freq"
-        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000, frequency=915e6)
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000, frequency=915e6)
         self.assertEqual(meta.get_capture_info(0).get("core:frequency"), 915e6)
 
-    def test_write_compressed_by_extension(self):
-        """test that .sigmf.xz extension creates archive only"""
-        path = self.temp_dir / "comp.sigmf.xz"
-        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=100)
-        self.assertTrue((self.temp_dir / "comp.sigmf.xz").exists())
-        self.assertFalse((self.temp_dir / "comp.sigmf-data").exists())
-        self.assertFalse((self.temp_dir / "comp.sigmf-meta").exists())
-        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
-
-    def test_write_compressed_by_kwarg(self):
-        """test that compression kwarg creates archive only"""
-        path = self.temp_dir / "comp2"
-        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=100, compression="gz")
-        self.assertTrue((self.temp_dir / "comp2.sigmf.gz").exists())
-        self.assertFalse((self.temp_dir / "comp2.sigmf-data").exists())
-        self.assertFalse((self.temp_dir / "comp2.sigmf-meta").exists())
-        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
-
-    def test_roundtrip_through_compressed_archive(self):
-        """test write then read via compressed archive"""
-        path = self.temp_dir / "rt.sigmf.zip"
-        sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000)
+    def test_write_separate_files(self):
+        """test writing to separate meta and data files"""
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        path = self.temp_dir / "basic"
+        meta.tofile(str(path))
+        self.assertTrue((self.temp_dir / "basic.sigmf-data").exists())
+        self.assertTrue((self.temp_dir / "basic.sigmf-meta").exists())
         readback = sigmf.fromfile(str(path))
         np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
 
-    def test_write_toarchive(self):
-        """test that toarchive=True creates .sigmf archive only"""
-        path = self.temp_dir / "archived"
-        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000, toarchive=True)
+    def test_write_archive(self):
+        """test writing to uncompressed archive"""
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        path = self.temp_dir / "archived.sigmf"
+        meta.tofile(str(path))
         self.assertTrue((self.temp_dir / "archived.sigmf").exists())
         self.assertFalse((self.temp_dir / "archived.sigmf-data").exists())
         self.assertFalse((self.temp_dir / "archived.sigmf-meta").exists())
-        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
-
-    def test_write_toarchive_by_extension(self):
-        """test that .sigmf extension auto-detects toarchive"""
-        path = self.temp_dir / "autoarch.sigmf"
-        meta = sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000)
-        self.assertTrue((self.temp_dir / "autoarch.sigmf").exists())
-        self.assertFalse((self.temp_dir / "autoarch.sigmf-data").exists())
-        self.assertFalse((self.temp_dir / "autoarch.sigmf-meta").exists())
-        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
-
-    def test_roundtrip_through_archive(self):
-        """test write then read via uncompressed archive"""
-        path = self.temp_dir / "rt_arch"
-        sigmf.tofile(path, TEST_FLOAT32_DATA, sample_rate=48000, toarchive=True)
-        readback = sigmf.fromfile(str(self.temp_dir / "rt_arch.sigmf"))
+        readback = sigmf.fromfile(str(path))
         np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
 
+    def test_write_compressed_archive(self):
+        """test writing to compressed archive"""
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        path = self.temp_dir / "comp.sigmf.xz"
+        meta.tofile(str(path))
+        self.assertTrue((self.temp_dir / "comp.sigmf.xz").exists())
+        self.assertFalse((self.temp_dir / "comp.sigmf-data").exists())
+        self.assertFalse((self.temp_dir / "comp.sigmf-meta").exists())
+        readback = sigmf.fromfile(str(path))
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
 
-class TestDeprecatedKeyAliases(unittest.TestCase):
-    """ensure deprecated key constant names emit DeprecationWarning and return correct values"""
-
-    def setUp(self):
-        # reset warn-once guards so each test method starts clean
-        _DeprecatingKey._warned.clear()
-        _SigMFDeprecatingMeta._warned.clear()
-
-    def tearDown(self):
-        _DeprecatingKey._warned.clear()
-        _SigMFDeprecatingMeta._warned.clear()
-
-    DEPRECATED_PAIRS = [
-        ("START_INDEX_KEY", "SAMPLE_START_KEY"),
-        ("LENGTH_INDEX_KEY", "SAMPLE_COUNT_KEY"),
-        ("START_OFFSET_KEY", "OFFSET_KEY"),
-        ("HASH_KEY", "SHA512_KEY"),
-        ("FLO_KEY", "FREQ_LOWER_EDGE_KEY"),
-        ("FHI_KEY", "FREQ_UPPER_EDGE_KEY"),
-        ("LAT_KEY", "LATITUDE_KEY"),
-        ("LON_KEY", "LONGITUDE_KEY"),
-    ]
-
-    def test_deprecated_names_emit_warning(self):
-        """accessing old names on SigMFFile should emit DeprecationWarning"""
-        for old_name, new_name in self.DEPRECATED_PAIRS:
-            with self.subTest(old_name=old_name):
-                with self.assertWarns(DeprecationWarning):
-                    getattr(SigMFFile, old_name)
-
-    def test_deprecated_names_return_correct_value(self):
-        """old names should return same value as new names"""
-        for old_name, new_name in self.DEPRECATED_PAIRS:
-            with self.subTest(old_name=old_name, new_name=new_name):
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", DeprecationWarning)
-                    old_val = getattr(SigMFFile, old_name)
-                new_val = getattr(sigmf, new_name)
-                self.assertEqual(old_val, new_val)
-
-    def test_new_keys_accessible_at_module_level(self):
-        """new key constants should be importable directly from sigmf"""
-        self.assertEqual(sigmf.SAMPLE_START_KEY, "core:sample_start")
-        self.assertEqual(sigmf.SHA512_KEY, "core:sha512")
-        self.assertEqual(sigmf.FREQ_LOWER_EDGE_KEY, "core:freq_lower_edge")
-        self.assertEqual(sigmf.SIGMF_ARCHIVE_EXT, ".sigmf")
-
-    def test_class_key_access_emits_warning(self):
-        """accessing any field key constant on SigMFFile class should emit DeprecationWarning"""
-        sample_keys = [
-            "SAMPLE_START_KEY", "SAMPLE_COUNT_KEY", "SHA512_KEY",
-            "FREQ_LOWER_EDGE_KEY", "DATATYPE_KEY", "SAMPLE_RATE_KEY",
-        ]
-        for name in sample_keys:
-            with self.subTest(name=name):
-                with self.assertWarns(DeprecationWarning):
-                    getattr(SigMFFile, name)
-
-    def test_class_key_access_returns_correct_value(self):
-        """class-level key access should still return the correct string value"""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            self.assertEqual(sigmf.SAMPLE_START_KEY, "core:sample_start")
-            self.assertEqual(sigmf.SAMPLE_COUNT_KEY, "core:sample_count")
-            self.assertEqual(sigmf.SHA512_KEY, "core:sha512")
-
-    def test_instance_key_access_emits_warning(self):
-        """accessing a field key constant on a SigMFFile instance should also emit DeprecationWarning"""
-        sig = SigMFFile()
-        with self.assertWarns(DeprecationWarning):
-            _ = sig.SAMPLE_START_KEY
-
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_with_global_info(self):
+        """test that global_info dict is merged into metadata"""
+        meta = sigmf.fromarray(
+            TEST_FLOAT32_DATA, sample_rate=4000, global_info={"core:author": "test_author", "core:description": "test"}
+        )
+        self.assertEqual(meta.get_global_field("core:author"), "test_author")
+        self.assertEqual(meta.get_global_field("core:description"), "test")

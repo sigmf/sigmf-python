@@ -177,7 +177,7 @@ def wav_to_sigmf(
             filenames = get_sigmf_filenames(out_path)
             output_dir = filenames["meta_fn"].parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
+            meta.tofile(filenames["meta_fn"], overwrite=overwrite)
             log.info("wrote SigMF non-conforming metadata to %s", filenames["meta_fn"])
 
         log.debug("created %r", meta)
@@ -202,7 +202,7 @@ def wav_to_sigmf(
             meta = SigMFFile(data_file=data_path, global_info=global_info)
             meta.add_capture(0, metadata=capture_info)
 
-            meta.tofile(filenames["archive_fn"], toarchive=True, overwrite=overwrite)
+            meta.tofile(filenames["archive_fn"], overwrite=overwrite)
             log.info("wrote SigMF archive to %s", filenames["archive_fn"])
             # metadata returned should be for this archive
             meta = fromfile(filenames["archive_fn"])
@@ -220,7 +220,7 @@ def wav_to_sigmf(
         meta = SigMFFile(data_file=data_path, global_info=global_info)
         meta.add_capture(0, metadata=capture_info)
 
-        meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
+        meta.tofile(filenames["meta_fn"], overwrite=overwrite)
         log.info("wrote SigMF metadata to %s", filenames["meta_fn"])
 
     log.debug("created %r", meta)

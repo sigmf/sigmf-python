@@ -46,8 +46,9 @@ import numpy as np
 import sigmf
 
 data = np.array([0.1 + 0.2j, 0.3 + 0.4j], dtype=np.complex64)
+meta = sigmf.fromarray(data, sample_rate=48000)
 # creates recording.sigmf-data and recording.sigmf-meta
-meta = sigmf.tofile("recording", data, sample_rate=48000)
+meta.tofile("recording")
 ```
 
 ### Docs
