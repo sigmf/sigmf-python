@@ -330,7 +330,7 @@ class TestCaptures(unittest.TestCase):
         # get a meta pair and archive
         meta = self.prepare(TEST_U8_DATA3, TEST_U8_META3, np.uint8)
         arc_path = self.temp_dir / "arc.sigmf"
-        meta.tofile(arc_path, toarchive=True)
+        meta.tofile(arc_path)
         arc = sigmf.fromfile(arc_path)
         for bdx in range(3):
             self.assertEqual(meta.get_capture_byte_boundaries(bdx), arc.get_capture_byte_boundaries(bdx))
@@ -478,15 +478,15 @@ class TestOverwrite(unittest.TestCase):
     def test_prevent_archive_overwrite(self):
         """tofile archive raises exception when archive exists and overwrite=False"""
         # create existing archive
-        self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+        self.sigmf_obj.tofile(self.test_archive_path)
         with self.assertRaises(error.SigMFFileError) as context:
-            self.sigmf_obj.tofile(self.test_archive_path, toarchive=True, overwrite=False)
+            self.sigmf_obj.tofile(self.test_archive_path, overwrite=False)
         self.assertIn("already exists", str(context.exception))
 
     def test_archive_overwrite_works(self):
         """tofile archive succeeds when archive exists and overwrite=True"""
         # create existing archive
-        self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+        self.sigmf_obj.tofile(self.test_archive_path)
         self.assertTrue(self.test_archive_path.exists())
         original_checksum = self.sigmf_obj.get_global_field("core:sha512")
 
@@ -497,7 +497,7 @@ class TestOverwrite(unittest.TestCase):
         alt_sigmf.set_data_file(self.alt_data_path)
 
         # should succeed with overwrite=True and content should change
-        alt_sigmf.tofile(self.test_archive_path, toarchive=True, overwrite=True)
+        alt_sigmf.tofile(self.test_archive_path, overwrite=True)
         self.assertTrue(self.test_archive_path.exists())
 
         # verify by reading the archive content back
@@ -511,11 +511,73 @@ class TestOverwrite(unittest.TestCase):
         """overwrite defaults to False for safety"""
         # create existing files
         self.sigmf_obj.tofile(self.test_meta_path)
-        self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+        self.sigmf_obj.tofile(self.test_archive_path)
 
         # should raise exceptions with default overwrite=False
         with self.assertRaises(error.SigMFFileError):
             self.sigmf_obj.tofile(self.test_meta_path)
 
         with self.assertRaises(error.SigMFFileError):
-            self.sigmf_obj.tofile(self.test_archive_path, toarchive=True)
+            self.sigmf_obj.tofile(self.test_archive_path)
+
+
+class TestFromarrayConvenience(unittest.TestCase):
+    """Tests for the sigmf.fromarray() convenience function."""
+
+    def setUp(self):
+        self.temp_dir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    def test_basic_creation(self):
+        """test creating SigMFFile from array"""
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        self.assertEqual(meta.get_global_field(SigMFFile.SAMPLE_RATE_KEY), 4000)
+        self.assertEqual(meta.get_global_field(SigMFFile.DATATYPE_KEY), "rf32_le")
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
+
+    def test_with_frequency(self):
+        """test that frequency kwarg populates capture metadata"""
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000, frequency=915e6)
+        self.assertEqual(meta.get_capture_info(0).get("core:frequency"), 915e6)
+
+    def test_write_separate_files(self):
+        """test writing to separate meta and data files"""
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        path = self.temp_dir / "basic"
+        meta.tofile(str(path))
+        self.assertTrue((self.temp_dir / "basic.sigmf-data").exists())
+        self.assertTrue((self.temp_dir / "basic.sigmf-meta").exists())
+        readback = sigmf.fromfile(str(path))
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
+
+    def test_write_archive(self):
+        """test writing to uncompressed archive"""
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        path = self.temp_dir / "archived.sigmf"
+        meta.tofile(str(path))
+        self.assertTrue((self.temp_dir / "archived.sigmf").exists())
+        self.assertFalse((self.temp_dir / "archived.sigmf-data").exists())
+        self.assertFalse((self.temp_dir / "archived.sigmf-meta").exists())
+        readback = sigmf.fromfile(str(path))
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
+
+    def test_write_compressed_archive(self):
+        """test writing to compressed archive"""
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        path = self.temp_dir / "comp.sigmf.xz"
+        meta.tofile(str(path))
+        self.assertTrue((self.temp_dir / "comp.sigmf.xz").exists())
+        self.assertFalse((self.temp_dir / "comp.sigmf-data").exists())
+        self.assertFalse((self.temp_dir / "comp.sigmf-meta").exists())
+        readback = sigmf.fromfile(str(path))
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
+
+    def test_with_global_info(self):
+        """test that global_info dict is merged into metadata"""
+        meta = sigmf.fromarray(
+            TEST_FLOAT32_DATA, sample_rate=4000, global_info={"core:author": "test_author", "core:description": "test"}
+        )
+        self.assertEqual(meta.get_global_field("core:author"), "test_author")
+        self.assertEqual(meta.get_global_field("core:description"), "test")

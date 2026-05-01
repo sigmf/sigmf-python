@@ -28,11 +28,27 @@ meta = sigmf.fromfile("recording.sigmf-meta")
 samples = meta[0:1024]  # get first 1024 samples
 sample_rate = meta.sample_rate  # get sample rate
 
+# read compressed SigMF archives
+meta = sigmf.fromfile("recording.sigmf.gz")   # gzip-compressed
+meta = sigmf.fromfile("recording.sigmf.xz")   # xz-compressed
+meta = sigmf.fromfile("recording.sigmf.zip")  # zip archive
 
 # read other formats containing RF time series as SigMF
 meta = sigmf.fromfile("recording.wav")   # WAV
 meta = sigmf.fromfile("recording.cdif")  # BLUE / Platinum
 meta = sigmf.fromfile("recording.xml")   # Signal Hound Spike
+```
+
+### Write SigMF
+
+```python
+import numpy as np
+import sigmf
+
+data = np.array([0.1 + 0.2j, 0.3 + 0.4j], dtype=np.complex64)
+meta = sigmf.fromarray(data, sample_rate=48000)
+# creates recording.sigmf-data and recording.sigmf-meta
+meta.tofile("recording")
 ```
 
 ### Docs

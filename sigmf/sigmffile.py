@@ -19,9 +19,12 @@ from . import __specification__, __version__, hashing, schema, validate
 from .archive import (
     SIGMF_ARCHIVE_EXT,
     SIGMF_COLLECTION_EXT,
+    SIGMF_COMPRESSED_EXTS,
     SIGMF_DATASET_EXT,
     SIGMF_METADATA_EXT,
     SigMFArchive,
+    _detect_compression,
+    _get_archive_basename,
 )
 from .error import (
     SigMFAccessError,
@@ -30,7 +33,7 @@ from .error import (
     SigMFFileError,
     SigMFFileExistsError,
 )
-from .utils import dict_merge
+from .utils import dict_merge, get_data_type_str
 
 
 class SigMFMetafile:
@@ -573,7 +576,9 @@ class SigMFFile(SigMFMetafile):
 
         end_byte = start_byte
         if index == len(self.get_captures()) - 1:  # last captures...data is the rest of the file
-            if self.data_file is not None:
+            if self.data_size_bytes is not None:
+                file_size = self.data_size_bytes
+            elif self.data_file is not None:
                 file_size = self.data_file.stat().st_size
             elif self.data_buffer is not None:
                 file_size = len(self.data_buffer.getbuffer())
@@ -796,7 +801,7 @@ class SigMFFile(SigMFMetafile):
         """
         validate.validate(self._metadata, self.get_schema())
 
-    def archive(self, name=None, fileobj=None, overwrite=False):
+    def archive(self, name=None, fileobj=None, compression=None, overwrite=False):
         """Dump contents to SigMF archive format.
 
         `name` and `fileobj` are passed to SigMFArchive and are defined there.
@@ -807,43 +812,95 @@ class SigMFFile(SigMFMetafile):
             Name of the archive file to create. If None, a temporary file will be created.
         fileobj : file-like object, optional
             A file-like object to write the archive to. If None, a file will be created at `name`.
+        compression : str, optional
+            Compression type: "gz", "xz", "zip", or None (default).
+            If None and `name` has a recognized compressed extension,
+            compression is auto-detected from the extension.
         overwrite : bool, default False
             If False, raise exception if archive file already exists.
         """
-        archive = SigMFArchive(self, name, fileobj, overwrite=overwrite)
+        archive = SigMFArchive(self, name, fileobj, compression=compression, overwrite=overwrite)
         return archive.path
 
-    def tofile(self, file_path, pretty=True, toarchive=False, skip_validate=False, overwrite=False):
+    def tofile(self, file_path, pretty=True, toarchive=False, compression=None, skip_validate=False, overwrite=False):
         """
-        Write metadata file or full archive containing metadata & dataset.
+        Write metadata file or archive based on file extension.
+
+        The file extension determines the output format:
+        - No extension or other extension → `.sigmf-meta` file (and `.sigmf-data` if data_buffer exists)
+        - `.sigmf` → uncompressed archive
+        - `.sigmf.gz`, `.sigmf.xz`, `.sigmf.zip` → compressed archive
 
         Parameters
         ----------
         file_path : string
-            Location to save.
+            Location to save. Extension determines output format.
         pretty : bool, default True
-            When True will write more human-readable output, otherwise will be flat JSON.
+            When True will write human-readable JSON, otherwise flat JSON.
         toarchive : bool, default False
-            If True will write both dataset & metadata into SigMF archive format as a single `tar` file.
-            If False will only write metadata to `sigmf-meta`.
+            If True, forces archive creation (writes metadata and data to archive) regardless of file extension.
+        compression : str, optional
+            Compression type: "gz", "xz", "zip", or None.
+            If specified, must match file extension if extension implies compression.
+            If no archive extension is present, creates a compressed archive.
         skip_validate : bool, default False
             Skip validation of metadata before writing.
         overwrite : bool, default False
             If False, raise exception if output file already exists.
+
+        Examples
+        --------
+        >>> from sigmf.siggen import SigMFGenerator
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> meta = SigMFGenerator().generate()
+        >>> tmpdir = Path(tempfile.mkdtemp())
+        >>> meta.tofile(tmpdir / 'recording')                # creates recording.sigmf-meta and recording.sigmf-data pair
+        >>> meta.tofile(tmpdir / 'recording.sigmf')          # creates recording.sigmf (archive)
+        >>> meta.tofile(tmpdir / 'recording.sigmf.gz')       # creates recording.sigmf.gz (compressed)
+        >>> meta.tofile(tmpdir / 'other', compression='xz')  # creates other.sigmf.xz
         """
         if not skip_validate:
             self.validate()
-        fns = get_sigmf_filenames(file_path)
+
+        path = Path(file_path)
+
+        # auto-detect compression from extension
+        detected_compression = _detect_compression(path)
+        if detected_compression is not None:
+            if compression is not None and compression != detected_compression:
+                raise SigMFFileError(
+                    f"Extension implies '{detected_compression}' compression but compression='{compression}' was specified."
+                )
+            compression = detected_compression
+            toarchive = True
+
+        # auto-detect archive from .sigmf extension
+        if path.name.lower().endswith(SIGMF_ARCHIVE_EXT):
+            toarchive = True
+
+        # compression implies archive
+        if compression is not None:
+            toarchive = True
 
         if toarchive:
-            self.archive(fns["archive_fn"], overwrite=overwrite)
+            # pass the original file_path to archive() so it handles extension properly
+            self.archive(file_path, compression=compression, overwrite=overwrite)
         else:
-            # check if metadata file exists
+            # write metadata file (and data file if data_buffer exists)
+            fns = get_sigmf_filenames(file_path)
             if not overwrite and fns["meta_fn"].exists():
                 raise SigMFFileExistsError(fns["meta_fn"], "Metadata file")
             with open(fns["meta_fn"], "w") as fp:
                 self.dump(fp, pretty=pretty)
                 fp.write("\n")  # text files should end in carriage return
+
+            # write data file if data_buffer exists
+            if self.data_buffer is not None:
+                if not overwrite and fns["data_fn"].exists():
+                    raise SigMFFileExistsError(fns["data_fn"], "Data file")
+                with open(fns["data_fn"], "wb") as fp:
+                    fp.write(self.data_buffer.getbuffer())
 
     def read_samples_in_capture(self, index=0):
         """
@@ -1249,6 +1306,70 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     return None
 
 
+def fromarray(data, sample_rate, frequency=None, global_info=None):
+    """
+    Create a SigMFFile from a numpy array.
+
+    Convenience function that infers the SigMF datatype from the numpy dtype,
+    creates an in-memory SigMFFile with a single capture at index 0. The
+    returned object can then be written to disk using ``tofile()`` or
+    ``archive()``. For full control over captures, annotations, and global
+    fields, use ``SigMFFile`` directly.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Signal samples.
+    sample_rate : float
+        Sample rate in Hz.
+    frequency : float, optional
+        Center frequency in Hz for the capture.
+    global_info : dict, optional
+        Additional global metadata fields to include.
+
+    Returns
+    -------
+    SigMFFile
+        The SigMFFile object with in-memory data and metadata.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> data = np.random.randn(1000) + 1j * np.random.randn(1000)
+    >>> meta = fromarray(data, sample_rate=1e6, frequency=915e6) # returns SigMFFile
+    >>> tmpdir = Path(tempfile.mkdtemp())
+    >>> meta.tofile(tmpdir / 'recording')        # creates recording.sigmf-meta and recording.sigmf-data
+    >>> meta.tofile(tmpdir / 'recording.sigmf')  # creates recording.sigmf archive
+    """
+    import io
+
+    # create in-memory data buffer
+    data_buffer = io.BytesIO()
+    data_buffer.write(data.tobytes())
+    data_buffer.seek(0)
+
+    # build metadata
+    info = {
+        SigMFFile.DATATYPE_KEY: get_data_type_str(data),
+        SigMFFile.SAMPLE_RATE_KEY: sample_rate,
+    }
+    if global_info is not None:
+        info.update(global_info)
+
+    capture_meta = None
+    if frequency is not None:
+        capture_meta = {SigMFFile.FREQUENCY_KEY: frequency}
+
+    # create sigmffile object with in-memory buffer
+    meta = SigMFFile(global_info=info)
+    meta.set_data_file(data_buffer=data_buffer)
+    meta.add_capture(0, metadata=capture_meta)
+
+    return meta
+
+
 def fromarchive(archive_path, dir=None, skip_checksum=False, autoscale=True):
     """Extract an archive and return a SigMFFile.
 
@@ -1319,6 +1440,11 @@ def fromfile(filename, skip_checksum=False, autoscale=True):
 
     # group SigMF extensions for cleaner checking
     sigmf_extensions = (SIGMF_METADATA_EXT, SIGMF_DATASET_EXT, SIGMF_COLLECTION_EXT, SIGMF_ARCHIVE_EXT)
+
+    # try compressed SigMF archive (.sigmf.gz, .sigmf.xz, .sigmf.zip)
+    for comp_ext in SIGMF_COMPRESSED_EXTS.values():
+        if file_path.name.lower().endswith(comp_ext) and Path.is_file(file_path):
+            return fromarchive(file_path, skip_checksum=skip_checksum, autoscale=autoscale)
 
     # try SigMF archive
     if (ext.endswith(SIGMF_ARCHIVE_EXT) or not Path.is_file(meta_fn)) and Path.is_file(archive_fn):
