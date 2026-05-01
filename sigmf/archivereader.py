@@ -116,6 +116,8 @@ class SigMFArchiveReader:
                     with tar_obj.extractfile(memb) as fid:
                         data_buffer = io.BytesIO(fid.read())
 
+        if json_contents is None:
+            raise SigMFFileError("No .sigmf-meta file found in archive!")
         if data_buffer is None:
             raise SigMFFileError("No .sigmf-data file found in archive!")
         return json_contents, data_buffer, data_size_bytes
@@ -151,6 +153,8 @@ class SigMFArchiveReader:
                 data_size_bytes = len(raw)
                 data_buffer = io.BytesIO(raw)
 
+        if json_contents is None:
+            raise SigMFFileError("No .sigmf-meta file found in archive!")
         if data_buffer is None:
             raise SigMFFileError("No .sigmf-data file found in archive!")
         return json_contents, data_buffer, data_size_bytes
@@ -188,6 +192,8 @@ class SigMFArchiveReader:
 
         tar_obj.close()
 
+        if json_contents is None:
+            raise SigMFFileError("No .sigmf-meta file found in archive!")
         if data_offset is None:
             raise SigMFFileError("No .sigmf-data file found in archive!")
 

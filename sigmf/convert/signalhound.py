@@ -18,8 +18,7 @@ from xml.etree.ElementTree import Element
 import defusedxml.ElementTree as ET
 import numpy as np
 
-from .. import SigMFFile, fromfile
-from .. import keys
+from .. import SigMFFile, fromfile, keys
 from ..error import SigMFConversionError
 from ..sigmffile import get_sigmf_filenames
 from ..utils import SIGMF_DATETIME_ISO8601_FMT

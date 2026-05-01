@@ -138,6 +138,14 @@ SIGMF_COMPRESSED_EXTS = {
 # all recognized archive extensions (uncompressed + compressed)
 SIGMF_ARCHIVE_EXTS = {SIGMF_ARCHIVE_EXT} | set(SIGMF_COMPRESSED_EXTS.values())
 
+# all SigMF file suffixes
+SIGMF_SUFFIXES = [
+    SIGMF_DATASET_EXT,
+    SIGMF_METADATA_EXT,
+    SIGMF_ARCHIVE_EXT,
+    SIGMF_COLLECTION_EXT,
+]
+
 # ---------------------------------------------------------------------------
 # deprecated alias map — used by _SigMFDeprecatingMeta in sigmffile.py
 # maps old_name -> (new_name, value)
@@ -210,4 +218,5 @@ __all__ = [
     "SIGMF_COLLECTION_EXT",
     "SIGMF_COMPRESSED_EXTS",
     "SIGMF_ARCHIVE_EXTS",
+    "SIGMF_SUFFIXES",
 ]

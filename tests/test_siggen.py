@@ -1,4 +1,3 @@
-import sigmf
 # Copyright: Multiple Authors
 #
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
@@ -12,6 +11,7 @@ import unittest
 import numpy as np
 import numpy.testing as npt
 
+import sigmf
 from sigmf import SigMFFile
 from sigmf.error import SigMFGeneratorError
 from sigmf.siggen import SigMFGenerator
@@ -257,9 +257,7 @@ class TestSigGen(unittest.TestCase):
         self.assertEqual(tone_annotation[sigmf.COMMENT_KEY], "test")
 
         # verify tone frequency edges account for offset (1000 + 200 = 1200 Hz center)
-        center_freq = (
-            tone_annotation[sigmf.FREQ_LOWER_EDGE_KEY] + tone_annotation[sigmf.FREQ_UPPER_EDGE_KEY]
-        ) / 2
+        center_freq = (tone_annotation[sigmf.FREQ_LOWER_EDGE_KEY] + tone_annotation[sigmf.FREQ_UPPER_EDGE_KEY]) / 2
         self.assertAlmostEqual(center_freq, 1200.0, places=1)
 
         # find and verify noise annotation
@@ -320,8 +318,8 @@ class TestSigGen(unittest.TestCase):
         signal_1 = SigMFGenerator(seed=42).tone().phase_offset(phase_offset).generate()
 
         # tone annotations are last after sorting (full-signal annotations start at 0)
-        start_idx_0 = signal_0.get_annotations()[0][sigmf.SAMPLE_START_KEY]
-        start_idx_1 = signal_1.get_annotations()[0][sigmf.SAMPLE_START_KEY]
+        start_idx_0 = signal_0.get_annotations()[-1][sigmf.SAMPLE_START_KEY]
+        start_idx_1 = signal_1.get_annotations()[-1][sigmf.SAMPLE_START_KEY]
 
         # both should start at the same sample index (same seed)
         self.assertEqual(start_idx_0, start_idx_1)

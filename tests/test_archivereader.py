@@ -11,8 +11,7 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 
-import sigmf
-from sigmf import SigMFArchiveReader, SigMFFile, __specification__
+from sigmf import DATATYPE_KEY, NUM_CHANNELS_KEY, SigMFArchiveReader, SigMFFile, __specification__, fromfile
 
 
 class TestArchiveReader(unittest.TestCase):
@@ -48,25 +47,25 @@ class TestArchiveReader(unittest.TestCase):
                     temp_meta = SigMFFile(
                         data_file=temp_data.name,
                         global_info={
-                            sigmf.DATATYPE_KEY: f"{complex_prefix}{key}_le",
-                            sigmf.NUM_CHANNELS_KEY: num_channels,
+                            DATATYPE_KEY: f"{complex_prefix}{key}_le",
+                            NUM_CHANNELS_KEY: num_channels,
                         },
                     )
                     temp_meta.tofile(temp_archive.name, overwrite=True)
 
-                    readback = SigMFArchiveReader(temp_archive.name)
-                    readback_samples = readback[:]
+                    loopback = SigMFArchiveReader(temp_archive.name)
+                    loopback_samples = loopback[:]
 
                     if complex_prefix == "c":
                         # complex data will be half as long
                         target_count //= 2
-                        self.assertTrue(np.iscomplexobj(readback_samples))
+                        self.assertTrue(np.iscomplexobj(loopback_samples))
                     if num_channels != 1:
                         # check expected # of channels
                         self.assertEqual(
-                            readback_samples.ndim,
+                            loopback_samples.ndim,
                             2,
-                            "Mismatch in shape of readback samples.",
+                            "Mismatch in shape of loopback samples.",
                         )
                     target_count //= num_channels
 
@@ -77,8 +76,8 @@ class TestArchiveReader(unittest.TestCase):
                     )
                     self.assertEqual(
                         target_count,
-                        len(readback),
-                        "Mismatch in expected readback length",
+                        len(loopback),
+                        "Mismatch in expected loopback length",
                     )
 
 
@@ -86,7 +85,7 @@ def test_archiveread_data_file_unchanged(test_sigmffile):
     with NamedTemporaryFile(suffix=".sigmf") as temp_file:
         input_samples = test_sigmffile.read_samples()
         test_sigmffile.archive(temp_file.name, overwrite=True)
-        arc = sigmf.fromfile(temp_file.name)
+        arc = fromfile(temp_file.name)
         output_samples = arc.read_samples()
 
         assert np.array_equal(input_samples, output_samples)

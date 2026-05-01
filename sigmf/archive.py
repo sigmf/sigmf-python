@@ -75,36 +75,6 @@ def _get_archive_basename(path):
         return name[: -len(SIGMF_ARCHIVE_EXT)]
     return path.stem
 
-SIGMF_COMPRESSED_EXTS = {
-    # compression type -> unique compound extension
-    "gz": ".sigmf.gz",
-    "xz": ".sigmf.xz",
-    "zip": ".sigmf.zip",
-}
-
-# all recognized archive extensions (uncompressed + compressed)
-SIGMF_ARCHIVE_EXTS = {SIGMF_ARCHIVE_EXT} | set(SIGMF_COMPRESSED_EXTS.values())
-
-
-def _detect_compression(path):
-    """Detect compression type from a file path's extension(s).
-
-    Parameters
-    ----------
-    path : Path
-        Path to check.
-
-    Returns
-    -------
-    str or None
-        Compression type ("gz", "xz", "zip") or None for uncompressed.
-    """
-    name = str(path).lower()
-    for comp_type, ext in SIGMF_COMPRESSED_EXTS.items():
-        if name.endswith(ext):
-            return comp_type
-    return None
-
 
 def _get_archive_basename(path):
     """Get the archive base name (without any sigmf archive extension).
@@ -207,7 +177,6 @@ class SigMFArchive:
         with open(meta_path, "w") as handle:
             self.sigmffile.dump(handle)
         if isinstance(self.sigmffile.data_buffer, io.BytesIO):
-            self.sigmffile.data_file = data_path
             with open(data_path, "wb") as handle:
                 handle.write(self.sigmffile.data_buffer.getbuffer())
         else:

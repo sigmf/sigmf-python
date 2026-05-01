@@ -1,4 +1,3 @@
-import sigmf
 # Copyright: Multiple Authors
 #
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
@@ -18,6 +17,7 @@ import numpy as np
 from hypothesis import given
 from hypothesis import strategies as st
 
+import sigmf
 from sigmf.error import SigMFFileError
 from sigmf.sigmffile import SigMFFile, fromfile
 

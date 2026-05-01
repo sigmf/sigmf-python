@@ -561,7 +561,7 @@ class SigMFGenerator:
             annotations.append(phase_annotation)
 
         # sort annotations by sample_start to satisfy sigmf ordering requirement
-        annotations.sort(key=lambda a: a[SigMFFile.START_INDEX_KEY])
+        annotations.sort(key=lambda a: a[keys.SAMPLE_START_KEY])
 
         return annotations
 

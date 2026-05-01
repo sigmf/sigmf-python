@@ -1,4 +1,3 @@
-import sigmf
 # Copyright: Multiple Authors
 #
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
@@ -19,8 +18,7 @@ from pathlib import Path
 import jsonschema
 import numpy as np
 
-from sigmf import SigMFFile, __specification__, error, fromfile
-from sigmf.archive import SIGMF_DATASET_EXT, SIGMF_METADATA_EXT
+from sigmf import DATATYPE_KEY, SigMFFile, __specification__, error, fromfile
 from sigmf.archivereader import SigMFArchiveReader
 
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
@@ -114,7 +112,7 @@ class TestSigMFArchive(unittest.TestCase):
         basedir, file1, file2 = self.sigmf_tarfile.getmembers()
         archive_name = basedir.name
         self.assertEqual(archive_name, Path(self.temp_path_archive).stem)
-        file_extensions = {SIGMF_DATASET_EXT, SIGMF_METADATA_EXT}
+        file_extensions = {".sigmf-data", ".sigmf-meta"}
 
         file1_name, file1_ext = Path(file1.name).stem, Path(file1.name).suffix
         self.assertEqual(file1_name, archive_name)
@@ -136,7 +134,7 @@ class TestSigMFArchive(unittest.TestCase):
     def test_archive_contents_match_original_data(self):
         """Test archive contents"""
         _, file1, file2 = self.sigmf_tarfile.getmembers()
-        if file1.name.endswith(SIGMF_METADATA_EXT):
+        if file1.name.endswith(".sigmf-meta"):
             mdfile = file1
             datfile = file2
         else:
@@ -202,12 +200,12 @@ class TestCompressedArchive(unittest.TestCase):
             path = self.temp_dir / f"test.{ext}"
             self.sigmf_object.archive(name=path, overwrite=True)
             self.assertTrue(path.exists())
-            readback = fromfile(str(path))
-            np.testing.assert_array_equal(self.original_samples, readback[:])
+            loopback = fromfile(path)
+            np.testing.assert_array_equal(self.original_samples, loopback[:])
             # verify metadata preserved
             self.assertEqual(
-                self.sigmf_object.get_global_field(SigMFFile.DATATYPE_KEY),
-                readback.get_global_field(SigMFFile.DATATYPE_KEY),
+                self.sigmf_object.get_global_field(DATATYPE_KEY),
+                loopback.get_global_field(DATATYPE_KEY),
             )
 
     def test_compressed_smaller_than_uncompressed(self):
@@ -231,8 +229,8 @@ class TestCompressedArchive(unittest.TestCase):
         self.sigmf_object.archive(name=path, compression="gz", overwrite=True)
         expected = self.temp_dir / "foo.sigmf.gz"
         self.assertTrue(expected.exists())
-        readback = fromfile(str(expected))
-        np.testing.assert_array_equal(self.original_samples, readback[:])
+        loopback = fromfile(expected)
+        np.testing.assert_array_equal(self.original_samples, loopback[:])
 
     def test_invalid_compression_raises_error(self):
         """invalid compression type raises error"""
@@ -247,7 +245,7 @@ class TestCompressedArchive(unittest.TestCase):
         with self.assertRaises(error.SigMFFileError):
             self.sigmf_object.archive(name=path, compression="xz", overwrite=True)
         with self.assertRaises(error.SigMFFileError):
-            self.sigmf_object.tofile(str(path), compression="xz", overwrite=True)
+            self.sigmf_object.tofile(path, compression="xz", overwrite=True)
 
     def test_uncompressed_archive_uses_memmap(self):
         """uncompressed archives use memmap for data access"""
@@ -259,39 +257,39 @@ class TestCompressedArchive(unittest.TestCase):
     def test_tofile_sigmf_ext(self):
         """tofile() with .sigmf extension creates archive"""
         path = self.temp_dir / "foo.sigmf"
-        self.sigmf_object.tofile(str(path), overwrite=True)
+        self.sigmf_object.tofile(path, overwrite=True)
         self.assertTrue(path.exists())
         self.assertFalse((self.temp_dir / "foo.sigmf-meta").exists())
-        readback = fromfile(str(path))
-        np.testing.assert_array_equal(self.original_samples, readback[:])
+        loopback = fromfile(path)
+        np.testing.assert_array_equal(self.original_samples, loopback[:])
 
     def test_tofile_compressed_ext(self):
         """tofile() with compressed extensions creates compressed archives"""
         for ext, name in [("gz", "bar"), ("xz", "baz"), ("zip", "qux")]:
             path = self.temp_dir / f"{name}.sigmf.{ext}"
-            self.sigmf_object.tofile(str(path), overwrite=True)
+            self.sigmf_object.tofile(path, overwrite=True)
             self.assertTrue(path.exists())
             self.assertFalse((self.temp_dir / f"{name}.sigmf.{ext}.sigmf-meta").exists())
-            readback = fromfile(str(path))
-            np.testing.assert_array_equal(self.original_samples, readback[:])
+            loopback = fromfile(path)
+            np.testing.assert_array_equal(self.original_samples, loopback[:])
 
     def test_tofile_explicit_compression(self):
         """tofile() with explicit compression parameter adds correct extension"""
         path = self.temp_dir / "foo"
-        self.sigmf_object.tofile(str(path), compression="xz", overwrite=True)
+        self.sigmf_object.tofile(path, compression="xz", overwrite=True)
         expected = self.temp_dir / "foo.sigmf.xz"
         self.assertTrue(expected.exists())
         self.assertFalse((self.temp_dir / "foo.sigmf").exists())
-        readback = fromfile(str(expected))
-        np.testing.assert_array_equal(self.original_samples, readback[:])
+        loopback = fromfile(expected)
+        np.testing.assert_array_equal(self.original_samples, loopback[:])
 
     def test_archive_sigmf_ext(self):
         """archive() with .sigmf extension creates archive"""
         path = self.temp_dir / "bar.sigmf"
         self.sigmf_object.archive(name=path, overwrite=True)
         self.assertTrue(path.exists())
-        readback = fromfile(str(path))
-        np.testing.assert_array_equal(self.original_samples, readback[:])
+        loopback = fromfile(path)
+        np.testing.assert_array_equal(self.original_samples, loopback[:])
 
     def test_archive_compressed_ext(self):
         """archive() with compressed extensions creates compressed archives"""
@@ -299,8 +297,8 @@ class TestCompressedArchive(unittest.TestCase):
             path = self.temp_dir / f"{name}.sigmf.{ext}"
             self.sigmf_object.archive(name=path, overwrite=True)
             self.assertTrue(path.exists())
-            readback = fromfile(str(path))
-            np.testing.assert_array_equal(self.original_samples, readback[:])
+            loopback = fromfile(path)
+            np.testing.assert_array_equal(self.original_samples, loopback[:])
 
     def test_archive_explicit_compression(self):
         """archive() with explicit compression parameter adds correct extension"""
@@ -308,8 +306,8 @@ class TestCompressedArchive(unittest.TestCase):
         self.sigmf_object.archive(name=path, compression="xz", overwrite=True)
         expected = self.temp_dir / "qux.sigmf.xz"
         self.assertTrue(expected.exists())
-        readback = fromfile(str(expected))
-        np.testing.assert_array_equal(self.original_samples, readback[:])
+        loopback = fromfile(expected)
+        np.testing.assert_array_equal(self.original_samples, loopback[:])
 
     def test_data_buffer_writes_data_file(self):
         """tofile() with data_buffer writes both metadata and data files"""
@@ -325,7 +323,7 @@ class TestCompressedArchive(unittest.TestCase):
 
         # tofile without archive extension should create separate files
         path = self.temp_dir / "generated"
-        meta.tofile(str(path), overwrite=True)
+        meta.tofile(path, overwrite=True)
 
         # should create both .sigmf-meta and .sigmf-data
         expected_meta = self.temp_dir / "generated.sigmf-meta"
@@ -334,5 +332,5 @@ class TestCompressedArchive(unittest.TestCase):
         self.assertTrue(expected_data.exists())
 
         # verify data roundtrips correctly
-        readback = fromfile(str(path))
-        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
+        loopback = fromfile(path)
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, loopback[:])

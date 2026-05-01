@@ -1,4 +1,3 @@
-import sigmf
 # Copyright: Multiple Authors
 #
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
@@ -18,7 +17,6 @@ import numpy as np
 from hypothesis import given
 from hypothesis import strategies as st
 
-from sigmf.archive import SIGMF_COLLECTION_EXT, SIGMF_DATASET_EXT, SIGMF_METADATA_EXT
 from sigmf.sigmffile import SigMFCollection, SigMFFile, fromfile
 
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
@@ -38,11 +36,11 @@ class TestCollection(unittest.TestCase):
     @given(st.sampled_from([".", "subdir/", "sub0/sub1/sub2/"]))
     def test_load_collection(self, subdir: str) -> None:
         """test path handling for collections"""
-        data_name1 = "dat1" + SIGMF_DATASET_EXT
-        data_name2 = "dat2" + SIGMF_DATASET_EXT
-        meta_name1 = "dat1" + SIGMF_METADATA_EXT
-        meta_name2 = "dat2" + SIGMF_METADATA_EXT
-        collection_name = "collection" + SIGMF_COLLECTION_EXT
+        data_name1 = "dat1.sigmf-data"
+        data_name2 = "dat2.sigmf-data"
+        meta_name1 = "dat1.sigmf-meta"
+        meta_name2 = "dat2.sigmf-meta"
+        collection_name = "collection.sigmf-collection"
         data_path1 = self.temp_dir / subdir / data_name1
         data_path2 = self.temp_dir / subdir / data_name2
         meta_path1 = self.temp_dir / subdir / meta_name1

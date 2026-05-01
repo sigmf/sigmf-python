@@ -503,10 +503,10 @@ class TestOverwrite(unittest.TestCase):
         self.assertTrue(self.test_archive_path.exists())
 
         # verify by reading the archive content back
-        readback_sigmf = sigmf.fromarchive(self.test_archive_path)
-        new_checksum = readback_sigmf.get_global_field("core:sha512")
+        loopback_sigmf = sigmf.fromarchive(self.test_archive_path)
+        new_checksum = loopback_sigmf.get_global_field("core:sha512")
 
-        self.assertEqual(readback_sigmf.get_global_field("core:description"), "overwritten archive")
+        self.assertEqual(loopback_sigmf.get_global_field("core:description"), "overwritten archive")
         self.assertNotEqual(original_checksum, new_checksum, "SHA512 checksum should change when overwritten")
 
     def test_default_behavior(self):
@@ -535,8 +535,8 @@ class TestFromarrayConvenience(unittest.TestCase):
     def test_basic_creation(self):
         """test creating SigMFFile from array"""
         meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
-        self.assertEqual(meta.get_global_field(SigMFFile.SAMPLE_RATE_KEY), 4000)
-        self.assertEqual(meta.get_global_field(SigMFFile.DATATYPE_KEY), "rf32_le")
+        self.assertEqual(meta.get_global_field(sigmf.SAMPLE_RATE_KEY), 4000)
+        self.assertEqual(meta.get_global_field(sigmf.DATATYPE_KEY), "rf32_le")
         np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
 
     def test_with_frequency(self):
@@ -551,8 +551,8 @@ class TestFromarrayConvenience(unittest.TestCase):
         meta.tofile(str(path))
         self.assertTrue((self.temp_dir / "basic.sigmf-data").exists())
         self.assertTrue((self.temp_dir / "basic.sigmf-meta").exists())
-        readback = sigmf.fromfile(str(path))
-        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
+        loopback = sigmf.fromfile(str(path))
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, loopback[:])
 
     def test_write_archive(self):
         """test writing to uncompressed archive"""
@@ -562,8 +562,8 @@ class TestFromarrayConvenience(unittest.TestCase):
         self.assertTrue((self.temp_dir / "archived.sigmf").exists())
         self.assertFalse((self.temp_dir / "archived.sigmf-data").exists())
         self.assertFalse((self.temp_dir / "archived.sigmf-meta").exists())
-        readback = sigmf.fromfile(str(path))
-        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
+        loopback = sigmf.fromfile(str(path))
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, loopback[:])
 
     def test_write_compressed_archive(self):
         """test writing to compressed archive"""
@@ -573,8 +573,8 @@ class TestFromarrayConvenience(unittest.TestCase):
         self.assertTrue((self.temp_dir / "comp.sigmf.xz").exists())
         self.assertFalse((self.temp_dir / "comp.sigmf-data").exists())
         self.assertFalse((self.temp_dir / "comp.sigmf-meta").exists())
-        readback = sigmf.fromfile(str(path))
-        np.testing.assert_array_equal(TEST_FLOAT32_DATA, readback[:])
+        loopback = sigmf.fromfile(str(path))
+        np.testing.assert_array_equal(TEST_FLOAT32_DATA, loopback[:])
 
     def test_with_global_info(self):
         """test that global_info dict is merged into metadata"""

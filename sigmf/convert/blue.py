@@ -25,8 +25,8 @@ from typing import Optional, Tuple
 import numpy as np
 from packaging.version import InvalidVersion, Version
 
-from ..error import SigMFConversionError
 from .. import keys
+from ..error import SigMFConversionError
 from ..sigmffile import SigMFFile, fromfile, get_sigmf_filenames
 from ..utils import SIGMF_DATETIME_ISO8601_FMT
 

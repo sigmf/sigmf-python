@@ -1,4 +1,3 @@
-import sigmf
 # Copyright: Multiple Authors
 #
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
@@ -13,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
+import sigmf
 from sigmf import SigMFFile, __specification__, __version__
 
 

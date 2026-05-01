@@ -1,4 +1,3 @@
-import sigmf
 # Copyright: Multiple Authors
 #
 # This file is part of sigmf-python. https://github.com/sigmf/sigmf-python
@@ -17,7 +16,8 @@ from pathlib import Path
 
 import numpy as np
 
-from sigmf import SigMFFile, hashing
+import sigmf
+from sigmf import SigMFFile, TRAILING_BYTES_KEY, hashing
 
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 
@@ -45,7 +45,7 @@ class TestHashCalculation(unittest.TestCase):
         # Create SigMF metadata for NCD
         ncd_metadata = deepcopy(TEST_METADATA)
         del ncd_metadata["global"][sigmf.SHA512_KEY]
-        ncd_metadata["global"][sigmf.TRAILING_BYTES_KEY] = 32
+        ncd_metadata["global"][TRAILING_BYTES_KEY] = 32
         meta = SigMFFile(metadata=ncd_metadata)
         meta.set_data_file(data_path, offset=64)
 

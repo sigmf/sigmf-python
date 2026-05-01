@@ -17,9 +17,8 @@ from typing import Optional, Tuple
 import numpy as np
 
 from .. import SigMFFile
-from .. import keys
 from .. import __version__ as toolversion
-from .. import fromfile
+from .. import fromfile, keys
 from ..error import SigMFFileExistsError
 from ..sigmffile import get_sigmf_filenames
 from ..utils import SIGMF_DATETIME_ISO8601_FMT, get_data_type_str

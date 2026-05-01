@@ -39,9 +39,9 @@ from .utils import dict_merge, get_data_type_str
 
 
 class _DeprecatingKey:
-    '''Descriptor that emits DeprecationWarning when a field key constant is
+    """Descriptor that emits DeprecationWarning when a field key constant is
     accessed from the class or an instance, directing users to the sigmf module level.
-    Each attribute name only warns once per interpreter session.'''
+    Each attribute name only warns once per interpreter session."""
 
     _warned: set = set()
 
@@ -1368,15 +1368,15 @@ def fromarray(data, sample_rate, frequency=None, global_info=None):
 
     # build metadata
     info = {
-        SigMFFile.DATATYPE_KEY: get_data_type_str(data),
-        SigMFFile.SAMPLE_RATE_KEY: sample_rate,
+        keys.DATATYPE_KEY: get_data_type_str(data),
+        keys.SAMPLE_RATE_KEY: sample_rate,
     }
     if global_info is not None:
         info.update(global_info)
 
     capture_meta = None
     if frequency is not None:
-        capture_meta = {SigMFFile.FREQUENCY_KEY: frequency}
+        capture_meta = {keys.FREQUENCY_KEY: frequency}
 
     # create sigmffile object with in-memory buffer
     meta = SigMFFile(global_info=info)
@@ -1537,13 +1537,7 @@ def get_sigmf_filenames(filename):
     # If the path has a sigmf suffix, remove it. Otherwise do not remove the
     # suffix, because the filename might contain '.' characters which are part
     # of the filename rather than an extension.
-    sigmf_suffixes = [
-        SIGMF_DATASET_EXT,
-        SIGMF_METADATA_EXT,
-        SIGMF_ARCHIVE_EXT,
-        SIGMF_COLLECTION_EXT,
-    ]
-    if stem_path.suffix in sigmf_suffixes:
+    if stem_path.suffix in keys.SIGMF_SUFFIXES:
         with_suffix_path = stem_path
         stem_path = stem_path.with_suffix("")
     else:

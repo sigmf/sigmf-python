@@ -1,4 +1,3 @@
-import sigmf
 """Tests for dynamic attribute access functionality."""
 
 import copy
@@ -6,6 +5,7 @@ import unittest
 
 import numpy as np
 
+import sigmf
 from sigmf import SigMFFile
 from sigmf.error import SigMFAccessError
 
@@ -26,11 +26,8 @@ class TestDynamicAttributeAccess(unittest.TestCase):
     def test_getter_existing_fields(self):
         """test attribute getters for existing core fields"""
         # test common core fields
-        # self.assertEqual(self.meta.sample_rate, self.meta.get_global_field(sigmf.SAMPLE_RATE_KEY))
-        # self.assertEqual(self.meta.author, self.meta.get_global_field(sigmf.AUTHOR_KEY))
         self.assertEqual(self.meta.datatype, self.meta.get_global_field(sigmf.DATATYPE_KEY))
         self.assertEqual(self.meta.sha512, self.meta.get_global_field(sigmf.SHA512_KEY))
-        # self.assertEqual(self.meta.description, self.meta.get_global_field(sigmf.DESCRIPTION_KEY))
 
     def test_getter_missing_core_fields(self):
         """test that getter raises SigMFAccessError for missing core fields"""
