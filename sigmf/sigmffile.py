@@ -850,10 +850,15 @@ class SigMFFile(SigMFMetafile):
 
         Examples
         --------
-        >>> meta.tofile('recording')                # creates recording.sigmf-meta
-        >>> meta.tofile('recording.sigmf')          # creates recording.sigmf (archive)
-        >>> meta.tofile('recording.sigmf.gz')       # creates recording.sigmf.gz (compressed)
-        >>> meta.tofile('recording', compression='xz')  # creates recording.sigmf.xz
+        >>> from sigmf.siggen import SigMFGenerator
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> meta = SigMFGenerator().generate()
+        >>> tmpdir = Path(tempfile.mkdtemp())
+        >>> meta.tofile(tmpdir / 'recording')                # creates recording.sigmf-meta and recording.sigmf-data pair
+        >>> meta.tofile(tmpdir / 'recording.sigmf')          # creates recording.sigmf (archive)
+        >>> meta.tofile(tmpdir / 'recording.sigmf.gz')       # creates recording.sigmf.gz (compressed)
+        >>> meta.tofile(tmpdir / 'other', compression='xz')  # creates other.sigmf.xz
         """
         if not skip_validate:
             self.validate()
@@ -1330,10 +1335,13 @@ def fromarray(data, sample_rate, frequency=None, global_info=None):
     Examples
     --------
     >>> import numpy as np
+    >>> import tempfile
+    >>> from pathlib import Path
     >>> data = np.random.randn(1000) + 1j * np.random.randn(1000)
-    >>> meta = fromarray(data, sample_rate=1e6, frequency=915e6)
-    >>> meta.tofile('recording')  # creates recording.sigmf-meta and recording.sigmf-data
-    >>> meta.tofile('recording.sigmf')  # creates recording.sigmf archive
+    >>> meta = fromarray(data, sample_rate=1e6, frequency=915e6) # returns SigMFFile
+    >>> tmpdir = Path(tempfile.mkdtemp())
+    >>> meta.tofile(tmpdir / 'recording')        # creates recording.sigmf-meta and recording.sigmf-data
+    >>> meta.tofile(tmpdir / 'recording.sigmf')  # creates recording.sigmf archive
     """
     import io
 

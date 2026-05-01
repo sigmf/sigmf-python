@@ -29,8 +29,8 @@ formats and reads without writing any output files:
 
     # auto-detect and create NCD for any supported format
     meta = sigmf.fromfile("recording.cdif")  # BLUE file
-    meta = sigmf.fromfile("recording.wav")   # WAV file
-    meta = sigmf.fromfile("recording.xml")   # Signal Hound Spike file
+    meta = sigmf.fromfile("recording.wav")  # WAV file
+    meta = sigmf.fromfile("recording.xml")  # Signal Hound Spike file
     meta = sigmf.fromfile("recording.sigmf")  # SigMF archive
 
     all_samples = meta.read_samples()
