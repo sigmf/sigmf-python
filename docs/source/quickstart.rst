@@ -53,17 +53,20 @@ Save a Numpy array as a SigMF Recording
     # suppose we have a complex timeseries signal
     data = np.zeros(1024, dtype=np.complex64)
 
-    # write to disk — datatype is inferred from the numpy array
-    meta = sigmf.tofile("example", data, sample_rate=48000, frequency=915e6)
+    # create SigMFFile from array — datatype is inferred from the numpy array
+    meta = sigmf.fromarray(data, sample_rate=48000, frequency=915e6)
+
+    # write to separate .sigmf-meta and .sigmf-data files
+    meta.tofile("example")
 
     # or write to a SigMF archive (example.sigmf)
-    meta = sigmf.tofile("example.sigmf", data, sample_rate=48000, frequency=915e6)
+    meta.tofile("example.sigmf")
 
-    # or write directly to a compressed archive (example.sigmf.xz)
-    meta = sigmf.tofile("example", data, sample_rate=48000, compression="xz")
+    # or write to a compressed archive (example.sigmf.xz)
+    meta.tofile("example.sigmf.xz")
 
-The returned ``SigMFFile`` object can be used to add captures, annotations,
-or archive the recording.
+The ``SigMFFile`` object can be modified before writing to add additional
+captures, annotations, or global metadata fields.
 
 ---------------------------------------------------
 Save a Numpy array with Full Metadata (Advanced)

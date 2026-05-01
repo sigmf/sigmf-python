@@ -200,8 +200,8 @@ read it, this can be done "in mid air" or "without touching the ground (disk)".
 Compressed SigMF Archives
 ------------------------------
 
-SigMF archives can be compressed using gzip, xz, or zip. The compression format
-is determined by the file extension:
+SigMF archives can be compressed using gzip, xz, or zip.
+The file extension determines the archive format:
 
 +---------------------+-------------+
 | Extension           | Format      |
@@ -222,24 +222,23 @@ is determined by the file extension:
     >>> import sigmf
     >>> signal = sigmf.sigmffile.fromfile('recording.sigmf-meta')
 
-    # compress by extension
-    >>> signal.archive('recording.sigmf.xz')
+    # extension determines format
+    >>> signal.tofile('recording.sigmf.xz')
+    >>> signal.archive('recording.sigmf.gz')
 
-    # or specify compression explicitly
-    >>> signal.archive('recording.sigmf', compression='gz')
+    # compression parameter creates archive with correct extension
+    >>> signal.tofile('recording', compression='xz')  # → recording.sigmf.xz
+    >>> signal.archive('recording', compression='gz') # → recording.sigmf.gz
 
 **Reading compressed archives:**
 
 ::
 
-    >>> arc = sigmf.SigMFArchiveReader('recording.sigmf.xz')
-    >>> arc[:10]
+    >>> signal = sigmf.fromfile('recording.sigmf.xz')
+    >>> signal[:10]
     array([-20.+11.j, ...], dtype=complex64)
 
 **Memory behavior:**
 
-Uncompressed ``.sigmf`` archives use ``numpy.memmap`` to access the data
-directly inside the tar file — no extra memory is needed, even for very large
-recordings. Compressed archives (``.sigmf.gz``, ``.sigmf.xz``, ``.sigmf.zip``)
-must decompress the data into RAM before it can be accessed. Keep this in mind
-when working with large compressed recordings.
+Uncompressed ``.sigmf`` archives use ``numpy.memmap`` for zero-copy access.
+Compressed archives must decompress into RAM before access.

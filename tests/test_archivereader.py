@@ -52,7 +52,7 @@ class TestArchiveReader(unittest.TestCase):
                             SigMFFile.NUM_CHANNELS_KEY: num_channels,
                         },
                     )
-                    temp_meta.tofile(temp_archive.name, toarchive=True, overwrite=True)
+                    temp_meta.tofile(temp_archive.name, overwrite=True)
 
                     readback = SigMFArchiveReader(temp_archive.name)
                     readback_samples = readback[:]

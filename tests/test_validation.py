@@ -39,7 +39,7 @@ class CommandLineValidator(unittest.TestCase):
         some_meta = SigMFFile(copy.deepcopy(TEST_METADATA), data_file=junk_path)
         some_meta.tofile(tmp_path / "a")
         some_meta.tofile(tmp_path / "b")
-        some_meta.tofile(tmp_path / "c", toarchive=True)
+        some_meta.tofile(tmp_path / "c.sigmf")
 
     def tearDown(self):
         """cleanup"""

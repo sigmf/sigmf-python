@@ -10,12 +10,12 @@ import getpass
 import io
 import logging
 import tempfile
-import defusedxml.ElementTree as ET
-from xml.etree.ElementTree import Element
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
+from xml.etree.ElementTree import Element
 
+import defusedxml.ElementTree as ET
 import numpy as np
 
 from .. import SigMFFile, fromfile
@@ -407,7 +407,7 @@ def signalhound_to_sigmf(
         if out_path is not None:
             output_dir = filenames["meta_fn"].parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
+            meta.tofile(filenames["meta_fn"], overwrite=overwrite)
             log.info("wrote SigMF non-conforming metadata to %s", filenames["meta_fn"])
 
         log.debug("created %r", meta)
@@ -435,7 +435,7 @@ def signalhound_to_sigmf(
 
             output_dir = filenames["archive_fn"].parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            meta.tofile(filenames["archive_fn"], toarchive=True, overwrite=overwrite)
+            meta.tofile(filenames["archive_fn"], overwrite=overwrite)
             log.info("wrote SigMF archive to %s", filenames["archive_fn"])
             # metadata returned should be for this archive
             meta = fromfile(filenames["archive_fn"])
@@ -460,7 +460,7 @@ def signalhound_to_sigmf(
         _add_annotations(meta, annotations)
 
         # write metadata file
-        meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
+        meta.tofile(filenames["meta_fn"], overwrite=overwrite)
         log.info("wrote SigMF metadata to %s", filenames["meta_fn"])
 
     log.debug("created %r", meta)
