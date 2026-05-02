@@ -76,38 +76,6 @@ def _get_archive_basename(path):
     return path.stem
 
 
-def _get_archive_basename(path):
-    """Get the archive base name (without any sigmf archive extension).
-
-    Parameters
-    ----------
-    path : Path
-        Archive file path.
-
-    Returns
-    -------
-    str
-        Base name without sigmf extension.
-
-    Examples
-    --------
-    >>> _get_archive_basename(Path("recording.sigmf"))
-    'recording'
-    >>> _get_archive_basename(Path("recording.sigmf.gz"))
-    'recording'
-    >>> _get_archive_basename(Path("my.recording.sigmf.zip"))
-    'my.recording'
-    """
-    name = path.name
-    # check compound extensions first (longest match)
-    for ext in sorted(SIGMF_COMPRESSED_EXTS.values(), key=len, reverse=True):
-        if name.endswith(ext):
-            return name[: -len(ext)]
-    if name.endswith(SIGMF_ARCHIVE_EXT):
-        return name[: -len(SIGMF_ARCHIVE_EXT)]
-    return path.stem
-
-
 class SigMFArchive:
     """
     Archive a SigMFFile into a tar or zip file, optionally with compression.

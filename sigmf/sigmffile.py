@@ -633,7 +633,7 @@ class SigMFFile(SigMFMetafile):
         new_annot = metadata or {}
         new_annot[keys.SAMPLE_START_KEY] = start_index
         if length is not None:
-            if length <= 0:
+            if length < 0:
                 raise SigMFAccessError("Annotation `length` must be >= 0")
             new_annot[keys.SAMPLE_COUNT_KEY] = length
 
@@ -724,7 +724,7 @@ class SigMFFile(SigMFMetafile):
     def _get_sample_count_from_annotations(self):
         """
         Returns the number of samples based on annotation with highest end index.
-        NOTE: Annotations are ordered by START_INDEX_KEY and not end index, so we
+        NOTE: Annotations are ordered by SAMPLE_START_KEY and not end index, so we
         need to go through all annotations
         """
         annon_sample_count = []
