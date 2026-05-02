@@ -17,6 +17,7 @@ import numpy as np
 from hypothesis import given
 from hypothesis import strategies as st
 
+import sigmf
 from sigmf.error import SigMFFileError
 from sigmf.sigmffile import SigMFFile, fromfile
 
@@ -80,11 +81,11 @@ class TestNonConformingDataset(unittest.TestCase):
 
         # create metadata that references the ncd file
         ncd_metadata = copy.deepcopy(TEST_METADATA)
-        ncd_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.DATASET_KEY] = f"{base_name}.fleeb"
-        ncd_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.NUM_CHANNELS_KEY] = 1
-        ncd_metadata[SigMFFile.GLOBAL_KEY][SigMFFile.DATATYPE_KEY] = "rf32_le"
-        ncd_metadata[SigMFFile.GLOBAL_KEY].pop(SigMFFile.HASH_KEY, None)
-        ncd_metadata[SigMFFile.ANNOTATION_KEY] = [{SigMFFile.LENGTH_INDEX_KEY: 4, SigMFFile.START_INDEX_KEY: 0}]
+        ncd_metadata[SigMFFile.GLOBAL_KEY][sigmf.DATASET_KEY] = f"{base_name}.fleeb"
+        ncd_metadata[SigMFFile.GLOBAL_KEY][sigmf.NUM_CHANNELS_KEY] = 1
+        ncd_metadata[SigMFFile.GLOBAL_KEY][sigmf.DATATYPE_KEY] = "rf32_le"
+        ncd_metadata[SigMFFile.GLOBAL_KEY].pop(sigmf.SHA512_KEY, None)
+        ncd_metadata[SigMFFile.ANNOTATION_KEY] = [{sigmf.SAMPLE_COUNT_KEY: 4, sigmf.SAMPLE_START_KEY: 0}]
 
         # write metadata file
         meta = SigMFFile(metadata=ncd_metadata)

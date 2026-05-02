@@ -14,21 +14,14 @@ import zipfile
 from pathlib import Path
 
 from .error import SigMFFileError, SigMFFileExistsError
-
-SIGMF_ARCHIVE_EXT = ".sigmf"
-SIGMF_METADATA_EXT = ".sigmf-meta"
-SIGMF_DATASET_EXT = ".sigmf-data"
-SIGMF_COLLECTION_EXT = ".sigmf-collection"
-
-SIGMF_COMPRESSED_EXTS = {
-    # compression type -> unique compound extension
-    "gz": ".sigmf.gz",
-    "xz": ".sigmf.xz",
-    "zip": ".sigmf.zip",
-}
-
-# all recognized archive extensions (uncompressed + compressed)
-SIGMF_ARCHIVE_EXTS = {SIGMF_ARCHIVE_EXT} | set(SIGMF_COMPRESSED_EXTS.values())
+from .keys import (
+    SIGMF_ARCHIVE_EXT,
+    SIGMF_ARCHIVE_EXTS,
+    SIGMF_COLLECTION_EXT,
+    SIGMF_COMPRESSED_EXTS,
+    SIGMF_DATASET_EXT,
+    SIGMF_METADATA_EXT,
+)
 
 
 def _detect_compression(path):
@@ -152,7 +145,6 @@ class SigMFArchive:
         with open(meta_path, "w") as handle:
             self.sigmffile.dump(handle)
         if isinstance(self.sigmffile.data_buffer, io.BytesIO):
-            self.sigmffile.data_file = data_path
             with open(data_path, "wb") as handle:
                 handle.write(self.sigmffile.data_buffer.getbuffer())
         else:

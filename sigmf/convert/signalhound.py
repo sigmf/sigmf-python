@@ -18,7 +18,7 @@ from xml.etree.ElementTree import Element
 import defusedxml.ElementTree as ET
 import numpy as np
 
-from .. import SigMFFile, fromfile
+from .. import SigMFFile, fromfile, keys
 from ..error import SigMFConversionError
 from ..sigmffile import get_sigmf_filenames
 from ..utils import SIGMF_DATETIME_ISO8601_FMT
@@ -240,13 +240,13 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     # base global metadata
     global_md = {
-        SigMFFile.AUTHOR_KEY: getpass.getuser(),
-        SigMFFile.DATATYPE_KEY: data_type,
-        SigMFFile.HW_KEY: hardware_description,
-        SigMFFile.NUM_CHANNELS_KEY: 1,
-        SigMFFile.RECORDER_KEY: "Official SigMF Signal Hound converter",
-        SigMFFile.SAMPLE_RATE_KEY: sample_rate,
-        SigMFFile.EXTENSIONS_KEY: [{"name": "spike", "version": "0.0.1", "optional": True}],
+        keys.AUTHOR_KEY: getpass.getuser(),
+        keys.DATATYPE_KEY: data_type,
+        keys.HW_KEY: hardware_description,
+        keys.NUM_CHANNELS_KEY: 1,
+        keys.RECORDER_KEY: "Official SigMF Signal Hound converter",
+        keys.SAMPLE_RATE_KEY: sample_rate,
+        keys.EXTENSIONS_KEY: [{"name": "spike", "version": "0.0.1", "optional": True}],
     }
 
     # add optional spike-specific fields to global metadata using spike: namespace
@@ -264,10 +264,10 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     # capture info
     capture_info = {
-        SigMFFile.FREQUENCY_KEY: center_frequency,
+        keys.FREQUENCY_KEY: center_frequency,
     }
     if iso_8601_string:
-        capture_info[SigMFFile.DATETIME_KEY] = iso_8601_string
+        capture_info[keys.DATETIME_KEY] = iso_8601_string
 
     # create annotations array using calculated values
     annotations = []
@@ -276,11 +276,11 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
         lower_frequency_edge = center_frequency - (if_bandwidth / 2.0)
         annotations.append(
             {
-                SigMFFile.START_INDEX_KEY: 0,
-                SigMFFile.LENGTH_INDEX_KEY: sample_count_calculated,
-                SigMFFile.FLO_KEY: lower_frequency_edge,
-                SigMFFile.FHI_KEY: upper_frequency_edge,
-                SigMFFile.LABEL_KEY: "Spike",
+                keys.SAMPLE_START_KEY: 0,
+                keys.SAMPLE_COUNT_KEY: sample_count_calculated,
+                keys.FREQ_LOWER_EDGE_KEY: lower_frequency_edge,
+                keys.FREQ_UPPER_EDGE_KEY: upper_frequency_edge,
+                keys.LABEL_KEY: "Spike",
             }
         )
 
@@ -326,10 +326,10 @@ def convert_iq_data(xml_path: Path, sample_count: int) -> np.ndarray:
 
 def _add_annotations(meta: SigMFFile, annotations: list) -> None:
     for annotation in annotations:
-        start_idx = annotation.get(SigMFFile.START_INDEX_KEY, 0)
-        length = annotation.get(SigMFFile.LENGTH_INDEX_KEY)
+        start_idx = annotation.get(keys.SAMPLE_START_KEY, 0)
+        length = annotation.get(keys.SAMPLE_COUNT_KEY)
         annot_metadata = {
-            k: v for k, v in annotation.items() if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]
+            k: v for k, v in annotation.items() if k not in [keys.SAMPLE_START_KEY, keys.SAMPLE_COUNT_KEY]
         }
         meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
 
@@ -388,9 +388,9 @@ def signalhound_to_sigmf(
     # create NCD if specified, otherwise create standard SigMF dataset or archive
     if create_ncd:
         # spike files have no header or trailing bytes
-        global_info[SigMFFile.DATASET_KEY] = signalhound_path.with_suffix(".iq").name
-        global_info[SigMFFile.TRAILING_BYTES_KEY] = 0
-        capture_info[SigMFFile.HEADER_BYTES_KEY] = 0
+        global_info[keys.DATASET_KEY] = signalhound_path.with_suffix(".iq").name
+        global_info[keys.TRAILING_BYTES_KEY] = 0
+        capture_info[keys.HEADER_BYTES_KEY] = 0
 
         # build the .iq file path for data file
         base_file_name = signalhound_path.with_suffix("")
