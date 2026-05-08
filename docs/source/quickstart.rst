@@ -10,11 +10,18 @@ Here we discuss how to do all basic operations with SigMF.
 Install
 -------
 
-To install the latest PyPi release, install from pip:
+To install from PyPI using pip:
 
 .. code-block:: console
 
     $ pip install sigmf
+
+To install using conda or mamba (available via `Miniforge <https://conda-forge.org/download/>`_):
+
+.. code-block:: console
+
+    $ conda install sigmf # or
+    $ mamba install sigmf
 
 ----------------------
 Read a SigMF Recording

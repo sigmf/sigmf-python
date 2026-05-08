@@ -16,6 +16,10 @@ This module follows the SigMF specification [html](https://sigmf.org/)/[pdf](htt
 
 ```bash
 pip install sigmf
+# or
+conda install sigmf
+# or
+mamba install sigmf
 ```
 
 ### Read SigMF

@@ -8,13 +8,13 @@ This page is for developers of the ``sigmf-python`` module.
 Install
 -------
 
-To install the latest git release, build from source:
+To install from source:
 
 .. code-block:: console
 
    $ git clone https://github.com/sigmf/sigmf-python.git
    $ cd sigmf-python
-   $ pip install .
+   $ pip install .[test]
 
 -------
 Testing
