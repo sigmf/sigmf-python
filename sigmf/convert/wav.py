@@ -18,7 +18,7 @@ import numpy as np
 
 from .. import SigMFFile
 from .. import __version__ as toolversion
-from .. import fromfile
+from .. import fromfile, keys
 from ..error import SigMFFileExistsError
 from ..sigmffile import get_sigmf_filenames
 from ..utils import SIGMF_DATETIME_ISO8601_FMT, get_data_type_str
@@ -145,25 +145,25 @@ def wav_to_sigmf(
             datatype_str = get_data_type_str(wav_data)
 
     global_info = {
-        SigMFFile.DATATYPE_KEY: datatype_str,
-        SigMFFile.DESCRIPTION_KEY: f"converted from {wav_path.name}",
-        SigMFFile.NUM_CHANNELS_KEY: n_channels,
-        SigMFFile.RECORDER_KEY: "Official SigMF WAV converter",
-        SigMFFile.SAMPLE_RATE_KEY: samp_rate,
+        keys.DATATYPE_KEY: datatype_str,
+        keys.DESCRIPTION_KEY: f"converted from {wav_path.name}",
+        keys.NUM_CHANNELS_KEY: n_channels,
+        keys.RECORDER_KEY: "Official SigMF WAV converter",
+        keys.SAMPLE_RATE_KEY: samp_rate,
     }
 
     modify_time = wav_path.lstat().st_mtime
     wav_datetime = datetime.fromtimestamp(modify_time, tz=timezone.utc)
 
     capture_info = {
-        SigMFFile.DATETIME_KEY: wav_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT),
+        keys.DATETIME_KEY: wav_datetime.strftime(SIGMF_DATETIME_ISO8601_FMT),
     }
 
     if create_ncd:
         # NCD requires extra fields
-        global_info[SigMFFile.TRAILING_BYTES_KEY] = trailing_bytes
-        global_info[SigMFFile.DATASET_KEY] = wav_path.name
-        capture_info[SigMFFile.HEADER_BYTES_KEY] = header_bytes
+        global_info[keys.TRAILING_BYTES_KEY] = trailing_bytes
+        global_info[keys.DATASET_KEY] = wav_path.name
+        capture_info[keys.HEADER_BYTES_KEY] = header_bytes
 
         # create metadata-only SigMF for NCD pointing to original file
         meta = SigMFFile(global_info=global_info)

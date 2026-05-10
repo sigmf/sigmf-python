@@ -11,6 +11,7 @@ from typing import Optional
 
 import numpy as np
 
+from . import keys
 from .error import SigMFGeneratorError
 from .sigmffile import SigMFFile
 from .utils import get_data_type_str, get_sigmf_iso8601_datetime_now
@@ -492,9 +493,9 @@ class SigMFGenerator:
 
             # base annotation common to all components
             base_annotation = {
-                SigMFFile.START_INDEX_KEY: start_sample,
-                SigMFFile.LENGTH_INDEX_KEY: end_sample - start_sample,
-                SigMFFile.GENERATOR_KEY: generator_name,
+                keys.SAMPLE_START_KEY: start_sample,
+                keys.SAMPLE_COUNT_KEY: end_sample - start_sample,
+                keys.GENERATOR_KEY: generator_name,
             }
 
             if component["type"] == "tone":
@@ -504,9 +505,9 @@ class SigMFGenerator:
 
                 base_annotation.update(
                     {
-                        SigMFFile.FLO_KEY: total_freq - bandwidth / 2,
-                        SigMFFile.FHI_KEY: total_freq + bandwidth / 2,
-                        SigMFFile.LABEL_KEY: f"tone at {base_freq:.0f} Hz",
+                        keys.FREQ_LOWER_EDGE_KEY: total_freq - bandwidth / 2,
+                        keys.FREQ_UPPER_EDGE_KEY: total_freq + bandwidth / 2,
+                        keys.LABEL_KEY: f"tone at {base_freq:.0f} Hz",
                     }
                 )
 
@@ -516,9 +517,9 @@ class SigMFGenerator:
 
                 base_annotation.update(
                     {
-                        SigMFFile.FLO_KEY: min(start_freq, end_freq),
-                        SigMFFile.FHI_KEY: max(start_freq, end_freq),
-                        SigMFFile.LABEL_KEY: f"sweep from {component['start_frequency_hz']:.0f} to {component['end_frequency_hz']:.0f} Hz",
+                        keys.FREQ_LOWER_EDGE_KEY: min(start_freq, end_freq),
+                        keys.FREQ_UPPER_EDGE_KEY: max(start_freq, end_freq),
+                        keys.LABEL_KEY: f"sweep from {component['start_frequency_hz']:.0f} to {component['end_frequency_hz']:.0f} Hz",
                     }
                 )
 
@@ -526,15 +527,15 @@ class SigMFGenerator:
 
         # add user comment to first component if provided
         if self._comment is not None and len(annotations) > 0:
-            annotations[0][SigMFFile.COMMENT_KEY] = self._comment
+            annotations[0][keys.COMMENT_KEY] = self._comment
 
         # helper function to create full-signal annotations
         def create_full_signal_annotation(label: str) -> dict:
             return {
-                SigMFFile.START_INDEX_KEY: 0,
-                SigMFFile.LENGTH_INDEX_KEY: len(samples),
-                SigMFFile.GENERATOR_KEY: generator_name,
-                SigMFFile.LABEL_KEY: label,
+                keys.SAMPLE_START_KEY: 0,
+                keys.SAMPLE_COUNT_KEY: len(samples),
+                keys.GENERATOR_KEY: generator_name,
+                keys.LABEL_KEY: label,
             }
 
         # noise annotation if snr was applied
@@ -542,8 +543,8 @@ class SigMFGenerator:
             noise_annotation = create_full_signal_annotation(f"AWGN {self._snr_db:.1f} dB SNR")
             noise_annotation.update(
                 {
-                    SigMFFile.FLO_KEY: 0.0,
-                    SigMFFile.FHI_KEY: self._sample_rate_hz / 2,  # full nyquist bandwidth
+                    keys.FREQ_LOWER_EDGE_KEY: 0.0,
+                    keys.FREQ_UPPER_EDGE_KEY: self._sample_rate_hz / 2,  # full nyquist bandwidth
                 }
             )
             annotations.append(noise_annotation)
@@ -560,7 +561,7 @@ class SigMFGenerator:
             annotations.append(phase_annotation)
 
         # sort annotations by sample_start to satisfy sigmf ordering requirement
-        annotations.sort(key=lambda a: a[SigMFFile.START_INDEX_KEY])
+        annotations.sort(key=lambda a: a[keys.SAMPLE_START_KEY])
 
         return annotations
 
@@ -595,27 +596,27 @@ class SigMFGenerator:
 
         # create metadata structure
         global_info = {
-            SigMFFile.DATATYPE_KEY: get_data_type_str(samples),
-            SigMFFile.SAMPLE_RATE_KEY: self._sample_rate_hz,
-            SigMFFile.NUM_CHANNELS_KEY: 1,
-            SigMFFile.RECORDER_KEY: generator_info,
-            SigMFFile.DESCRIPTION_KEY: self._description,
+            keys.DATATYPE_KEY: get_data_type_str(samples),
+            keys.SAMPLE_RATE_KEY: self._sample_rate_hz,
+            keys.NUM_CHANNELS_KEY: 1,
+            keys.RECORDER_KEY: generator_info,
+            keys.DESCRIPTION_KEY: self._description,
         }
 
         if self._author is not None:
-            global_info[SigMFFile.AUTHOR_KEY] = self._author
+            global_info[keys.AUTHOR_KEY] = self._author
 
         # create capture info
         capture_info = {
-            SigMFFile.START_INDEX_KEY: 0,
-            SigMFFile.DATETIME_KEY: get_sigmf_iso8601_datetime_now(),
+            keys.SAMPLE_START_KEY: 0,
+            keys.DATETIME_KEY: get_sigmf_iso8601_datetime_now(),
         }
 
         # add frequency if there's a single dominant tone component
         tone_components = [c for c in self._signal_components if c["type"] == "tone"]
         if len(tone_components) == 1 and len(self._signal_components) == 1:
             dominant_freq = tone_components[0]["frequency_hz"] + self._frequency_offset_hz
-            capture_info[SigMFFile.FREQUENCY_KEY] = dominant_freq
+            capture_info[keys.FREQUENCY_KEY] = dominant_freq
 
         # create annotations for signal components
         annotations = self._build_annotations(samples)

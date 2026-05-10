@@ -84,7 +84,7 @@ class FailingCases(unittest.TestCase):
     def test_no_version(self):
         """version key must be present"""
         meta = SigMFFile(copy.deepcopy(self.metadata))
-        del meta._metadata[SigMFFile.GLOBAL_KEY][SigMFFile.VERSION_KEY]
+        del meta._metadata[SigMFFile.GLOBAL_KEY][sigmf.VERSION_KEY]
         with self.assertRaises(ValidationError):
             meta.validate()
 
@@ -96,13 +96,13 @@ class FailingCases(unittest.TestCase):
 
     def test_invalid_type(self):
         """license key must be string"""
-        self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.LICENSE_KEY] = 1
+        self.metadata[SigMFFile.GLOBAL_KEY][sigmf.LICENSE_KEY] = 1
         with self.assertRaises(ValidationError):
             SigMFFile(self.metadata).validate()
 
     def test_invalid_capture_order(self):
         """metadata must have captures in order"""
-        self.metadata[SigMFFile.CAPTURE_KEY] = [{SigMFFile.START_INDEX_KEY: 10}, {SigMFFile.START_INDEX_KEY: 9}]
+        self.metadata[SigMFFile.CAPTURE_KEY] = [{sigmf.SAMPLE_START_KEY: 10}, {sigmf.SAMPLE_START_KEY: 9}]
         with self.assertRaises(ValidationError):
             SigMFFile(self.metadata).validate()
 
@@ -110,12 +110,12 @@ class FailingCases(unittest.TestCase):
         """metadata must have annotations in order"""
         self.metadata[SigMFFile.ANNOTATION_KEY] = [
             {
-                SigMFFile.START_INDEX_KEY: 2,
-                SigMFFile.LENGTH_INDEX_KEY: 120000,
+                sigmf.SAMPLE_START_KEY: 2,
+                sigmf.SAMPLE_COUNT_KEY: 120000,
             },
             {
-                SigMFFile.START_INDEX_KEY: 1,
-                SigMFFile.LENGTH_INDEX_KEY: 120000,
+                sigmf.SAMPLE_START_KEY: 1,
+                sigmf.SAMPLE_COUNT_KEY: 120000,
             },
         ]
         with self.assertRaises(ValidationError):
@@ -123,14 +123,14 @@ class FailingCases(unittest.TestCase):
 
     def test_annotation_without_sample_count(self):
         """annotation without length should be accepted"""
-        self.metadata[SigMFFile.ANNOTATION_KEY] = [{SigMFFile.START_INDEX_KEY: 2}]
+        self.metadata[SigMFFile.ANNOTATION_KEY] = [{sigmf.SAMPLE_START_KEY: 2}]
         SigMFFile(self.metadata).validate()
 
     def test_invalid_hash(self):
         """wrong hash raises error on creation"""
         with tempfile.NamedTemporaryFile() as temp_file:
             TEST_FLOAT32_DATA.tofile(temp_file.name)
-            self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.HASH_KEY] = "derp"
+            self.metadata[SigMFFile.GLOBAL_KEY][sigmf.SHA512_KEY] = "derp"
             with self.assertRaises(sigmf.error.SigMFFileError):
                 SigMFFile(metadata=self.metadata, data_file=temp_file.name)
 
@@ -151,7 +151,7 @@ class CheckNamespace(unittest.TestCase):
         """known namespace should not raise a warning"""
         self.metadata[SigMFFile.GLOBAL_KEY]["other_namespace:key"] = 0
         # define other_namespace
-        self.metadata[SigMFFile.GLOBAL_KEY][SigMFFile.EXTENSIONS_KEY] = [
+        self.metadata[SigMFFile.GLOBAL_KEY][sigmf.EXTENSIONS_KEY] = [
             {
                 "name": "other_namespace",
                 "version": "0.0.1",
