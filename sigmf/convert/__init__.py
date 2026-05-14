@@ -87,7 +87,7 @@ def detect_converter(file_path: Path):
     elif file_path.suffix in [".tar"]:
         # iq.tar file extensions are used by Rohde & Schwarz for their IQ data, but the .tar extension is also used by other formats.
         # So parse the tar file to determine if it is a Rohde & Schwarz file or not. 
-        rohde_schwarz_expanded_magic_bytes = get_magic_bytes(file_path, count=20, offset=314) # <RS_IQ_TAR_FileFormat>
+        rohde_schwarz_expanded_magic_bytes = get_magic_bytes(file_path, count=20, offset=0x33A) # <RS_IQ_TAR_FileFormat>
         if rohde_schwarz_expanded_magic_bytes == b"RS_IQ_TAR_FileFormat":
             return "rohdeschwarz"
         else:
