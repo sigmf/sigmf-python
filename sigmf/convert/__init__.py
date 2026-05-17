@@ -11,7 +11,7 @@ from pathlib import Path
 from ..error import SigMFConversionError
 
 
-def get_magic_bytes(file_path: Path, count: int = 4, offset: int = 0) -> bytes:
+def get_magic_bytes(file_path: Path, count: int = 4, offset: int = 0, magic_bytes: bytes | None = None) -> bytes:
     """
     Get magic bytes from a file to help identify file type.
 
@@ -23,6 +23,8 @@ def get_magic_bytes(file_path: Path, count: int = 4, offset: int = 0) -> bytes:
         Number of bytes to read. Default is 4.
     offset : int, optional
         Byte offset to start reading from. Default is 0.
+    magic_bytes : str, optional
+        If provided, search the entire file for this byte sequence. 
 
     Returns
     -------
@@ -36,11 +38,25 @@ def get_magic_bytes(file_path: Path, count: int = 4, offset: int = 0) -> bytes:
     """
     try:
         with open(file_path, "rb") as handle:
+            # If magic_bytes is provided, search anywhere in the file
+            if magic_bytes is not None:
+                data = handle.read()
+                idx = data.find(magic_bytes)
+                if idx != -1:
+                    return magic_bytes
+                raise SigMFConversionError(
+                    f"Magic bytes {magic_bytes} not found anywhere in {file_path}"
+                )
+
+            # Otherwise: read bytes at the given offset
             handle.seek(offset)
             magic_bytes = handle.read(count)
             if len(magic_bytes) < count:
-                raise SigMFConversionError(f"File {file_path} too small to read {count} magic bytes at offset {offset}")
+                raise SigMFConversionError(
+                    f"File {file_path} too small to read {count} bytes at offset {offset}"
+                )
             return magic_bytes
+
     except (IOError, OSError) as err:
         raise SigMFConversionError(f"Cannot read magic bytes from {file_path}: {err}") from err
 
@@ -87,7 +103,7 @@ def detect_converter(file_path: Path):
     elif file_path.suffix in [".tar"]:
         # iq.tar file extensions are used by Rohde & Schwarz for their IQ data, but the .tar extension is also used by other formats.
         # So parse the tar file to determine if it is a Rohde & Schwarz file or not. 
-        rohde_schwarz_expanded_magic_bytes = get_magic_bytes(file_path, count=20, offset=0x33A) # <RS_IQ_TAR_FileFormat>
+        rohde_schwarz_expanded_magic_bytes = get_magic_bytes(file_path, count=20, offset=0,magic_bytes=b"RS_IQ_TAR_FileFormat") # <RS_IQ_TAR_FileFormat>
         if rohde_schwarz_expanded_magic_bytes == b"RS_IQ_TAR_FileFormat":
             return "rohdeschwarz"
         else:
