@@ -16,15 +16,16 @@ from ..error import SigMFConversionError
 from . import detect_converter
 from .blue import blue_to_sigmf
 from .signalhound import signalhound_to_sigmf
+from .signalhound import signalhound_to_sigmf
 from .wav import wav_to_sigmf
-
+from .rohdeschwarz import rohdeschwarz_to_sigmf
 
 def main() -> None:
     """
     Unified entry-point for SigMF conversion of non-SigMF recordings.
 
     This command-line interface converts various non-SigMF file formats into SigMF-compliant datasets.
-    It currently supports WAV and BLUE/Platinum file formats.
+    It currently supports WAV and BLUE/Platinum, Signal Hound Spike and Rohde and Schwarz IQ.TAR  file formats.
     The converter detects the file type based on magic bytes and invokes the appropriate conversion function.
 
     By default it will output a SigMF pair (.sigmf-meta and .sigmf-data).
@@ -94,10 +95,14 @@ def main() -> None:
     elif converter_type == "blue":
         _ = blue_to_sigmf(blue_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
     elif converter_type == "signalhound":
-        _ = signalhound_to_sigmf(
-            signalhound_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd
-        )
+        _ = signalhound_to_sigmf(signalhound_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
+    elif converter_type == "rohdeschwarz":
+        _ = rohdeschwarz_to_sigmf(rohdeschwarz_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
 
+    else:
+            raise SigMFConversionError(
+                f"Supported formats for conversion are WAV, BLUE/Platinum, Signal Hound Spike and Rohde and Schwarz IQ.TAR."
+            )
 
 if __name__ == "__main__":
     main()
