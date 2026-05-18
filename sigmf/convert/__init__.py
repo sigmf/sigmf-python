@@ -7,11 +7,12 @@
 """Convert non-SigMF recordings to SigMF format"""
 
 from pathlib import Path
+from typing import Optional
 
 from ..error import SigMFConversionError
 
 
-def get_magic_bytes(file_path: Path, count: int = 4, offset: int = 0, magic_bytes: bytes | None = None) -> bytes:
+def get_magic_bytes(file_path: Path, count: int = 4, offset: int = 0, magic_bytes: Optional[bytes] = None) -> bytes:
     """
     Get magic bytes from a file to help identify file type.
 
