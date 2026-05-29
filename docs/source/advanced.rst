@@ -22,28 +22,28 @@ the recording of the SigMF logo used in this example `from the specification
     signal = sigmffile.fromfile(path)
 
     # Get some metadata and all annotations
-    sample_rate = signal.get_global_field(SigMFFile.SAMPLE_RATE_KEY)
+    sample_rate = signal.get_global_field(sigmf.SAMPLE_RATE_KEY)
     sample_count = signal.sample_count
     signal_duration = sample_count / sample_rate
     annotations = signal.get_annotations()
 
     # Iterate over annotations
     for adx, annotation in enumerate(annotations):
-        annotation_start_idx = annotation[SigMFFile.START_INDEX_KEY]
-        annotation_length = annotation[SigMFFile.LENGTH_INDEX_KEY]
+        annotation_start_idx = annotation[sigmf.SAMPLE_START_KEY]
+        annotation_length = annotation[sigmf.SAMPLE_COUNT_KEY]
         annotation_comment = annotation.get(
-            SigMFFile.COMMENT_KEY, "[annotation {}]".format(adx)
+            sigmf.COMMENT_KEY, "[annotation {}]".format(adx)
         )
 
         # Get capture info associated with the start of annotation
         capture = signal.get_capture_info(annotation_start_idx)
-        freq_center = capture.get(SigMFFile.FREQUENCY_KEY, 0)
+        freq_center = capture.get(sigmf.FREQUENCY_KEY, 0)
         freq_min = freq_center - 0.5 * sample_rate
         freq_max = freq_center + 0.5 * sample_rate
 
         # Get frequency edges of annotation (default to edges of capture)
-        freq_start = annotation.get(SigMFFile.FLO_KEY)
-        freq_stop = annotation.get(SigMFFile.FHI_KEY)
+        freq_start = annotation.get(sigmf.FREQ_LOWER_EDGE_KEY)
+        freq_stop = annotation.get(sigmf.FREQ_UPPER_EDGE_KEY)
 
         # Get the samples corresponding to annotation
         samples = signal.read_samples(annotation_start_idx, annotation_length)
@@ -74,10 +74,10 @@ First, create a single SigMF Recording and save it to disk:
     meta = SigMFFile(
         data_file="example_cf32.sigmf-data",  # extension is optional
         global_info={
-            SigMFFile.DATATYPE_KEY: get_data_type_str(data),  # in this case, 'cf32_le'
-            SigMFFile.SAMPLE_RATE_KEY: 48000,
-            SigMFFile.AUTHOR_KEY: "jane.doe@domain.org",
-            SigMFFile.DESCRIPTION_KEY: "All zero complex float32 example file.",
+            sigmf.DATATYPE_KEY: get_data_type_str(data),  # in this case, 'cf32_le'
+            sigmf.SAMPLE_RATE_KEY: 48000,
+            sigmf.AUTHOR_KEY: "jane.doe@domain.org",
+            sigmf.DESCRIPTION_KEY: "All zero complex float32 example file.",
         },
     )
 
@@ -85,8 +85,8 @@ First, create a single SigMF Recording and save it to disk:
     meta.add_capture(
         0,
         metadata={
-            SigMFFile.FREQUENCY_KEY: 915000000,
-            SigMFFile.DATETIME_KEY: get_sigmf_iso8601_datetime_now(),
+            sigmf.FREQUENCY_KEY: 915000000,
+            sigmf.DATETIME_KEY: get_sigmf_iso8601_datetime_now(),
         },
     )
 
@@ -95,9 +95,9 @@ First, create a single SigMF Recording and save it to disk:
         100,
         200,
         metadata={
-            SigMFFile.FLO_KEY: 914995000.0,
-            SigMFFile.FHI_KEY: 915005000.0,
-            SigMFFile.COMMENT_KEY: "example annotation",
+            sigmf.FREQ_LOWER_EDGE_KEY: 914995000.0,
+            sigmf.FREQ_UPPER_EDGE_KEY: 915005000.0,
+            sigmf.COMMENT_KEY: "example annotation",
         },
     )
 
@@ -120,9 +120,9 @@ Now lets add another SigMF Recording and associate them with a SigMF Collection:
     meta_ci16 = SigMFFile(
         data_file="example_ci16.sigmf-data",  # extension is optional
         global_info={
-            SigMFFile.DATATYPE_KEY: "ci16_le",  # get_data_type_str() is only valid for numpy types
-            SigMFFile.SAMPLE_RATE_KEY: 48000,
-            SigMFFile.DESCRIPTION_KEY: "All zero complex int16 file.",
+            sigmf.DATATYPE_KEY: "ci16_le",  # get_data_type_str() is only valid for numpy types
+            sigmf.SAMPLE_RATE_KEY: 48000,
+            sigmf.DESCRIPTION_KEY: "All zero complex int16 file.",
         },
     )
     meta_ci16.add_capture(0, metadata=meta.get_capture_info(0))
@@ -155,58 +155,35 @@ The SigMF Collection and its associated Recordings can now be loaded like this:
 Load a SigMF Archive and slice without untaring
 -----------------------------------------------
 
-Since an *archive* is a tarball (uncompressed by default), and since there are many
-excellent tools for manipulating tar files, it's fairly straightforward to
-access the *data* part of a SigMF archive without un-taring it. This is a
-compelling feature because **1** archives make it harder for the ``-data`` and
-the ``-meta`` to get separated, and **2** some datasets are so large that it
-can be impractical (due to available disk space, or slow network speeds if the
-archive file resides on a network file share) or simply obnoxious to untar it
-first.
+Since an *archive* is a tarball (uncompressed by default), you can access the
+*data* part of a SigMF archive without un-taring it. This is a compelling
+feature because **1** archives make it harder for the ``-data`` and the
+``-meta`` to get separated, and **2** some datasets are so large that it can be
+impractical (due to available disk space, or slow network speeds if the archive
+file resides on a network file share) or simply obnoxious to untar it first.
 
 ::
 
     >>> import sigmf
-    >>> arc = sigmf.SigMFArchiveReader('/src/LTE.sigmf')
-    >>> arc.shape
+    >>> signal = sigmf.fromarchive('/src/LTE.sigmf')
+    >>> signal.shape
     (15379532,)
-    >>> arc.ndim
+    >>> signal.ndim
     1
-    >>> arc[:10]
-    array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
-            48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
+    >>> signal[:10]
+    array([-0.023+0.012j, -0.021-0.006j, -0.017-0.020j, -0.013-0.052j,
+            0.000-0.075j,  0.022-0.058j,  0.048-0.044j,  0.049-0.060j,
+            0.031-0.056j,  0.023-0.047j], dtype=complex64)
 
-The preceeding example exhibits another feature of this approach; the archive
-``LTE.sigmf`` is actually ``complex-int16``'s on disk, for which there is no
-corresponding type in ``numpy``. However, the ``.sigmffile`` member keeps track of
-this, and converts the data to ``numpy.complex64`` *after* slicing it, that is,
-after reading it from disk.
+Archives can contain fixed-point data types like ``complex-int16`` (``ci16``),
+which have no direct ``numpy`` equivalent. By default, this data is automatically
+scaled to floating-point values in the range ``[-1.0, 1.0]`` and returned as
+``numpy.complex64``:
 
 ::
 
-    >>> arc.sigmffile.get_global_field(sigmf.SigMFFile.DATATYPE_KEY)
+    >>> signal.get_global_field(sigmf.DATATYPE_KEY)
     'ci16_le'
-
-    >>> arc.sigmffile._memmap.dtype
-    dtype('int16')
-
-    >>> arc.sigmffile._return_type
-    '<c8'
-
-Another supported mode is the case where you might have an archive that *is not
-on disk* but instead is simply ``bytes`` in a python variable.
-
-Instead of needing to write this out to a temporary file before being able to
-read it, this can be done "in mid air" or "without touching the ground (disk)".
-
-::
-
-    >>> import sigmf, io
-    >>> sigmf_bytes = io.BytesIO(open('/src/LTE.sigmf', 'rb').read())
-    >>> arc = sigmf.SigMFArchiveReader(archive_buffer=sigmf_bytes)
-    >>> arc[:10]
-    array([-20.+11.j, -21. -6.j, -17.-20.j, -13.-52.j,   0.-75.j,  22.-58.j,
-            48.-44.j,  49.-60.j,  31.-56.j,  23.-47.j], dtype=complex64)
 
 ------------------------------
 Compressed SigMF Archives
@@ -248,7 +225,7 @@ The file extension determines the archive format:
 
     >>> signal = sigmf.fromfile('recording.sigmf.xz')
     >>> signal[:10]
-    array([-20.+11.j, ...], dtype=complex64)
+    array([-0.023+0.012j, -0.021-0.006j, ...], dtype=complex64)
 
 **Memory behavior:**
 

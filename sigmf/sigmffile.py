@@ -15,13 +15,8 @@ from pathlib import Path
 
 import numpy as np
 
-from . import __specification__, __version__, hashing, schema, validate
+from . import __specification__, __version__, hashing, keys, schema, validate
 from .archive import (
-    SIGMF_ARCHIVE_EXT,
-    SIGMF_COLLECTION_EXT,
-    SIGMF_COMPRESSED_EXTS,
-    SIGMF_DATASET_EXT,
-    SIGMF_METADATA_EXT,
     SigMFArchive,
     _detect_compression,
     _get_archive_basename,
@@ -33,10 +28,64 @@ from .error import (
     SigMFFileError,
     SigMFFileExistsError,
 )
+from .keys import (
+    SIGMF_ARCHIVE_EXT,
+    SIGMF_COLLECTION_EXT,
+    SIGMF_COMPRESSED_EXTS,
+    SIGMF_DATASET_EXT,
+    SIGMF_METADATA_EXT,
+)
 from .utils import dict_merge, get_data_type_str
 
 
-class SigMFMetafile:
+class _DeprecatingKey:
+    """Descriptor that emits DeprecationWarning when a field key constant is
+    accessed from the class or an instance, directing users to the sigmf module level.
+    Each attribute name only warns once per interpreter session."""
+
+    _warned: set = set()
+
+    def __init__(self, value):
+        self._value = value
+        self._attr_name = None
+
+    def __set_name__(self, owner, name):
+        self._attr_name = name
+
+    def __get__(self, obj, objtype=None):
+        if self._attr_name not in _DeprecatingKey._warned:
+            _DeprecatingKey._warned.add(self._attr_name)
+            cls_name = (objtype or type(obj)).__name__
+            warnings.warn(
+                f"{cls_name}.{self._attr_name} is deprecated and will be removed in a future version, "
+                f"use sigmf.{self._attr_name}",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return self._value
+
+
+class _SigMFDeprecatingMeta(type):
+    """Metaclass that emits DeprecationWarning for renamed key constants."""
+
+    _warned: set = set()
+
+    def __getattr__(cls, name):
+        if name in keys._DEPRECATED_ALIASES:
+            new_name, value = keys._DEPRECATED_ALIASES[name]
+            if name not in _SigMFDeprecatingMeta._warned:
+                _SigMFDeprecatingMeta._warned.add(name)
+                warnings.warn(
+                    f"{cls.__name__}.{name} is deprecated and will be removed in a future version, "
+                    f"use sigmf.{new_name} or {cls.__name__}.{new_name}",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+            return value
+        raise AttributeError(f"type object '{cls.__name__}' has no attribute '{name}'")
+
+
+class SigMFMetafile(metaclass=_SigMFDeprecatingMeta):
     VALID_KEYS = {}
 
     def __init__(self):
@@ -119,76 +168,48 @@ class SigMFMetafile:
 
 
 class SigMFFile(SigMFMetafile):
-    START_INDEX_KEY = "core:sample_start"
-    LENGTH_INDEX_KEY = "core:sample_count"
-    GLOBAL_INDEX_KEY = "core:global_index"
-    START_OFFSET_KEY = "core:offset"
-    NUM_CHANNELS_KEY = "core:num_channels"
-    HASH_KEY = "core:sha512"
-    VERSION_KEY = "core:version"
-    DATATYPE_KEY = "core:datatype"
-    FREQUENCY_KEY = "core:frequency"
-    HEADER_BYTES_KEY = "core:header_bytes"
-    FLO_KEY = "core:freq_lower_edge"
-    FHI_KEY = "core:freq_upper_edge"
-    SAMPLE_RATE_KEY = "core:sample_rate"
-    COMMENT_KEY = "core:comment"
-    DESCRIPTION_KEY = "core:description"
-    AUTHOR_KEY = "core:author"
-    META_DOI_KEY = "core:meta_doi"
-    DATA_DOI_KEY = "core:data_doi"
-    GENERATOR_KEY = "core:generator"
-    LABEL_KEY = "core:label"
-    RECORDER_KEY = "core:recorder"
-    LICENSE_KEY = "core:license"
-    HW_KEY = "core:hw"
-    DATASET_KEY = "core:dataset"
-    TRAILING_BYTES_KEY = "core:trailing_bytes"
-    METADATA_ONLY_KEY = "core:metadata_only"
-    EXTENSIONS_KEY = "core:extensions"
-    DATETIME_KEY = "core:datetime"
-    LAT_KEY = "core:latitude"
-    LON_KEY = "core:longitude"
-    UUID_KEY = "core:uuid"
-    GEOLOCATION_KEY = "core:geolocation"
-    COLLECTION_KEY = "core:collection"
+    # field key constants — access via sigmf.XYZ_KEY; class-level access is deprecated
+    SAMPLE_START_KEY = _DeprecatingKey(keys.SAMPLE_START_KEY)
+    SAMPLE_COUNT_KEY = _DeprecatingKey(keys.SAMPLE_COUNT_KEY)
+    GLOBAL_INDEX_KEY = _DeprecatingKey(keys.GLOBAL_INDEX_KEY)
+    OFFSET_KEY = _DeprecatingKey(keys.OFFSET_KEY)
+    NUM_CHANNELS_KEY = _DeprecatingKey(keys.NUM_CHANNELS_KEY)
+    SHA512_KEY = _DeprecatingKey(keys.SHA512_KEY)
+    VERSION_KEY = _DeprecatingKey(keys.VERSION_KEY)
+    DATATYPE_KEY = _DeprecatingKey(keys.DATATYPE_KEY)
+    FREQUENCY_KEY = _DeprecatingKey(keys.FREQUENCY_KEY)
+    HEADER_BYTES_KEY = _DeprecatingKey(keys.HEADER_BYTES_KEY)
+    FREQ_LOWER_EDGE_KEY = _DeprecatingKey(keys.FREQ_LOWER_EDGE_KEY)
+    FREQ_UPPER_EDGE_KEY = _DeprecatingKey(keys.FREQ_UPPER_EDGE_KEY)
+    SAMPLE_RATE_KEY = _DeprecatingKey(keys.SAMPLE_RATE_KEY)
+    COMMENT_KEY = _DeprecatingKey(keys.COMMENT_KEY)
+    DESCRIPTION_KEY = _DeprecatingKey(keys.DESCRIPTION_KEY)
+    AUTHOR_KEY = _DeprecatingKey(keys.AUTHOR_KEY)
+    META_DOI_KEY = _DeprecatingKey(keys.META_DOI_KEY)
+    DATA_DOI_KEY = _DeprecatingKey(keys.DATA_DOI_KEY)
+    GENERATOR_KEY = _DeprecatingKey(keys.GENERATOR_KEY)
+    LABEL_KEY = _DeprecatingKey(keys.LABEL_KEY)
+    RECORDER_KEY = _DeprecatingKey(keys.RECORDER_KEY)
+    LICENSE_KEY = _DeprecatingKey(keys.LICENSE_KEY)
+    HW_KEY = _DeprecatingKey(keys.HW_KEY)
+    DATASET_KEY = _DeprecatingKey(keys.DATASET_KEY)
+    TRAILING_BYTES_KEY = _DeprecatingKey(keys.TRAILING_BYTES_KEY)
+    METADATA_ONLY_KEY = _DeprecatingKey(keys.METADATA_ONLY_KEY)
+    EXTENSIONS_KEY = _DeprecatingKey(keys.EXTENSIONS_KEY)
+    DATETIME_KEY = _DeprecatingKey(keys.DATETIME_KEY)
+    LATITUDE_KEY = _DeprecatingKey(keys.LATITUDE_KEY)
+    LONGITUDE_KEY = _DeprecatingKey(keys.LONGITUDE_KEY)
+    UUID_KEY = _DeprecatingKey(keys.UUID_KEY)
+    GEOLOCATION_KEY = _DeprecatingKey(keys.GEOLOCATION_KEY)
+    COLLECTION_KEY = _DeprecatingKey(keys.COLLECTION_KEY)
+    # section structure keys — kept class-level, not promoted to module level
     GLOBAL_KEY = "global"
     CAPTURE_KEY = "captures"
     ANNOTATION_KEY = "annotations"
-    VALID_GLOBAL_KEYS = [
-        AUTHOR_KEY,
-        COLLECTION_KEY,
-        DATASET_KEY,
-        DATATYPE_KEY,
-        DATA_DOI_KEY,
-        DESCRIPTION_KEY,
-        EXTENSIONS_KEY,
-        GEOLOCATION_KEY,
-        HASH_KEY,
-        HW_KEY,
-        LICENSE_KEY,
-        META_DOI_KEY,
-        METADATA_ONLY_KEY,
-        NUM_CHANNELS_KEY,
-        RECORDER_KEY,
-        SAMPLE_RATE_KEY,
-        START_OFFSET_KEY,
-        TRAILING_BYTES_KEY,
-        VERSION_KEY,
-    ]
-    VALID_CAPTURE_KEYS = [DATETIME_KEY, FREQUENCY_KEY, HEADER_BYTES_KEY, GLOBAL_INDEX_KEY, START_INDEX_KEY]
-    VALID_ANNOTATION_KEYS = [
-        COMMENT_KEY,
-        FHI_KEY,
-        FLO_KEY,
-        GENERATOR_KEY,
-        LABEL_KEY,
-        LAT_KEY,
-        LENGTH_INDEX_KEY,
-        LON_KEY,
-        START_INDEX_KEY,
-        UUID_KEY,
-    ]
+    # valid key lists
+    VALID_GLOBAL_KEYS = keys.VALID_GLOBAL_KEYS
+    VALID_CAPTURE_KEYS = keys.VALID_CAPTURE_KEYS
+    VALID_ANNOTATION_KEYS = keys.VALID_ANNOTATION_KEYS
     VALID_KEYS = {GLOBAL_KEY: VALID_GLOBAL_KEYS, CAPTURE_KEY: VALID_CAPTURE_KEYS, ANNOTATION_KEY: VALID_ANNOTATION_KEYS}
 
     def __init__(
@@ -333,7 +354,7 @@ class SigMFFile(SigMFMetafile):
 
         # apply autoscaling for fixed-point data when autoscale=True
         if self.autoscale:
-            dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
+            dtype = dtype_info(self.get_global_field(keys.DATATYPE_KEY))
             if dtype["is_fixedpoint"]:
                 # extract scaling parameters
                 is_unsigned_data = dtype["is_unsigned"]
@@ -400,11 +421,11 @@ class SigMFFile(SigMFMetafile):
         -------
         `True` if the dataset is conforming to SigMF, `False` otherwise
         """
-        if self.get_global_field(self.TRAILING_BYTES_KEY, 0):
+        if self.get_global_field(keys.TRAILING_BYTES_KEY, 0):
             return False
         for capture in self.get_captures():
             # check for any non-zero `header_bytes` fields in captures segments
-            if capture.get(self.HEADER_BYTES_KEY, 0):
+            if capture.get(keys.HEADER_BYTES_KEY, 0):
                 return False
         if self.data_file is not None and not self.data_file.is_file:
             return False
@@ -429,9 +450,9 @@ class SigMFFile(SigMFMetafile):
 
         # check if this is an NCD with core:dataset and header_bytes
         captures = self.get_captures()
-        dataset_field = self.get_global_field(self.DATASET_KEY)
-        if dataset_field and captures and self.HEADER_BYTES_KEY in captures[0]:
-            return captures[0][self.HEADER_BYTES_KEY]
+        dataset_field = self.get_global_field(keys.DATASET_KEY)
+        if dataset_field and captures and keys.HEADER_BYTES_KEY in captures[0]:
+            return captures[0][keys.HEADER_BYTES_KEY]
 
         return 0
 
@@ -439,7 +460,7 @@ class SigMFFile(SigMFMetafile):
         """
         Return a schema object valid for the current metadata
         """
-        current_metadata_version = self.get_global_info().get(self.VERSION_KEY)
+        current_metadata_version = self.get_global_info().get(keys.VERSION_KEY)
         if self.version != current_metadata_version or self.schema is None:
             self.version = current_metadata_version
             self.schema = schema.get_schema(self.version)
@@ -462,13 +483,13 @@ class SigMFFile(SigMFMetafile):
             raise SigMFError("Unable to interpret provided metadata.")
 
         # ensure fields required for parsing are present or use defaults
-        if self.get_global_field(self.NUM_CHANNELS_KEY) is None:
-            self.set_global_field(self.NUM_CHANNELS_KEY, 1)
-        if self.get_global_field(self.START_OFFSET_KEY) is None:
-            self.set_global_field(self.START_OFFSET_KEY, 0)
+        if self.get_global_field(keys.NUM_CHANNELS_KEY) is None:
+            self.set_global_field(keys.NUM_CHANNELS_KEY, 1)
+        if self.get_global_field(keys.OFFSET_KEY) is None:
+            self.set_global_field(keys.OFFSET_KEY, 0)
 
         # set version to current implementation
-        self.set_global_field(self.VERSION_KEY, __specification__)
+        self.set_global_field(keys.VERSION_KEY, __specification__)
 
     def set_global_info(self, new_global):
         """
@@ -507,11 +528,11 @@ class SigMFFile(SigMFMetafile):
             raise SigMFAccessError("Capture start_index cannot be less than dataset start offset.")
         capture_list = self._metadata[self.CAPTURE_KEY]
         new_capture = metadata or {}
-        new_capture[self.START_INDEX_KEY] = start_index
+        new_capture[keys.SAMPLE_START_KEY] = start_index
         # merge if capture exists
         merged = False
         for idx, existing_capture in enumerate(self._metadata[self.CAPTURE_KEY]):
-            if existing_capture[self.START_INDEX_KEY] == start_index:
+            if existing_capture[keys.SAMPLE_START_KEY] == start_index:
                 self._metadata[self.CAPTURE_KEY][idx] = dict_merge(existing_capture, new_capture)
                 merged = True
         if not merged:
@@ -519,7 +540,7 @@ class SigMFFile(SigMFMetafile):
         # sort captures by start_index
         self._metadata[self.CAPTURE_KEY] = sorted(
             capture_list,
-            key=lambda item: item[self.START_INDEX_KEY],
+            key=lambda item: item[keys.SAMPLE_START_KEY],
         )
 
     def get_captures(self):
@@ -539,7 +560,7 @@ class SigMFFile(SigMFMetafile):
             raise SigMFAccessError("No captures in metadata.")
         cap_info = captures[0]
         for capture in captures:
-            if capture[self.START_INDEX_KEY] > index:
+            if capture[keys.SAMPLE_START_KEY] > index:
                 break
             cap_info = capture
         return cap_info
@@ -549,9 +570,9 @@ class SigMFFile(SigMFMetafile):
         Returns a the start sample index of a given capture, will raise
         SigMFAccessError if this field is missing.
         """
-        start = self.get_captures()[index].get(self.START_INDEX_KEY)
+        start = self.get_captures()[index].get(keys.SAMPLE_START_KEY)
         if start is None:
-            raise SigMFAccessError("Capture {} does not have required {} key".format(index, self.START_INDEX_KEY))
+            raise SigMFAccessError("Capture {} does not have required {} key".format(index, keys.SAMPLE_START_KEY))
         return start
 
     def get_capture_byte_boundaries(self, index):
@@ -568,7 +589,7 @@ class SigMFFile(SigMFMetafile):
         start_byte = 0
         prev_start_sample = 0
         for ii, capture in enumerate(self.get_captures()):
-            start_byte += capture.get(self.HEADER_BYTES_KEY, 0)
+            start_byte += capture.get(keys.HEADER_BYTES_KEY, 0)
             start_byte += (self.get_capture_start(ii) - prev_start_sample) * self.get_sample_size() * self.num_channels
             prev_start_sample = self.get_capture_start(ii)
             if ii >= index:
@@ -584,7 +605,7 @@ class SigMFFile(SigMFMetafile):
                 file_size = len(self.data_buffer.getbuffer())
             else:
                 raise SigMFFileError("Neither data_file nor data_buffer is available")
-            end_byte = file_size - self.get_global_field(self.TRAILING_BYTES_KEY, 0)
+            end_byte = file_size - self.get_global_field(keys.TRAILING_BYTES_KEY, 0)
         else:
             end_byte += (
                 (self.get_capture_start(index + 1) - self.get_capture_start(index))
@@ -610,17 +631,17 @@ class SigMFFile(SigMFMetafile):
             raise SigMFAccessError("Annotation start_index cannot be less than dataset start offset.")
 
         new_annot = metadata or {}
-        new_annot[self.START_INDEX_KEY] = start_index
+        new_annot[keys.SAMPLE_START_KEY] = start_index
         if length is not None:
-            if length <= 0:
+            if length < 0:
                 raise SigMFAccessError("Annotation `length` must be >= 0")
-            new_annot[self.LENGTH_INDEX_KEY] = length
+            new_annot[keys.SAMPLE_COUNT_KEY] = length
 
         self._metadata[self.ANNOTATION_KEY] += [new_annot]
         # sort annotations by start_index
         self._metadata[self.ANNOTATION_KEY] = sorted(
             self._metadata[self.ANNOTATION_KEY],
-            key=lambda item: item[self.START_INDEX_KEY],
+            key=lambda item: item[keys.SAMPLE_START_KEY],
         )
 
     def get_annotations(self, index=None):
@@ -644,12 +665,12 @@ class SigMFFile(SigMFMetafile):
 
         annotations_including_index = []
         for annotation in annotations:
-            if index < annotation[self.START_INDEX_KEY]:
+            if index < annotation[keys.SAMPLE_START_KEY]:
                 # index is before annotation starts -> skip
                 continue
-            if self.LENGTH_INDEX_KEY in annotation:
+            if keys.SAMPLE_COUNT_KEY in annotation:
                 # Annotation includes sample_count -> check end index
-                if index >= annotation[self.START_INDEX_KEY] + annotation[self.LENGTH_INDEX_KEY]:
+                if index >= annotation[keys.SAMPLE_START_KEY] + annotation[keys.SAMPLE_COUNT_KEY]:
                     # index is after annotation end -> skip
                     continue
 
@@ -680,14 +701,14 @@ class SigMFFile(SigMFMetafile):
                 sample_bytes = self.data_size_bytes
             else:
                 # calculate from file size, subtracting header and trailing bytes
-                header_bytes = sum([c.get(self.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
+                header_bytes = sum([c.get(keys.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
                 if self.data_file is not None:
                     file_bytes = self.data_file.stat().st_size
                 elif self.data_buffer is not None:
                     file_bytes = len(self.data_buffer.getbuffer())
                 else:
                     file_bytes = 0
-                sample_bytes = file_bytes - self.get_global_field(self.TRAILING_BYTES_KEY, 0) - header_bytes
+                sample_bytes = file_bytes - self.get_global_field(keys.TRAILING_BYTES_KEY, 0) - header_bytes
 
             total_sample_size = self.get_sample_size() * self.num_channels
             sample_count, remainder = divmod(sample_bytes, total_sample_size)
@@ -703,17 +724,17 @@ class SigMFFile(SigMFMetafile):
     def _get_sample_count_from_annotations(self):
         """
         Returns the number of samples based on annotation with highest end index.
-        NOTE: Annotations are ordered by START_INDEX_KEY and not end index, so we
+        NOTE: Annotations are ordered by SAMPLE_START_KEY and not end index, so we
         need to go through all annotations
         """
         annon_sample_count = []
         for annon in self.get_annotations():
-            if self.LENGTH_INDEX_KEY in annon:
+            if keys.SAMPLE_COUNT_KEY in annon:
                 # Annotation with sample_count
-                annon_sample_count.append(annon[self.START_INDEX_KEY] + annon[self.LENGTH_INDEX_KEY])
+                annon_sample_count.append(annon[keys.SAMPLE_START_KEY] + annon[keys.SAMPLE_COUNT_KEY])
             else:
                 # Annotation without sample_count - sample count must be at least sample_start
-                annon_sample_count.append(annon[self.START_INDEX_KEY])
+                annon_sample_count.append(annon[keys.SAMPLE_START_KEY])
 
         if annon_sample_count:
             return max(annon_sample_count)
@@ -725,7 +746,7 @@ class SigMFFile(SigMFMetafile):
         Calculates the hash of the data file and adds it to the global section.
         Also returns a string representation of the hash.
         """
-        old_hash = self.get_global_field(self.HASH_KEY)
+        old_hash = self.get_global_field(keys.SHA512_KEY)
         if self.data_file is not None:
             new_hash = hashing.calculate_sha512(filename=self.data_file)
         else:
@@ -734,7 +755,7 @@ class SigMFFile(SigMFMetafile):
             if old_hash != new_hash:
                 raise SigMFFileError("Calculated file hash does not match associated metadata.")
 
-        self.set_global_field(self.HASH_KEY, new_hash)
+        self.set_global_field(keys.SHA512_KEY, new_hash)
         return new_hash
 
     def set_data_file(
@@ -744,7 +765,7 @@ class SigMFFile(SigMFMetafile):
         Set the datafile path, then recalculate sample count.
         Update the hash and return the hash string if enabled.
         """
-        if self.get_global_field(self.DATATYPE_KEY) is None:
+        if self.get_global_field(keys.DATATYPE_KEY) is None:
             raise SigMFFileError("Error setting data file, the DATATYPE_KEY must be set in the global metadata first.")
 
         self.data_file = Path(data_file) if data_file else None
@@ -753,7 +774,7 @@ class SigMFFile(SigMFMetafile):
         self.data_size_bytes = size_bytes
         self._count_samples()
 
-        dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
+        dtype = dtype_info(self.get_global_field(keys.DATATYPE_KEY))
         self.is_complex_data = dtype["is_complex"]
         num_channels = self.num_channels
         self.ndim = 1 if (num_channels < 2) else 2
@@ -789,7 +810,7 @@ class SigMFFile(SigMFMetafile):
             file_name = self.data_file.name
             ext = self.data_file.suffix
             if ext.lower() != SIGMF_DATASET_EXT:
-                self.set_global_field(SigMFFile.DATASET_KEY, file_name)
+                self.set_global_field(keys.DATASET_KEY, file_name)
 
         if skip_checksum:
             return None
@@ -951,7 +972,7 @@ class SigMFFile(SigMFMetafile):
         elif start_index + count > self.sample_count:
             raise IOError("Cannot read beyond EOF.")
         if self.data_file is None and not isinstance(self.data_buffer, io.BytesIO):
-            if self.get_global_field(self.METADATA_ONLY_KEY, False):
+            if self.get_global_field(keys.METADATA_ONLY_KEY, False):
                 # only if data_file is `None` allows access to dynamically generated datsets
                 raise SigMFFileError("Cannot read samples from a metadata only distribution.")
             else:
@@ -963,7 +984,7 @@ class SigMFFile(SigMFMetafile):
         """
         internal function for reading samples from datafile
         """
-        dtype = dtype_info(self.get_global_field(self.DATATYPE_KEY))
+        dtype = dtype_info(self.get_global_field(keys.DATATYPE_KEY))
         self.is_complex_data = dtype["is_complex"]
         is_fixedpoint_data = dtype["is_fixedpoint"]
         is_unsigned_data = dtype["is_unsigned"]
@@ -1008,23 +1029,18 @@ class SigMFFile(SigMFMetafile):
 
 
 class SigMFCollection(SigMFMetafile):
-    VERSION_KEY = "core:version"
-    DESCRIPTION_KEY = "core:description"
-    AUTHOR_KEY = "core:author"
-    COLLECTION_DOI_KEY = "core:collection_doi"
-    LICENSE_KEY = "core:license"
-    EXTENSIONS_KEY = "core:extensions"
-    STREAMS_KEY = "core:streams"
+    # field key constants — access via sigmf.XYZ_KEY; class-level access is deprecated
+    VERSION_KEY = _DeprecatingKey(keys.VERSION_KEY)
+    DESCRIPTION_KEY = _DeprecatingKey(keys.DESCRIPTION_KEY)
+    AUTHOR_KEY = _DeprecatingKey(keys.AUTHOR_KEY)
+    COLLECTION_DOI_KEY = _DeprecatingKey(keys.COLLECTION_DOI_KEY)
+    LICENSE_KEY = _DeprecatingKey(keys.LICENSE_KEY)
+    EXTENSIONS_KEY = _DeprecatingKey(keys.EXTENSIONS_KEY)
+    STREAMS_KEY = _DeprecatingKey(keys.STREAMS_KEY)
+    # section structure key — kept class-level (value differs from SigMFFile.COLLECTION_KEY)
     COLLECTION_KEY = "collection"
-    VALID_COLLECTION_KEYS = [
-        AUTHOR_KEY,
-        COLLECTION_DOI_KEY,
-        DESCRIPTION_KEY,
-        EXTENSIONS_KEY,
-        LICENSE_KEY,
-        STREAMS_KEY,
-        VERSION_KEY,
-    ]
+    # valid key lists
+    VALID_COLLECTION_KEYS = keys.VALID_COLLECTION_KEYS
     VALID_KEYS = {COLLECTION_KEY: VALID_COLLECTION_KEYS}
 
     def __init__(
@@ -1061,7 +1077,7 @@ class SigMFCollection(SigMFMetafile):
 
         if metadata is None:
             self._metadata = {self.COLLECTION_KEY: {}}
-            self._metadata[self.COLLECTION_KEY][self.STREAMS_KEY] = []
+            self._metadata[self.COLLECTION_KEY][keys.STREAMS_KEY] = []
         else:
             self._metadata = metadata
 
@@ -1071,7 +1087,7 @@ class SigMFCollection(SigMFMetafile):
             self.set_streams(metafiles)
 
         # set version to current implementation
-        self.set_collection_field(self.VERSION_KEY, __specification__)
+        self.set_collection_field(keys.VERSION_KEY, __specification__)
 
         if not self.skip_checksums:
             self.verify_stream_hashes()
@@ -1091,7 +1107,7 @@ class SigMFCollection(SigMFMetafile):
         SigMFFileError
             If any dataset checksums do not match saved metadata.
         """
-        streams = self.get_collection_field(self.STREAMS_KEY, [])
+        streams = self.get_collection_field(keys.STREAMS_KEY, [])
         for stream in streams:
             old_hash = stream.get("hash")
             metafile_name = get_sigmf_filenames(stream.get("name"))["meta_fn"]
@@ -1120,13 +1136,13 @@ class SigMFCollection(SigMFMetafile):
                 streams.append(stream)
             else:
                 raise SigMFFileError(f"Specifed stream file {metafile_path} is not a valid SigMF Metadata file")
-        self.set_collection_field(self.STREAMS_KEY, streams)
+        self.set_collection_field(keys.STREAMS_KEY, streams)
 
     def get_stream_names(self) -> list:
         """
         Returns a list of `name` object(s) from the `collection` level `core:streams` metadata.
         """
-        return [s.get("name") for s in self.get_collection_field(self.STREAMS_KEY, [])]
+        return [s.get("name") for s in self.get_collection_field(keys.STREAMS_KEY, [])]
 
     def set_collection_info(self, new_collection: dict) -> None:
         """
@@ -1279,26 +1295,26 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     3. Return ``None`` (may be a metadata-only distribution).
     """
     compliant_filename = get_sigmf_filenames(meta_fn)["data_fn"]
-    noncompliant_filename = metadata["global"].get(SigMFFile.DATASET_KEY, None)
+    noncompliant_filename = metadata["global"].get(keys.DATASET_KEY, None)
 
     if noncompliant_filename:
         if Path.is_file(compliant_filename):
             warnings.warn(
-                f"{SigMFFile.DATASET_KEY} is defined but compliant dataset `{compliant_filename}` exists; "
-                f"using `{noncompliant_filename}` specified by {SigMFFile.DATASET_KEY}"
+                f"{keys.DATASET_KEY} is defined but compliant dataset `{compliant_filename}` exists; "
+                f"using `{noncompliant_filename}` specified by {keys.DATASET_KEY}"
             )
         dir_path = Path(meta_fn).parent
         noncompliant_data_file_path = Path.joinpath(dir_path, noncompliant_filename)
         if Path.is_file(noncompliant_data_file_path):
-            if metadata["global"].get(SigMFFile.METADATA_ONLY_KEY, False):
+            if metadata["global"].get(keys.METADATA_ONLY_KEY, False):
                 raise SigMFFileError(
-                    f"Schema defines {SigMFFile.DATASET_KEY} "
-                    f"but {SigMFFile.METADATA_ONLY_KEY} also exists; using `{noncompliant_filename}`"
+                    f"Schema defines {keys.DATASET_KEY} "
+                    f"but {keys.METADATA_ONLY_KEY} also exists; using `{noncompliant_filename}`"
                 )
             return noncompliant_data_file_path
         else:
             raise SigMFFileError(
-                f"Non-Compliant Dataset `{noncompliant_filename}` is specified in {SigMFFile.DATASET_KEY} "
+                f"Non-Compliant Dataset `{noncompliant_filename}` is specified in {keys.DATASET_KEY} "
                 "but does not exist!"
             )
     elif Path.is_file(compliant_filename):
@@ -1352,15 +1368,15 @@ def fromarray(data, sample_rate, frequency=None, global_info=None):
 
     # build metadata
     info = {
-        SigMFFile.DATATYPE_KEY: get_data_type_str(data),
-        SigMFFile.SAMPLE_RATE_KEY: sample_rate,
+        keys.DATATYPE_KEY: get_data_type_str(data),
+        keys.SAMPLE_RATE_KEY: sample_rate,
     }
     if global_info is not None:
         info.update(global_info)
 
     capture_meta = None
     if frequency is not None:
-        capture_meta = {SigMFFile.FREQUENCY_KEY: frequency}
+        capture_meta = {keys.FREQUENCY_KEY: frequency}
 
     # create sigmffile object with in-memory buffer
     meta = SigMFFile(global_info=info)
@@ -1521,13 +1537,7 @@ def get_sigmf_filenames(filename):
     # If the path has a sigmf suffix, remove it. Otherwise do not remove the
     # suffix, because the filename might contain '.' characters which are part
     # of the filename rather than an extension.
-    sigmf_suffixes = [
-        SIGMF_DATASET_EXT,
-        SIGMF_METADATA_EXT,
-        SIGMF_ARCHIVE_EXT,
-        SIGMF_COLLECTION_EXT,
-    ]
-    if stem_path.suffix in sigmf_suffixes:
+    if stem_path.suffix in keys.SIGMF_SUFFIXES:
         with_suffix_path = stem_path
         stem_path = stem_path.with_suffix("")
     else:
