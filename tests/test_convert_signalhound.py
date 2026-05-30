@@ -16,7 +16,7 @@ import numpy as np
 import sigmf
 from sigmf.convert.signalhound import signalhound_to_sigmf
 
-from .testdata import get_nonsigmf_path, validate_ncd
+from .conftest import get_nonsigmf_path, validate_ncd
 
 
 class TestSignalHoundConverter(unittest.TestCase):
@@ -116,7 +116,7 @@ class TestSignalHoundConverter(unittest.TestCase):
         """Test Signal Hound to SigMF conversion as Non-Conforming Dataset."""
         meta = signalhound_to_sigmf(signalhound_path=self.xml_path, create_ncd=True)
         target_path = self.iq_path
-        validate_ncd(self, meta, target_path)
+        validate_ncd(meta, target_path)
         self._verify(meta)
 
 
@@ -127,7 +127,7 @@ class TestSignalHoundWithNonSigMFRepo(unittest.TestCase):
         """Find a non-SigMF dataset for testing."""
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.tmp_path = Path(self.tmp_dir.name)
-        nonsigmf_path = get_nonsigmf_path(self)
+        nonsigmf_path = get_nonsigmf_path()
         # glob all files in signal hound directory
         hound_dir = nonsigmf_path / "signal_hound"
         self.hound_paths = []
@@ -164,7 +164,7 @@ class TestSignalHoundWithNonSigMFRepo(unittest.TestCase):
         for hound_path in self.hound_paths:
             meta = signalhound_to_sigmf(signalhound_path=hound_path)
             target_path = hound_path.with_suffix(".iq")
-            validate_ncd(self, meta, target_path)
+            validate_ncd(meta, target_path)
             if len(meta):
                 # check sample read consistency
                 np.testing.assert_array_equal(meta.read_samples(count=10), meta[0:10])
@@ -174,4 +174,4 @@ class TestSignalHoundWithNonSigMFRepo(unittest.TestCase):
         for hound_path in self.hound_paths:
             meta = sigmf.fromfile(hound_path)
             target_path = hound_path.with_suffix(".iq")
-            validate_ncd(self, meta, target_path)
+            validate_ncd(meta, target_path)

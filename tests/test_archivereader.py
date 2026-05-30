@@ -11,7 +11,14 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 
-from sigmf import DATATYPE_KEY, NUM_CHANNELS_KEY, SigMFArchiveReader, SigMFFile, __specification__, fromfile
+from sigmf import (
+    DATATYPE_KEY,
+    NUM_CHANNELS_KEY,
+    SigMFArchiveReader,
+    SigMFFile,
+    __specification__,
+    fromfile,
+)
 
 
 class TestArchiveReader(unittest.TestCase):

@@ -18,7 +18,7 @@ import sigmf
 from sigmf.convert.blue import TYPE_MAP, blue_to_sigmf
 from sigmf.utils import SIGMF_DATETIME_ISO8601_FMT
 
-from .testdata import get_nonsigmf_path, validate_ncd
+from .conftest import get_nonsigmf_path, validate_ncd
 
 
 class TestBlueConverter(unittest.TestCase):
@@ -152,7 +152,7 @@ class TestBlueConverter(unittest.TestCase):
         for form, atol in self.format_tolerance:
             self.write_minimal(form.encode())
             meta = blue_to_sigmf(self.blue_path)
-            validate_ncd(self, meta, self.blue_path)
+            validate_ncd(meta, self.blue_path)
             self.check_data_and_metadata(meta, form, atol)
 
     def test_pair_overwrite_protection(self) -> None:
@@ -202,7 +202,7 @@ class TestBlueWithNonSigMFRepo(unittest.TestCase):
         """setup paths to blue files"""
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.tmp_path = Path(self.tmp_dir.name)
-        nonsigmf_path = get_nonsigmf_path(self)
+        nonsigmf_path = get_nonsigmf_path()
         # glob all files in blue/ directory
         blue_dir = nonsigmf_path / "blue"
         self.blue_paths = []
@@ -240,7 +240,7 @@ class TestBlueWithNonSigMFRepo(unittest.TestCase):
         """test direct NCD conversion"""
         for blue_path in self.blue_paths:
             meta = blue_to_sigmf(blue_path=blue_path)
-            validate_ncd(self, meta, blue_path)
+            validate_ncd(meta, blue_path)
             if len(meta):
                 # check sample read consistency
                 np.testing.assert_allclose(meta.read_samples(count=10), meta[0:10], atol=1e-6)
@@ -249,4 +249,4 @@ class TestBlueWithNonSigMFRepo(unittest.TestCase):
         """test automatic NCD conversion with fromfile()"""
         for blue_path in self.blue_paths:
             meta = sigmf.fromfile(blue_path)
-            validate_ncd(self, meta, blue_path)
+            validate_ncd(meta, blue_path)
