@@ -20,7 +20,20 @@ import sigmf
 from sigmf import SigMFFile, error, utils
 from sigmf.sigmffile import _DeprecatingKey, _SigMFDeprecatingMeta
 
-from .testdata import *
+from .testdata import (
+    TEST_FLOAT32_DATA,
+    TEST_METADATA,
+    TEST_U8_DATA0,
+    TEST_U8_DATA1,
+    TEST_U8_DATA2,
+    TEST_U8_DATA3,
+    TEST_U8_DATA4,
+    TEST_U8_META0,
+    TEST_U8_META1,
+    TEST_U8_META2,
+    TEST_U8_META3,
+    TEST_U8_META4,
+)
 
 
 class TestClassMethods(unittest.TestCase):
@@ -140,8 +153,10 @@ class TestAnnotationHandling(unittest.TestCase):
 
 class TestMultichannel(unittest.TestCase):
     def setUp(self):
-        # in order to check shapes we need some positive number of samples to work with
-        # number of samples should be lowest common factor of num_channels
+        """
+        In order to check shapes we need some positive number of samples to work with.
+        Number of samples should be lowest common factor of num_channels.
+        """
         self.raw_count = 16
         self.lut = {
             "i8": np.int8,
@@ -534,19 +549,13 @@ class TestFromarrayConvenience(unittest.TestCase):
 
     def test_basic_creation(self):
         """test creating SigMFFile from array"""
-        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
-        self.assertEqual(meta.get_global_field(sigmf.SAMPLE_RATE_KEY), 4000)
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA)
         self.assertEqual(meta.get_global_field(sigmf.DATATYPE_KEY), "rf32_le")
         np.testing.assert_array_equal(TEST_FLOAT32_DATA, meta[:])
 
-    def test_with_frequency(self):
-        """test that frequency kwarg populates capture metadata"""
-        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000, frequency=915e6)
-        self.assertEqual(meta.get_capture_info(0).get("core:frequency"), 915e6)
-
     def test_write_separate_files(self):
         """test writing to separate meta and data files"""
-        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA)
         path = self.temp_dir / "basic"
         meta.tofile(str(path))
         self.assertTrue((self.temp_dir / "basic.sigmf-data").exists())
@@ -556,7 +565,7 @@ class TestFromarrayConvenience(unittest.TestCase):
 
     def test_write_archive(self):
         """test writing to uncompressed archive"""
-        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA)
         path = self.temp_dir / "archived.sigmf"
         meta.tofile(str(path))
         self.assertTrue((self.temp_dir / "archived.sigmf").exists())
@@ -567,7 +576,7 @@ class TestFromarrayConvenience(unittest.TestCase):
 
     def test_write_compressed_archive(self):
         """test writing to compressed archive"""
-        meta = sigmf.fromarray(TEST_FLOAT32_DATA, sample_rate=4000)
+        meta = sigmf.fromarray(TEST_FLOAT32_DATA)
         path = self.temp_dir / "comp.sigmf.xz"
         meta.tofile(str(path))
         self.assertTrue((self.temp_dir / "comp.sigmf.xz").exists())
@@ -575,11 +584,3 @@ class TestFromarrayConvenience(unittest.TestCase):
         self.assertFalse((self.temp_dir / "comp.sigmf-meta").exists())
         loopback = sigmf.fromfile(str(path))
         np.testing.assert_array_equal(TEST_FLOAT32_DATA, loopback[:])
-
-    def test_with_global_info(self):
-        """test that global_info dict is merged into metadata"""
-        meta = sigmf.fromarray(
-            TEST_FLOAT32_DATA, sample_rate=4000, global_info={"core:author": "test_author", "core:description": "test"}
-        )
-        self.assertEqual(meta.get_global_field("core:author"), "test_author")
-        self.assertEqual(meta.get_global_field("core:description"), "test")

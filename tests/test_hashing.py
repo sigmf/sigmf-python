@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 import sigmf
-from sigmf import SigMFFile, TRAILING_BYTES_KEY, hashing
+from sigmf import TRAILING_BYTES_KEY, SigMFFile, hashing
 
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
 

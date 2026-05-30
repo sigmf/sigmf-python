@@ -16,7 +16,7 @@ import numpy as np
 import sigmf
 from sigmf.convert.wav import wav_to_sigmf
 
-from .testdata import get_nonsigmf_path, validate_ncd
+from .conftest import get_nonsigmf_path, validate_ncd
 
 
 class TestWAVConverter(unittest.TestCase):
@@ -93,7 +93,7 @@ class TestWAVConverter(unittest.TestCase):
     def test_wav_to_sigmf_ncd(self) -> None:
         """test wav to sigmf conversion as Non-Conforming Dataset"""
         meta = wav_to_sigmf(wav_path=self.wav_path, create_ncd=True)
-        validate_ncd(self, meta, self.wav_path)
+        validate_ncd(meta, self.wav_path)
         self._verify(meta)
 
         # test overwrite protection when creating NCD with output path
@@ -115,7 +115,7 @@ class TestWAVWithNonSigMFRepo(unittest.TestCase):
         """setup paths to example wav files"""
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.tmp_path = Path(self.tmp_dir.name)
-        nonsigmf_path = get_nonsigmf_path(self)
+        nonsigmf_path = get_nonsigmf_path()
         # glob all files in wav/ directory
         wav_dir = nonsigmf_path / "wav"
         self.wav_paths = []
@@ -152,13 +152,12 @@ class TestWAVWithNonSigMFRepo(unittest.TestCase):
         """test direct NCD conversion"""
         for wav_path in self.wav_paths:
             meta = wav_to_sigmf(wav_path=wav_path)
-            validate_ncd(self, meta, wav_path)
-
-            # test file read
-            _ = meta.read_samples(count=10)
+            validate_ncd(meta, wav_path)
+            # check sample read consistency
+            np.testing.assert_array_equal(meta.read_samples(count=10), meta[0:10])
 
     def test_autodetect_ncd(self) -> None:
         """test automatic NCD conversion"""
         for wav_path in self.wav_paths:
             meta = sigmf.fromfile(wav_path)
-            validate_ncd(self, meta, wav_path)
+            validate_ncd(meta, wav_path)
