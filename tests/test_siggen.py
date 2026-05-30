@@ -10,9 +10,10 @@ import unittest
 
 import numpy as np
 import numpy.testing as npt
+from hypothesis import assume, given
+from hypothesis import strategies as st
 
 import sigmf
-from sigmf import SigMFFile
 from sigmf.error import SigMFGeneratorError
 from sigmf.siggen import SigMFGenerator
 
@@ -212,20 +213,21 @@ class TestSigGen(unittest.TestCase):
         # verify data is complex64
         self.assertEqual(samples_0.dtype, np.complex64)
 
-    def test_with_different_amplitudes(self):
-        """test amplitude parameter"""
-        amp_low = 0.5
-        amp_high = 1.5
-
+    @given(
+        amp_low=st.floats(min_value=0.1, max_value=0.9, allow_nan=False, allow_infinity=False),
+        amp_high=st.floats(min_value=1.1, max_value=3.0, allow_nan=False, allow_infinity=False),
+    )
+    def test_amplitude_power_ratio(self, amp_low, amp_high):
+        """test that power scales with amplitude squared for any pair of amplitudes"""
         signal_low = SigMFGenerator(self.seed).amplitude(amp_low).generate()
         signal_high = SigMFGenerator(self.seed).amplitude(amp_high).generate()
 
         power_low = np.mean(np.abs(signal_low.read_samples()) ** 2)
         power_high = np.mean(np.abs(signal_high.read_samples()) ** 2)
 
-        expected_power_ratio = (amp_high / amp_low) ** 2
-        actual_power_ratio = power_high / power_low
-        self.assertAlmostEqual(actual_power_ratio, expected_power_ratio, places=1)
+        expected_ratio = (amp_high / amp_low) ** 2
+        actual_ratio = power_high / power_low
+        npt.assert_almost_equal(actual_ratio, expected_ratio, decimal=1)
 
     def test_automatic_annotations(self):
         """test that appropriate annotations are automatically created"""
@@ -270,30 +272,22 @@ class TestSigGen(unittest.TestCase):
         offset_annotation = next(ann for ann in annotations if "freq offset" in ann.get(sigmf.LABEL_KEY, ""))
         self.assertIn("+200.0 Hz", offset_annotation[sigmf.LABEL_KEY])
 
-    def test_sweep_annotations(self):
-        """test sweep annotations have correct frequency bounds including negative"""
-        signal = SigMFGenerator().sweep(-2500, 2500).sample_rate(22050).generate()
+    @given(
+        start_freq_hz=st.integers(min_value=-20000, max_value=20000),
+        end_freq_hz=st.integers(min_value=-20000, max_value=20000),
+    )
+    def test_sweep_annotation_bounds(self, start_freq_hz, end_freq_hz):
+        """test sweep annotation bounds are always (min, max) regardless of direction, and label preserves original order"""
+        assume(start_freq_hz != end_freq_hz)
+        signal = SigMFGenerator().sweep(start_freq_hz, end_freq_hz).sample_rate(48000).generate()
+        sweep_ann = signal.get_annotations()[0]
 
-        annotations = signal.get_annotations()
-        self.assertEqual(len(annotations), 1)  # just main sweep annotation
+        # bounds must be min/max regardless of sweep direction
+        self.assertEqual(sweep_ann[sigmf.FREQ_LOWER_EDGE_KEY], float(min(start_freq_hz, end_freq_hz)))
+        self.assertEqual(sweep_ann[sigmf.FREQ_UPPER_EDGE_KEY], float(max(start_freq_hz, end_freq_hz)))
 
-        sweep_annotation = annotations[0]
-        self.assertEqual(sweep_annotation[sigmf.FREQ_LOWER_EDGE_KEY], -2500.0)
-        self.assertEqual(sweep_annotation[sigmf.FREQ_UPPER_EDGE_KEY], 2500.0)
-        self.assertIn("sweep from -2500 to 2500 Hz", sweep_annotation[sigmf.LABEL_KEY])
-
-    def test_reverse_sweep_annotations(self):
-        """test reverse sweep crossing DC has correct bounds"""
-        signal = SigMFGenerator().sweep(3000, -800).sample_rate(48000).generate()
-
-        annotations = signal.get_annotations()
-        sweep_annotation = annotations[0]
-
-        # frequency bounds should be min/max regardless of sweep direction
-        self.assertEqual(sweep_annotation[sigmf.FREQ_LOWER_EDGE_KEY], -800.0)
-        self.assertEqual(sweep_annotation[sigmf.FREQ_UPPER_EDGE_KEY], 3000.0)
-        # but label should show original order
-        self.assertIn("sweep from 3000 to -800 Hz", sweep_annotation[sigmf.LABEL_KEY])
+        # label must preserve the original start-to-end order
+        self.assertIn(f"sweep from {start_freq_hz} to {end_freq_hz} Hz", sweep_ann[sigmf.LABEL_KEY])
 
     def test_minimal_annotations(self):
         """test that simple signals get minimal but complete annotations"""
@@ -340,38 +334,39 @@ class TestSigGen(unittest.TestCase):
 class TestEdgeCases(unittest.TestCase):
     """Test edge cases and error conditions."""
 
-    def test_zero_duration(self):
-        """test zero duration raises error"""
+    @given(st.floats(max_value=0.0, allow_nan=False, allow_infinity=False))
+    def test_nonpositive_duration_raises(self, duration_s):
+        """test that any non-positive duration raises SigMFGeneratorError"""
         with self.assertRaises(SigMFGeneratorError):
-            SigMFGenerator().duration(0).generate()
+            SigMFGenerator().duration(duration_s).generate()
 
-    def test_negative_duration(self):
-        """test negative duration raises error"""
+    @given(st.integers(max_value=0))
+    def test_nonpositive_sample_rate_raises(self, samp_rate_hz):
+        """test that any non-positive sample rate raises SigMFGeneratorError"""
         with self.assertRaises(SigMFGeneratorError):
-            SigMFGenerator().duration(-1.0).generate()
+            SigMFGenerator().sample_rate(samp_rate_hz).generate()
 
-    def test_negative_sample_rate(self):
-        """test negative sample rate raises error"""
+    @given(
+        samp_rate_hz=st.integers(min_value=100, max_value=200000),
+        freq_hz=st.floats(allow_nan=False, allow_infinity=False),
+    )
+    def test_tone_nyquist_raises(self, samp_rate_hz, freq_hz):
+        """test that any tone frequency exceeding nyquist raises SigMFGeneratorError"""
+        assume(abs(freq_hz) > samp_rate_hz / 2)
         with self.assertRaises(SigMFGeneratorError):
-            SigMFGenerator().sample_rate(-8000).generate()
+            SigMFGenerator().tone(freq_hz).sample_rate(samp_rate_hz).generate()
 
-    def test_tone_nyquist_validation(self):
-        """test tone frequency exceeding nyquist raises error"""
+    @given(
+        samp_rate_hz=st.integers(min_value=100, max_value=200000),
+        start_freq_hz=st.floats(allow_nan=False, allow_infinity=False),
+        end_freq_hz=st.floats(allow_nan=False, allow_infinity=False),
+    )
+    def test_sweep_nyquist_raises(self, samp_rate_hz, start_freq_hz, end_freq_hz):
+        """test that any sweep with at least one frequency exceeding nyquist raises SigMFGeneratorError"""
+        nyquist_hz = samp_rate_hz / 2
+        assume(abs(start_freq_hz) > nyquist_hz or abs(end_freq_hz) > nyquist_hz)
         with self.assertRaises(SigMFGeneratorError):
-            SigMFGenerator().tone(5000).sample_rate(8000).generate()
-        with self.assertRaises(SigMFGeneratorError):
-            SigMFGenerator().tone(-5000).sample_rate(8000).generate()
-
-    def test_sweep_nyquist_validation(self):
-        """test sweep frequencies exceeding nyquist raise error"""
-        with self.assertRaises(SigMFGeneratorError):
-            SigMFGenerator().sweep(1000, 5000).sample_rate(8000).generate()
-        with self.assertRaises(SigMFGeneratorError):
-            SigMFGenerator().sweep(5000, 1000).sample_rate(8000).generate()
-        with self.assertRaises(SigMFGeneratorError):
-            SigMFGenerator().sweep(1000, -5000).sample_rate(8000).generate()
-        with self.assertRaises(SigMFGeneratorError):
-            SigMFGenerator().sweep(-5000, 1000).sample_rate(8000).generate()
+            SigMFGenerator().sweep(start_freq_hz, end_freq_hz).sample_rate(samp_rate_hz).generate()
 
     def test_sweep_same_start_end_frequency(self):
         """test sweep with same start and end frequency"""
