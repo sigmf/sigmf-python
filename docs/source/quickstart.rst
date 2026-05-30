@@ -62,7 +62,12 @@ Save a Numpy array as a SigMF Recording
     data = np.zeros(1024, dtype=np.complex64)
 
     # create SigMFFile from array — datatype is inferred from the numpy array
-    meta = sigmf.fromarray(data, sample_rate=48000, frequency=915e6)
+    meta = sigmf.fromarray(data)
+
+    # optional additional metadata
+    meta.sample_rate = 48000
+    meta.description = "an example recording"
+    meta.add_capture(start_index=0, metadata={sigmf.FREQUENCY_KEY: 915e6})
 
     # write to separate .sigmf-meta and .sigmf-data files
     meta.tofile("example")

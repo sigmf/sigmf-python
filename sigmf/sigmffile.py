@@ -1322,12 +1322,12 @@ def get_dataset_filename_from_metadata(meta_fn, metadata=None):
     return None
 
 
-def fromarray(data, sample_rate, frequency=None, global_info=None):
+def fromarray(data):
     """
     Create a SigMFFile from a numpy array.
 
-    Convenience function that infers the SigMF datatype from the numpy dtype,
-    creates an in-memory SigMFFile with a single capture at index 0. The
+    Convenience function that infers the SigMF datatype from the numpy dtype
+    and creates an in-memory SigMFFile with a single capture at index 0. The
     returned object can then be written to disk using ``tofile()`` or
     ``archive()``. For full control over captures, annotations, and global
     fields, use ``SigMFFile`` directly.
@@ -1336,12 +1336,6 @@ def fromarray(data, sample_rate, frequency=None, global_info=None):
     ----------
     data : np.ndarray
         Signal samples.
-    sample_rate : float
-        Sample rate in Hz.
-    frequency : float, optional
-        Center frequency in Hz for the capture.
-    global_info : dict, optional
-        Additional global metadata fields to include.
 
     Returns
     -------
@@ -1351,37 +1345,26 @@ def fromarray(data, sample_rate, frequency=None, global_info=None):
     Examples
     --------
     >>> import numpy as np
-    >>> import tempfile
+    >>> import sigmf, tempfile
     >>> from pathlib import Path
-    >>> data = np.random.randn(1000) + 1j * np.random.randn(1000)
-    >>> meta = fromarray(data, sample_rate=1e6, frequency=915e6) # returns SigMFFile
+    >>> data = (np.random.randn(16) + 1j * np.random.randn(16))
+    >>> meta = sigmf.fromarray(data)
+    >>> meta.sample_rate = 1e6                                            # set global fields via attribute
+    >>> meta.add_capture(0, metadata={sigmf.FREQUENCY_KEY: 915e6})       # add capture metadata
+    >>> meta.add_annotation(0, length=len(data), metadata={sigmf.LABEL_KEY: 'example'})  # add annotation
     >>> tmpdir = Path(tempfile.mkdtemp())
     >>> meta.tofile(tmpdir / 'recording')        # creates recording.sigmf-meta and recording.sigmf-data
     >>> meta.tofile(tmpdir / 'recording.sigmf')  # creates recording.sigmf archive
     """
-    import io
-
     # create in-memory data buffer
     data_buffer = io.BytesIO()
     data_buffer.write(data.tobytes())
     data_buffer.seek(0)
 
-    # build metadata
-    info = {
-        keys.DATATYPE_KEY: get_data_type_str(data),
-        keys.SAMPLE_RATE_KEY: sample_rate,
-    }
-    if global_info is not None:
-        info.update(global_info)
-
-    capture_meta = None
-    if frequency is not None:
-        capture_meta = {keys.FREQUENCY_KEY: frequency}
-
     # create sigmffile object with in-memory buffer
-    meta = SigMFFile(global_info=info)
+    meta = SigMFFile(global_info={keys.DATATYPE_KEY: get_data_type_str(data)})
     meta.set_data_file(data_buffer=data_buffer)
-    meta.add_capture(0, metadata=capture_meta)
+    meta.add_capture(0)
 
     return meta
 
