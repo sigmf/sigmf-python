@@ -24,7 +24,7 @@ from typing import Optional, Tuple
 import jsonschema
 
 from . import __version__ as toolversion
-from . import error, keys, schema, sigmffile
+from . import error, schema, sigmffile
 
 
 def _get_namespaces_declared(metadata: dict) -> set:

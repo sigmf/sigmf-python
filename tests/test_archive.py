@@ -18,7 +18,7 @@ from pathlib import Path
 import jsonschema
 import numpy as np
 
-from sigmf import DATATYPE_KEY, SigMFFile, __specification__, error, fromfile
+from sigmf import DATATYPE_KEY, SigMFFile, error, fromfile
 from sigmf.archivereader import SigMFArchiveReader
 
 from .testdata import TEST_FLOAT32_DATA, TEST_METADATA

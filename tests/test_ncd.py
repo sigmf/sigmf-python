@@ -10,7 +10,6 @@ import copy
 import shutil
 import tempfile
 import unittest
-import warnings
 from pathlib import Path
 
 import numpy as np

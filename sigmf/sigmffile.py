@@ -15,11 +15,10 @@ from pathlib import Path
 
 import numpy as np
 
-from . import __specification__, __version__, hashing, keys, schema, validate
+from . import __specification__, hashing, keys, schema, validate
 from .archive import (
     SigMFArchive,
     _detect_compression,
-    _get_archive_basename,
 )
 from .error import (
     SigMFAccessError,
