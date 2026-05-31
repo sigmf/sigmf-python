@@ -10,11 +10,10 @@ import re
 import sys
 from copy import deepcopy
 from datetime import datetime, timezone
-from pathlib import Path
 
 import numpy as np
 
-from .error import SigMFConversionError, SigMFError
+from .error import SigMFError
 
 SIGMF_DATETIME_ISO8601_FMT = "%Y-%m-%dT%H:%M:%S.%fZ"
 

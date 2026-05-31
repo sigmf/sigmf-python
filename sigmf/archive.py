@@ -17,7 +17,6 @@ from .error import SigMFFileError, SigMFFileExistsError
 from .keys import (
     SIGMF_ARCHIVE_EXT,
     SIGMF_ARCHIVE_EXTS,
-    SIGMF_COLLECTION_EXT,
     SIGMF_COMPRESSED_EXTS,
     SIGMF_DATASET_EXT,
     SIGMF_METADATA_EXT,

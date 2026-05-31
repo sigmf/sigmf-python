@@ -61,11 +61,11 @@ class TestBlueConverter(unittest.TestCase):
         """clean up temporary directory"""
         self.tmp_dir.cleanup()
 
-    def write_minimal(self, format: bytes = b"CF") -> None:
+    def write_minimal(self, fmt: bytes = b"CF") -> None:
         """write minimal BLUE file to self.blue_path"""
 
-        is_complex = format[0] == ord(b"C")
-        dtype = TYPE_MAP[chr(format[1])]
+        is_complex = fmt[0] == ord(b"C")
+        dtype = TYPE_MAP[chr(fmt[1])]
 
         if np.issubdtype(dtype, np.integer):
             scale = 2 ** (np.dtype(dtype).itemsize * 8 - 1)
@@ -108,7 +108,7 @@ class TestBlueConverter(unittest.TestCase):
             handle.write(b"BLUEEEEIEEEI")  # magic & endianness
             handle.seek(32)
             handle.write(
-                struct.pack("<ddi2s", 512, iq_converted.nbytes, 1000, format)
+                struct.pack("<ddi2s", 512, iq_converted.nbytes, 1000, fmt)
             )  # data_start, data_size, type, format
             handle.seek(56)
             handle.write(struct.pack("<d", self.timecode))  # timecode

@@ -590,7 +590,7 @@ class SigMFGenerator:
             self._description = desc
 
         # build generator info
-        generator_info = f"SigMFGenerator"
+        generator_info = "SigMFGenerator"
         if self._seed is not None:
             generator_info += f"(seed={self._seed:#x})"
 

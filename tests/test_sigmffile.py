@@ -11,14 +11,12 @@ import json
 import shutil
 import tempfile
 import unittest
-import warnings
 from pathlib import Path
 
 import numpy as np
 
 import sigmf
 from sigmf import SigMFFile, error, utils
-from sigmf.sigmffile import _DeprecatingKey, _SigMFDeprecatingMeta
 
 from .testdata import (
     TEST_FLOAT32_DATA,

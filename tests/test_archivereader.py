@@ -16,7 +16,6 @@ from sigmf import (
     NUM_CHANNELS_KEY,
     SigMFArchiveReader,
     SigMFFile,
-    __specification__,
     fromfile,
 )
 

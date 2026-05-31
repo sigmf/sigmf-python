@@ -76,7 +76,7 @@ def validate_spike(xml_path: Path) -> None:
     # validate CenterFrequency
     center_freq_raw = _text_of(root, "CenterFrequency")
     try:
-        center_frequency = float(center_freq_raw)
+        float(center_freq_raw)
     except (TypeError, ValueError) as err:
         raise SigMFConversionError(f"Invalid or missing CenterFrequency: {center_freq_raw}") from err
 

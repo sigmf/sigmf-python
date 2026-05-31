@@ -9,13 +9,13 @@
 import json
 from pathlib import Path
 
-from . import __version__ as toolversion
+from . import __specification__ as specification
 
 SCHEMA_META = "schema-meta.json"
 SCHEMA_COLLECTION = "schema-collection.json"
 
 
-def get_schema(version=toolversion, schema_file=SCHEMA_META):
+def get_schema(version=specification, schema_file=SCHEMA_META):
     """
     Load JSON Schema to for either a `sigmf-meta` or `sigmf-collection`.
 

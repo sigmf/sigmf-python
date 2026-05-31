@@ -11,12 +11,11 @@ import tarfile
 import zipfile
 from pathlib import Path
 
-from . import __version__, keys
+from . import keys
 from .archive import _detect_compression
 from .error import SigMFFileError
 from .hashing import calculate_sha512
 from .keys import (
-    SIGMF_ARCHIVE_EXT,
     SIGMF_ARCHIVE_EXTS,
     SIGMF_DATASET_EXT,
     SIGMF_METADATA_EXT,

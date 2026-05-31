@@ -3,8 +3,6 @@
 import copy
 import unittest
 
-import numpy as np
-
 import sigmf
 from sigmf import SigMFFile
 from sigmf.error import SigMFAccessError

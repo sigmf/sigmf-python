@@ -6,12 +6,10 @@
 
 """Shared test data for tests."""
 
-from pathlib import Path
-
 import numpy as np
 
 import sigmf
-from sigmf import SigMFFile, __specification__, __version__
+from sigmf import SigMFFile, __specification__
 
 TEST_FLOAT32_DATA = np.arange(16, dtype=np.float32)
 TEST_METADATA = {
