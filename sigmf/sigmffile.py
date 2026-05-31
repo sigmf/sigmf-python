@@ -1195,7 +1195,7 @@ class SigMFCollection(SigMFMetafile):
 
     def get_SigMFFile(self, stream_name=None, stream_index=None):
         """
-        Returns the SigMFFile instance of the specified stream if it exists
+        Returns the SigMFFile instance of the specified stream if it exists, or None.
         """
         if stream_name is not None and stream_name not in self.get_stream_names():
             # invalid stream name
