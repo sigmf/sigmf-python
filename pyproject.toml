@@ -39,7 +39,7 @@ dependencies = [
     sigmf_convert = "sigmf.convert.__main__:main"
     [project.optional-dependencies]
     test = [
-        "pylint",
+        "ruff",
         "pytest",
         "pytest-cov",
         "hypothesis",   # next-gen testing framework
@@ -98,6 +98,9 @@ line-length = 120
 
 [tool.isort]
 profile = "black"
+
+[tool.ruff]
+line-length = 120
 
 [tool.tox]
 legacy_tox_ini = '''

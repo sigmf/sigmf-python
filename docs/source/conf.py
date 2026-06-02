@@ -67,5 +67,5 @@ variables_to_export = [
     "specversion",
 ]
 frozen_locals = dict(locals())
-rst_epilog = '\n'.join(map(lambda x: f".. |{x}| replace:: {frozen_locals[x]}", variables_to_export))
+rst_epilog = "\n".join(map(lambda x: f".. |{x}| replace:: {frozen_locals[x]}", variables_to_export))
 del frozen_locals

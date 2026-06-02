@@ -42,14 +42,13 @@ To lint the entire project and get suggested changes:
 
 .. code-block:: console
 
-   $ pylint sigmf tests
+   $ ruff check
 
 To autoformat the entire project according to our coding standard:
 
 .. code-block:: console
 
-   $ black sigmf tests # autoformat entire project
-   $ isort sigmf tests # format imports for entire project
+   $ ruff format
 
 ----
 Docs
