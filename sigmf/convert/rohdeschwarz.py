@@ -4,11 +4,9 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # 
-# Last Updated: 6-04-2026
+# Last Updated: 6-15-2026
 
 """Rohde and Schwarz Converter"""
-
-# TODO: Act on thoughtful Co-Pilot code review.
 
 import io
 import os
@@ -501,7 +499,7 @@ def rohdeschwarz_to_sigmf(
         if out_path is not None:
             output_dir = filenames["meta_fn"].parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            meta.tofile(filenames["meta_fn"], toarchive=False)
+            meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
             log.info("wrote SigMF non-conforming metadata to %s", filenames["meta_fn"])
 
         log.debug("created %r", meta)
@@ -580,7 +578,7 @@ def rohdeschwarz_to_sigmf(
             meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
 
         # write metadata file
-        meta.tofile(filenames["meta_fn"], toarchive=False)
+        meta.tofile(filenames["meta_fn"], toarchive=False, overwrite=overwrite)
         log.info("wrote SigMF metadata to %s", filenames["meta_fn"])
 
     log.info("created %r", meta)
