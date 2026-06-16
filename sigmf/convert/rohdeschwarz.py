@@ -18,7 +18,7 @@ from defusedxml.ElementTree import parse
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 import numpy as np
 
@@ -30,13 +30,13 @@ from ..error import SigMFConversionError
 
 log = logging.getLogger()
 
-def xml_to_dict(elem):
+def xml_to_dict(elem) -> Dict[str, Any]:
     """
-    Preview trace is a defined in IQ.TAR files as an XML sctructure - convert to JSON
-    
+    Preview trace is defined in IQ.TAR files as an XML structure - convert to JSON.
+
     Convert an XML element and its children into a Python dict.
     """
-    result = {}
+    result: Dict[str, Any] = {}
 
     # Include attributes
     for key, value in elem.attrib.items():
@@ -90,11 +90,11 @@ def safe_extract(tar, target_dir):
             raise SigMFConversionError(f"Unsafe path detected in TAR: {member.name}")
         safe_members.append(member)
      
-        for member in safe_members:
-            try:
-                tar.extract(member, target_dir, set_attrs=False)
-            except TypeError:
-                tar.extract(member, target_dir)
+    for member in safe_members:
+        try:
+            tar.extract(member, target_dir, set_attrs=False)
+        except TypeError:
+            tar.extract(member, target_dir)
 
 def extract_iq_tar_to_directory(rohdeschwarz_path, file_dest_dir=None):
     tar_path = Path(rohdeschwarz_path)
@@ -141,14 +141,14 @@ def validate_rohdeschwarz(xml_path: Path) -> None:
     try:
         num_samples = float(num_samples_raw)
     except (TypeError, ValueError) as err:
-        raise SigMFConversionError(f"Invalid or missing Number Of SamplesleRate Raw: {num_samples_raw} Converted to Float: {num_samples}" ) from err
+        raise SigMFConversionError(f"Invalid or missing Number Of Samples: {num_samples_raw}") from err
 
     # Validate sample rate - "Clock"
-    sample_rate_raw= _text_of(root, "Clock")
-    if float(sample_rate_raw) <= 0:
-        raise SigMFConversionError(f"Invalid SampleRate: {sample_rate_raw} (must be > 0)")
+    sample_rate_raw = _text_of(root, "Clock")
     if sample_rate_raw is None:
          raise SigMFConversionError("Missing Sample Rate (Clock) in rohdeschwarz XML")
+    if float(sample_rate_raw) <= 0:
+        raise SigMFConversionError(f"Invalid SampleRate: {sample_rate_raw} (must be > 0)")
 
     # validate ScalingFactor, for example, "1"
     scaling_factor_raw = _text_of(root, "ScalingFactor")
@@ -168,7 +168,7 @@ def validate_rohdeschwarz(xml_path: Path) -> None:
     # validate Format - expecting "complex"
     format_raw = _text_of(root, "Format")
     if format_raw == "real" or format_raw == "polar":
-         raise SigMFConversionError("Real an Polar Formats are not currently supported in the converter")
+         raise SigMFConversionError("Real and Polar Formats are not currently supported in the converter")
     if format_raw is None:
          raise SigMFConversionError("Missing Format in rohdeschwarz XML")
 
@@ -176,7 +176,7 @@ def validate_rohdeschwarz(xml_path: Path) -> None:
     numberofchannels_raw = _text_of(root, "NumberOfChannels")
     if numberofchannels_raw is None:
         # Missing NumberOfChannels in rohdeschwarz XML so use 1
-        numberofchannels_raw =1
+        numberofchannels_raw = "1"
 
     # validate associated IQ file exists - example IQ file name "File.complex.1ch.float32"
     datafilename_raw = _text_of(root, "DataFilename")
@@ -266,13 +266,12 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
         except ValueError:
             log.warning(f"could not parse ScalingFactor: {scaling_factor_raw}")
 
-    datafilename  = None
+    datafilename = None
     datafilename_raw = _text_of(root, "DataFilename")
     if datafilename_raw is not None:
-        try:
-            datafilename  = str(datafilename_raw)
-        except ValueError:
-            log.warning(f"could not parse DataFileName: {datafilename_raw}")
+        datafilename = str(datafilename_raw)
+    if datafilename is None:
+        raise SigMFConversionError("DataFilename missing from XML during metadata extraction")
 
     # parse optional preview data if present
     preview_node = root.find(".//PreviewData")
@@ -284,7 +283,6 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
     name = _text_of(root, "Name")
     comment = _text_of(root, "Comment")
     userdata = _text_of(root, "UserData")
-    datafilename = _text_of(root, "DataFilename")
 
     # build hardware description with available information
     hw_parts = []
@@ -306,14 +304,19 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
     data_file_path = xml_path.parent / Path(datafilename).name
     filesize = data_file_path.stat().st_size
 
-    # TODO: Validate for R&S
+    # TODO: Validate for a variety of R&S files 
     # # R&S IQ.TAR uses complex float32 IQ data -> cf32_le in SigMF terms
     elem_size = np.dtype(np.float32).itemsize
     frame_bytes = 2 * elem_size  # I and Q components
 
-    #TODO: Test and validate
-    sample_count = _text_of(root, "Samples")
-    log.debug("sample count: %d", sample_count)
+    sample_count = None
+    sample_count_raw = _text_of(root, "Samples")
+    if sample_count_raw is not None:
+        try:
+            sample_count = int(sample_count_raw)
+            log.debug("sample count: %d", sample_count)
+        except ValueError:
+            log.warning(f"could not parse Samples: {sample_count_raw}")
 
     # calculate sample count using the original IQ data file size
     sample_count_calculated = filesize // frame_bytes
@@ -473,6 +476,8 @@ def rohdeschwarz_to_sigmf(
 
     # Get unique IQ filename from global_info
     iq_filename = global_info.get("rohdeschwarz:iq_datafilename")
+    if iq_filename is None:
+        raise SigMFConversionError("IQ filename not found in metadata after conversion")
     log.info(f"iq_filename: {iq_filename}")
 
 
