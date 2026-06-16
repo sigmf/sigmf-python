@@ -128,6 +128,9 @@ SIGMF_ARCHIVE_EXT = ".sigmf"
 SIGMF_METADATA_EXT = ".sigmf-meta"
 SIGMF_DATASET_EXT = ".sigmf-data"
 SIGMF_COLLECTION_EXT = ".sigmf-collection"
+# OPTIONAL HDF5 metadata sidecar (hdf5-meta extension); appended to the
+# metadata filename, e.g. recording.sigmf-meta.h5
+SIGMF_HDF5_META_EXT = ".h5"
 
 SIGMF_COMPRESSED_EXTS = {
     "gz": ".sigmf.gz",

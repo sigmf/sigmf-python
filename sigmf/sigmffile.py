@@ -842,7 +842,46 @@ class SigMFFile(SigMFMetafile):
         archive = SigMFArchive(self, name, fileobj, compression=compression, overwrite=overwrite)
         return archive.path
 
-    def tofile(self, file_path, pretty=True, toarchive=False, compression=None, skip_validate=False, overwrite=False):
+    def _declare_hdf5_meta(self, meta_filename):
+        """
+        Register the `hdf5-meta` extension in global metadata.
+
+        Adds an entry to `core:extensions` (marked optional) and sets
+        `hdf5-meta:file` to the sidecar filename derived from `meta_filename`.
+
+        Parameters
+        ----------
+        meta_filename : str
+            Filename (not path) of the `.sigmf-meta` file the sidecar accompanies.
+        """
+        from .hdf5 import (
+            HDF5_META_EXTENSION,
+            HDF5_META_FILE_KEY,
+            HDF5_META_VERSION,
+            HDF5_META_VERSION_KEY,
+            HDF5_SIDECAR_SUFFIX,
+        )
+
+        extensions = self.get_global_field(keys.EXTENSIONS_KEY, [])
+        if not any(ext.get("name") == HDF5_META_EXTENSION for ext in extensions):
+            extensions = extensions + [
+                {"name": HDF5_META_EXTENSION, "version": HDF5_META_VERSION, "optional": True}
+            ]
+            self.set_global_field(keys.EXTENSIONS_KEY, extensions)
+
+        self.set_global_field(HDF5_META_FILE_KEY, meta_filename + HDF5_SIDECAR_SUFFIX)
+        self.set_global_field(HDF5_META_VERSION_KEY, HDF5_META_VERSION)
+
+    def tofile(
+        self,
+        file_path,
+        pretty=True,
+        toarchive=False,
+        compression=None,
+        skip_validate=False,
+        overwrite=False,
+        write_hdf5=False,
+    ):
         """
         Write metadata file or archive based on file extension.
 
@@ -867,6 +906,11 @@ class SigMFFile(SigMFMetafile):
             Skip validation of metadata before writing.
         overwrite : bool, default False
             If False, raise exception if output file already exists.
+        write_hdf5 : bool, default False
+            If True, also write an HDF5 metadata sidecar alongside the
+            `.sigmf-meta` file and declare the `hdf5-meta` extension. Requires
+            the optional `h5py` dependency (`pip install sigmf[hdf5]`). Ignored
+            when writing to an archive.
 
         Examples
         --------
@@ -911,9 +955,23 @@ class SigMFFile(SigMFMetafile):
             fns = get_sigmf_filenames(file_path)
             if not overwrite and fns["meta_fn"].exists():
                 raise SigMFFileExistsError(fns["meta_fn"], "Metadata file")
+
+            if write_hdf5:
+                # declare the extension before serializing so the JSON file
+                # records the sidecar reference
+                self._declare_hdf5_meta(fns["meta_fn"].name)
+
             with open(fns["meta_fn"], "w") as fp:
                 self.dump(fp, pretty=pretty)
                 fp.write("\n")  # text files should end in carriage return
+
+            if write_hdf5:
+                from .hdf5 import write_hdf5_sidecar
+
+                sidecar_fn = fns["meta_fn"].parent / self.get_global_field("hdf5-meta:file")
+                if not overwrite and sidecar_fn.exists():
+                    raise SigMFFileExistsError(sidecar_fn, "HDF5 sidecar file")
+                write_hdf5_sidecar(self._metadata, sidecar_fn)
 
             # write data file if data_buffer exists
             if self.data_buffer is not None:
