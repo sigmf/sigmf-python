@@ -98,10 +98,5 @@ def main() -> None:
     elif converter_type == "rohdeschwarz":
         _ = rohdeschwarz_to_sigmf(rohdeschwarz_path=input_path, out_path=output_path, create_archive=args.archive, create_ncd=args.ncd)
 
-    else:
-            raise SigMFConversionError(
-                f"Supported formats for conversion are WAV, BLUE/Platinum, Signal Hound Spike and Rohde and Schwarz IQ.TAR."
-            )
-
 if __name__ == "__main__":
     main()

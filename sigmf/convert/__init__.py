@@ -109,7 +109,7 @@ def detect_converter(file_path: Path):
             return "rohdeschwarz"
         else:
             raise SigMFConversionError(
-                f"Unsupported XML file format. Root element: {rohde_schwarz_expanded_magic_bytes}. "
+                f"Unsupported XML file format in tar file. Root element: {rohde_schwarz_expanded_magic_bytes}. "
                 f"Expected RS_IQ_TAR_FileFormat for IQ.TAR files."
             )
 

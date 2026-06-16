@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # 
-# Last Updated: 6-15-2026
+# Last Updated: 6-16-2026
 
 """Rohde and Schwarz Converter"""
 
@@ -82,10 +82,19 @@ def safe_extract(tar, target_dir):
     """
     Extract only safe members from a tarfile.
     """
+    safe_members = []
     for member in tar.getmembers():
+        if member.issym() or member.islnk():
+            raise SigMFConversionError(f"Refusing to extract link from TAR: {member.name}")
         if not is_safe_member(tar, member, target_dir):
-            raise Exception(f"Unsafe path detected in TAR: {member.name}")
-        tar.extract(member, target_dir)
+            raise SigMFConversionError(f"Unsafe path detected in TAR: {member.name}")
+        safe_members.append(member)
+     
+        for member in safe_members:
+            try:
+                tar.extract(member, target_dir, set_attrs=False)
+            except TypeError:
+                tar.extract(member, target_dir)
 
 def extract_iq_tar_to_directory(rohdeschwarz_path, file_dest_dir=None):
     tar_path = Path(rohdeschwarz_path)
@@ -259,7 +268,7 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     datafilename  = None
     datafilename_raw = _text_of(root, "DataFilename")
-    if datafilename_raw:
+    if datafilename_raw is not None:
         try:
             datafilename  = str(datafilename_raw)
         except ValueError:
@@ -321,8 +330,6 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
         dt = datetime.fromtimestamp(secs, tz=timezone.utc) + timedelta(microseconds=rem_ns / 1000)
         iso_8601_string = dt.strftime(SIGMF_DATETIME_ISO8601_FMT)
 
-
-
     # base global metadata
     global_md = {
         SigMFFile.AUTHOR_KEY: getpass.getuser(),
@@ -336,7 +343,7 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     # add optional rohdeschwarz-specific fields to global metadata using rohdeschwarz: namespace
     # only include fields that aren't already represented in standard SigMF metadata
-    if scaling_factor:
+    if scaling_factor is not None:
         global_md["rohdeschwarz:scaling_factor"] = scaling_factor
     if datafilename:
         global_md["rohdeschwarz:iq_datafilename"] = datafilename  # provenance
