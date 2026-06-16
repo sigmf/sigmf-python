@@ -23,6 +23,7 @@ for the on-disk format.
 import builtins
 import hashlib
 import json
+import sys
 import warnings
 from pathlib import Path
 
@@ -141,6 +142,99 @@ def write_hdf5_sidecar(metadata, file_path, compression="gzip"):
             _write_records(handle, "annotations", annotations, compression)
 
 
+def _declare_extension(global_obj, sidecar_filename):
+    """Stamp the ``hdf5-meta`` extension fields into a ``global`` object in place.
+
+    Adds an entry to ``core:extensions`` (marked optional, idempotently) and
+    sets ``hdf5-meta:file`` / ``hdf5-meta:version``. This mirrors
+    ``SigMFFile._declare_hdf5_meta`` so a sidecar generated from raw JSON is
+    declared identically to one written via ``SigMFFile.tofile(write_hdf5=True)``.
+
+    Parameters
+    ----------
+    global_obj : dict
+        The SigMF ``global`` object (mutated in place).
+    sidecar_filename : str
+        Bare filename (not a path) of the ``.h5`` sidecar.
+    """
+    extensions = global_obj.get(keys.EXTENSIONS_KEY, []) or []
+    if not any(ext.get("name") == HDF5_META_EXTENSION for ext in extensions):
+        extensions = extensions + [{"name": HDF5_META_EXTENSION, "version": HDF5_META_VERSION, "optional": True}]
+        global_obj[keys.EXTENSIONS_KEY] = extensions
+    global_obj[HDF5_META_FILE_KEY] = sidecar_filename
+    global_obj[HDF5_META_VERSION_KEY] = HDF5_META_VERSION
+
+
+def generate_sidecar(meta_path, sidecar_path=None, compression="gzip", update_json=True, overwrite=True):
+    """
+    Generate an HDF5 metadata sidecar from an existing ``.sigmf-meta`` JSON file.
+
+    This is the forward complement of :func:`fromfile`: it reads an
+    authoritative JSON Metadata file, writes the columnar ``.h5`` sidecar
+    alongside it, and (by default) declares the ``hdf5-meta`` extension in the
+    JSON so :func:`fromfile` can discover and digest-verify the sidecar.
+
+    Parameters
+    ----------
+    meta_path : str | PathLike
+        Path to the ``.sigmf-meta`` file (with or without extension). The JSON
+        is read once and remains the authoritative source of truth.
+    sidecar_path : str | PathLike, optional
+        Destination for the sidecar. Defaults to the meta filename with
+        ``.h5`` appended (e.g. ``rec.sigmf-meta.h5``), matching the name
+        ``SigMFFile.tofile(write_hdf5=True)`` produces.
+    compression : str | None, default "gzip"
+        Compression filter for the columnar datasets. ``None`` disables it.
+    update_json : bool, default True
+        If True, stamp ``hdf5-meta:file`` / ``hdf5-meta:version`` and the
+        ``core:extensions`` entry into the JSON ``global`` object and rewrite
+        the ``.sigmf-meta`` file. When False the JSON is left untouched and the
+        sidecar will not be auto-discovered by :func:`fromfile`.
+    overwrite : bool, default True
+        If False, raise :class:`SigMFHDF5Error` when the sidecar already exists.
+
+    Returns
+    -------
+    pathlib.Path
+        The path to the written sidecar file.
+
+    Raises
+    ------
+    SigMFHDF5Error
+        If the metadata file is missing, unreadable as JSON, or the sidecar
+        exists and ``overwrite`` is False.
+    """
+    from .sigmffile import get_sigmf_filenames
+
+    meta_fn = get_sigmf_filenames(meta_path)["meta_fn"]
+    if not meta_fn.is_file():
+        raise SigMFHDF5Error(f"Metadata file not found: '{meta_fn}'")
+
+    try:
+        with builtins.open(meta_fn, "rb") as fp:
+            metadata = json.loads(fp.read().decode("utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SigMFHDF5Error(f"Could not read SigMF metadata from '{meta_fn}': {exc}") from exc
+
+    if sidecar_path is None:
+        sidecar_path = meta_fn.parent / (meta_fn.name + HDF5_SIDECAR_SUFFIX)
+    sidecar_path = Path(sidecar_path)
+
+    if sidecar_path.exists() and not overwrite:
+        raise SigMFHDF5Error(f"HDF5 sidecar already exists: '{sidecar_path}'")
+
+    if update_json:
+        global_obj = metadata.setdefault("global", {})
+        _declare_extension(global_obj, sidecar_path.name)
+        with builtins.open(meta_fn, "w") as fp:
+            json.dump(metadata, fp)
+
+    # write the sidecar from the (now-declared) metadata so its stored digest
+    # matches the JSON that fromfile() will verify against
+    write_hdf5_sidecar(metadata, sidecar_path, compression=compression)
+    return sidecar_path
+
+
 def _write_global_attrs(grp, global_obj):
     """Store each global key/value pair as an attribute on the /global group.
 
@@ -177,9 +271,7 @@ def _column_dtype(values, present):
             return np.dtype("i1"), False
         if all(isinstance(v, (int, np.integer)) and not isinstance(v, bool) for v in non_null):
             return np.dtype("<i8"), False
-        if all(_is_scalar_number(v) for v in non_null) and any(
-            isinstance(v, (float, np.floating)) for v in non_null
-        ):
+        if all(_is_scalar_number(v) for v in non_null) and any(isinstance(v, (float, np.floating)) for v in non_null):
             return np.dtype("<f8"), False
         if all(isinstance(v, str) for v in non_null):
             import h5py
@@ -708,10 +800,84 @@ def fromfile(meta_path, require_sidecar=False, verify=True, skip_checksum=False)
         stored = read_source_digest(handle)
         if stored is not None and stored != _metadata_digest(metadata):
             handle.close()
-            warnings.warn(
-                f"hdf5-meta sidecar '{sidecar_path}' is stale (digest mismatch); using JSON metadata."
-            )
+            warnings.warn(f"hdf5-meta sidecar '{sidecar_path}' is stale (digest mismatch); using JSON metadata.")
             return _fallback("stale sidecar")
 
     data_fn = get_dataset_filename_from_metadata(meta_fn, metadata)
     return SigMFFileHDF5(handle, global_obj=metadata.get("global", {}), data_file=data_fn)
+
+
+# ---------------------------------------------------------------------------
+# command-line interface
+# ---------------------------------------------------------------------------
+def main(arg_tuple=None):
+    """Command-line entry point for generating HDF5 metadata sidecars.
+
+    Reads one or more existing ``.sigmf-meta`` JSON files and writes an
+    ``hdf5-meta`` sidecar alongside each, declaring the extension in the JSON
+    (unless ``--no-update-json`` is given). Installed as ``sigmf_hdf5``.
+    """
+    import argparse
+    import glob
+
+    from . import __version__ as toolversion
+
+    parser = argparse.ArgumentParser(
+        description="Generate an HDF5 metadata sidecar from an existing SigMF .sigmf-meta file.",
+        prog="sigmf_hdf5",
+    )
+    parser.add_argument(
+        "path", nargs="+", help="SigMF metadata path(s). Accepts * wildcards; the extension is optional."
+    )
+    parser.add_argument(
+        "--no-compression",
+        action="store_true",
+        help="Disable gzip compression of the columnar datasets.",
+    )
+    parser.add_argument(
+        "--no-update-json",
+        action="store_true",
+        help="Do not declare the hdf5-meta extension in the .sigmf-meta JSON (sidecar won't be auto-discovered).",
+    )
+    parser.add_argument(
+        "--no-overwrite",
+        action="store_true",
+        help="Fail instead of overwriting an existing sidecar.",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Print each sidecar written.")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {toolversion}")
+
+    args = parser.parse_args(arg_tuple)
+
+    # resolve possible wildcards
+    paths = []
+    for path in args.path:
+        expanded = glob.glob(path)
+        paths += expanded if expanded else [path]
+
+    n_ok = 0
+    for path in paths:
+        try:
+            sidecar = generate_sidecar(
+                path,
+                compression=None if args.no_compression else "gzip",
+                update_json=not args.no_update_json,
+                overwrite=not args.no_overwrite,
+            )
+        except SigMFHDF5Error as exc:
+            print(f"ERROR: {path}: {exc}", file=sys.stderr)
+            continue
+        n_ok += 1
+        if args.verbose:
+            print(f"wrote {sidecar}")
+
+    n_total = len(paths)
+    if n_ok != n_total:
+        print(f"Generated {n_ok} of {n_total} sidecar(s)", file=sys.stderr)
+        sys.exit(1)
+    if args.verbose:
+        print(f"Generated all {n_total} sidecar(s) OK")
+
+
+if __name__ == "__main__":
+    main()

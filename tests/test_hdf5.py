@@ -80,6 +80,129 @@ def test_default_fromfile_ignores_sidecar(written):
 
 
 # ---------------------------------------------------------------------------
+# generate_sidecar — JSON file -> sidecar
+# ---------------------------------------------------------------------------
+def test_generate_sidecar_from_json(tmp_dir):
+    """generate_sidecar reads a plain .sigmf-meta and produces a usable sidecar."""
+    meta = _make_recording(tmp_dir)
+    base = tmp_dir / "plain"
+    meta.tofile(base, skip_validate=True)  # JSON only, no sidecar
+    meta_fn = tmp_dir / "plain.sigmf-meta"
+    original = json.loads(meta_fn.read_text())
+
+    sidecar = hdf5.generate_sidecar(meta_fn)
+
+    # default name sits next to the JSON with .h5 appended
+    assert sidecar == tmp_dir / "plain.sigmf-meta.h5"
+    assert sidecar.is_file()
+
+    # JSON is updated to declare the extension so fromfile can discover it
+    doc = json.loads(meta_fn.read_text())
+    assert doc["global"]["hdf5-meta:file"] == "plain.sigmf-meta.h5"
+    assert doc["global"]["hdf5-meta:version"] == hdf5.HDF5_META_VERSION
+    ext = next(e for e in doc["global"]["core:extensions"] if e["name"] == "hdf5-meta")
+    assert ext["optional"] is True
+
+    # sidecar content matches the original annotations/captures
+    restored = hdf5.read_hdf5_sidecar(sidecar)
+    assert restored["annotations"] == original["annotations"]
+    assert restored["captures"] == original["captures"]
+
+
+def test_generate_sidecar_discovered_by_fromfile(tmp_dir):
+    """A generated sidecar is preferred (and digest-verified) by hdf5.fromfile."""
+    meta = _make_recording(tmp_dir)
+    base = tmp_dir / "plain"
+    meta.tofile(base, skip_validate=True)
+    expected = json.loads((tmp_dir / "plain.sigmf-meta").read_text())["annotations"]
+
+    hdf5.generate_sidecar(tmp_dir / "plain.sigmf-meta")
+
+    sf = hdf5.fromfile(base)  # no warning: digest matches the rewritten JSON
+    try:
+        assert isinstance(sf, hdf5.SigMFFileHDF5)
+        assert sf.get_annotations() == expected
+    finally:
+        sf.close()
+
+
+def test_generate_sidecar_custom_path_no_json_update(tmp_dir):
+    """sidecar_path and update_json=False are honored; JSON is left untouched."""
+    meta = _make_recording(tmp_dir)
+    base = tmp_dir / "plain"
+    meta.tofile(base, skip_validate=True)
+    meta_fn = tmp_dir / "plain.sigmf-meta"
+    before = meta_fn.read_text()
+
+    target = tmp_dir / "elsewhere.h5"
+    sidecar = hdf5.generate_sidecar(meta_fn, sidecar_path=target, update_json=False)
+
+    assert sidecar == target
+    assert target.is_file()
+    # JSON untouched -> no declaration, fromfile falls back to JSON
+    assert meta_fn.read_text() == before
+    assert isinstance(hdf5.fromfile(base), sigmf.SigMFFile)
+
+
+def test_generate_sidecar_overwrite_guard(tmp_dir):
+    """overwrite=False raises when the sidecar already exists."""
+    meta = _make_recording(tmp_dir)
+    base = tmp_dir / "plain"
+    meta.tofile(base, skip_validate=True)
+    meta_fn = tmp_dir / "plain.sigmf-meta"
+
+    hdf5.generate_sidecar(meta_fn)
+    with pytest.raises(hdf5.SigMFHDF5Error):
+        hdf5.generate_sidecar(meta_fn, overwrite=False)
+    # overwrite=True (default) succeeds on a second run
+    assert hdf5.generate_sidecar(meta_fn).is_file()
+
+
+def test_generate_sidecar_missing_meta_raises(tmp_dir):
+    """A missing metadata file raises SigMFHDF5Error."""
+    with pytest.raises(hdf5.SigMFHDF5Error):
+        hdf5.generate_sidecar(tmp_dir / "nonexistent.sigmf-meta")
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point (sigmf_hdf5)
+# ---------------------------------------------------------------------------
+def test_cli_generates_sidecar(tmp_dir):
+    """The sigmf_hdf5 CLI writes a sidecar and declares the extension."""
+    meta = _make_recording(tmp_dir)
+    base = tmp_dir / "plain"
+    meta.tofile(base, skip_validate=True)
+    meta_fn = tmp_dir / "plain.sigmf-meta"
+
+    hdf5.main([str(meta_fn)])
+
+    assert (tmp_dir / "plain.sigmf-meta.h5").is_file()
+    doc = json.loads(meta_fn.read_text())
+    assert doc["global"]["hdf5-meta:file"] == "plain.sigmf-meta.h5"
+
+
+def test_cli_no_update_json(tmp_dir):
+    """--no-update-json leaves the JSON untouched."""
+    meta = _make_recording(tmp_dir)
+    base = tmp_dir / "plain"
+    meta.tofile(base, skip_validate=True)
+    meta_fn = tmp_dir / "plain.sigmf-meta"
+    before = meta_fn.read_text()
+
+    hdf5.main([str(meta_fn), "--no-update-json"])
+
+    assert (tmp_dir / "plain.sigmf-meta.h5").is_file()
+    assert meta_fn.read_text() == before
+
+
+def test_cli_missing_file_exits_nonzero(tmp_dir):
+    """A bad path makes the CLI exit non-zero rather than crash."""
+    with pytest.raises(SystemExit) as excinfo:
+        hdf5.main([str(tmp_dir / "nonexistent.sigmf-meta")])
+    assert excinfo.value.code == 1
+
+
+# ---------------------------------------------------------------------------
 # direct module round-trip
 # ---------------------------------------------------------------------------
 def test_module_roundtrip_equivalence(written):
