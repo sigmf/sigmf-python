@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: LGPL-3.0-or-later
 # 
-# Last Updated: 6-16-2026
+# Last Updated: 6-22-2026
 
 """Rohde and Schwarz Converter"""
 
@@ -24,6 +24,8 @@ import numpy as np
 
 from ..sigmffile import get_sigmf_filenames
 from ..sigmffile import SigMFFile, fromfile
+import sigmf
+
 from ..utils import SIGMF_DATETIME_ISO8601_FMT
 from ..error import SigMFConversionError
 
@@ -335,13 +337,13 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     # base global metadata
     global_md = {
-        SigMFFile.AUTHOR_KEY: getpass.getuser(),
-        SigMFFile.DATATYPE_KEY: data_type,
-        SigMFFile.HW_KEY: hardware_description,
-        SigMFFile.NUM_CHANNELS_KEY: numberofchannels,
-        SigMFFile.RECORDER_KEY: "Official SigMF Rohde and Schwarz converter",
-        SigMFFile.SAMPLE_RATE_KEY: sample_rate,
-        SigMFFile.EXTENSIONS_KEY: [{"name": "rohdeschwarz", "version": "0.0.1", "optional": True}],
+        sigmf.AUTHOR_KEY: getpass.getuser(),
+        sigmf.DATATYPE_KEY: data_type,
+        sigmf.HW_KEY: hardware_description,
+        sigmf.NUM_CHANNELS_KEY: numberofchannels,
+        sigmf.RECORDER_KEY: "Official SigMF Rohde and Schwarz converter",
+        sigmf.SAMPLE_RATE_KEY: sample_rate,
+        sigmf.EXTENSIONS_KEY: [{"name": "rohdeschwarz", "version": "0.0.1", "optional": True}],
     }
 
     # add optional rohdeschwarz-specific fields to global metadata using rohdeschwarz: namespace
@@ -357,26 +359,25 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
 
     # capture info
     capture_info = {
-        SigMFFile.FREQUENCY_KEY: center_frequency,
+        sigmf.FREQUENCY_KEY: center_frequency,
     }
     if iso_8601_string:
-        capture_info[SigMFFile.DATETIME_KEY] = iso_8601_string
+        capture_info[sigmf.DATETIME_KEY] = iso_8601_string
 
-    # TODO: Validate bandwidth/2 for this R&S capture 
     if_bandwidth = sample_rate/2
 
     # create annotations array using calculated values
     annotations = []
     if if_bandwidth:
-        upper_frequency_edge = center_frequency + (if_bandwidth / 2.0)
-        lower_frequency_edge = center_frequency - (if_bandwidth / 2.0)
+        upper_frequency_edge = center_frequency + if_bandwidth 
+        lower_frequency_edge = center_frequency - if_bandwidth 
         annotations.append(
             {
-                SigMFFile.START_INDEX_KEY: 0,
-                SigMFFile.LENGTH_INDEX_KEY: sample_count_calculated,
-                SigMFFile.FLO_KEY: lower_frequency_edge,
-                SigMFFile.FHI_KEY: upper_frequency_edge,
-                SigMFFile.LABEL_KEY: "rohdeschwarz",
+                sigmf.SAMPLE_START_KEY: 0,
+                sigmf.SAMPLE_COUNT_KEY: sample_count_calculated,
+                sigmf.FREQ_LOWER_EDGE_KEY: lower_frequency_edge,
+                sigmf.FREQ_UPPER_EDGE_KEY: upper_frequency_edge,
+                sigmf.LABEL_KEY: "rohdeschwarz",
             }
         )
 
@@ -484,9 +485,9 @@ def rohdeschwarz_to_sigmf(
     # create NCD if specified, otherwise create standard SigMF dataset or archive
     if create_ncd:
         # rohdeschwarz files have no header or trailing bytes
-        global_info[SigMFFile.DATASET_KEY] = rohdeschwarz_path.with_suffix(".iq").name
-        global_info[SigMFFile.TRAILING_BYTES_KEY] = 0
-        capture_info[SigMFFile.HEADER_BYTES_KEY] = 0
+        global_info[sigmf.DATASET_KEY] = rohdeschwarz_path.with_suffix(".iq").name
+        global_info[sigmf.TRAILING_BYTES_KEY] = 0
+        capture_info[sigmf.HEADER_BYTES_KEY] = 0
 
         # build the .iq file path for data file
         data_file_path = rohdeschwarz_path.parent / iq_filename
@@ -499,11 +500,11 @@ def rohdeschwarz_to_sigmf(
 
         # add annotations from metadata
         for annotation in annotations:
-            start_idx = annotation.get(SigMFFile.START_INDEX_KEY, 0)
-            length = annotation.get(SigMFFile.LENGTH_INDEX_KEY)
+            start_idx = annotation.get(sigmf.SAMPLE_START_KEY, 0)
+            length = annotation.get(sigmf.SAMPLE_COUNT_KEY)
             # pass remaining fields as metadata (excluding standard annotation keys)
             annot_metadata = {
-                k: v for k, v in annotation.items() if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]
+                k: v for k, v in annotation.items() if k not in [sigmf.SAMPLE_START_KEY, sigmf.SAMPLE_COUNT_KEY]
             }
             meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
 
@@ -541,12 +542,12 @@ def rohdeschwarz_to_sigmf(
 
             # add annotations from metadata
             for annotation in annotations:
-                start_idx = annotation.get(SigMFFile.START_INDEX_KEY, 0)
-                length = annotation.get(SigMFFile.LENGTH_INDEX_KEY)
+                start_idx = annotation.get(sigmf.SAMPLE_START_KEY, 0)
+                length = annotation.get(sigmf.SAMPLE_COUNT_KEY)
                 annot_metadata = {
                     k: v
                     for k, v in annotation.items()
-                    if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]
+                    if k not in [sigmf.SAMPLE_START_KEY, sigmf.SAMPLE_COUNT_KEY]
                 }
                 meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
 
@@ -581,11 +582,11 @@ def rohdeschwarz_to_sigmf(
 
         # add annotations from metadata
         for annotation in annotations:
-            start_idx = annotation.get(SigMFFile.START_INDEX_KEY, 0)
-            length = annotation.get(SigMFFile.LENGTH_INDEX_KEY)
+            start_idx = annotation.get(sigmf.SAMPLE_START_KEY, 0)
+            length = annotation.get(sigmf.SAMPLE_COUNT_KEY)
             # pass remaining fields as metadata (excluding standard annotation keys)
             annot_metadata = {
-                k: v for k, v in annotation.items() if k not in [SigMFFile.START_INDEX_KEY, SigMFFile.LENGTH_INDEX_KEY]
+                k: v for k, v in annotation.items() if k not in [sigmf.SAMPLE_START_KEY, sigmf.SAMPLE_COUNT_KEY]
             }
             meta.add_annotation(start_idx, length=length, metadata=annot_metadata)
 

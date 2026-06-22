@@ -11,9 +11,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 import defusedxml.ElementTree as ET
-from sigmf import SigMFFile
-
-# TODO: Update code to use Hypothesis as appropriate
+from hypothesis import given, strategies as st, settings, HealthCheck
+import sigmf
 
 from sigmf.convert.rohdeschwarz import (
     SigMFConversionError,
@@ -28,7 +27,8 @@ from sigmf.convert.rohdeschwarz import (
 # Create a minimal, valid Rohde & Schwarz IQ.TAR file for testing.
 def _write_rohdeschwarz_tar(tmp_path: Path, xml_filename: str = "metadata.xml", iq_filename: str = "File.complex.1ch.float32", xml_content: str = None, iq_values: np.ndarray = None):
     source_dir = tmp_path / "source"
-    source_dir.mkdir()
+    source_dir.mkdir(parents=True, exist_ok=True)
+
     if iq_values is None:
         iq_values = np.arange(8, dtype=np.float32)
 
@@ -79,8 +79,7 @@ def test_xml_to_dict_repeated_tags_and_nested_elements():
     root = ET.fromstring(xml_text)
     result = xml_to_dict(root)
 
-# TODO: Fix type mis match
-
+    # xml_to_dict returns strings for text content
     assert result["Magnitude"]["float"] == ["1.0", "2.0"]
     assert result["Phase"] == "0.0"
 
@@ -154,14 +153,14 @@ def test_build_metadata_and_convert_iq_data(tmp_path):
     global_info, capture_info, annotations, sample_count = _build_metadata(xml_path)
 
     assert sample_count == 4
-    assert global_info[SigMFFile.DATATYPE_KEY] == "cf32_le"
+    assert global_info[sigmf.DATATYPE_KEY] == "cf32_le"
     assert global_info["rohdeschwarz:scaling_factor"] == 1.0
     assert global_info["rohdeschwarz:iq_datafilename"] == "File.complex.1ch.float32"
     assert "rohdeschwarz:preview_trace" in global_info
-    assert capture_info[SigMFFile.FREQUENCY_KEY] == 0.0
-    assert SigMFFile.DATETIME_KEY in capture_info
-    assert annotations[0][SigMFFile.LENGTH_INDEX_KEY] == 4
-    assert annotations[0][SigMFFile.LABEL_KEY] == "rohdeschwarz"
+    assert capture_info[sigmf.FREQUENCY_KEY] == 0.0
+    assert sigmf.DATETIME_KEY in capture_info
+    assert annotations[0][sigmf.SAMPLE_COUNT_KEY] == 4
+    assert annotations[0][sigmf.LABEL_KEY] == "rohdeschwarz"
 
     data_file = xml_path.parent / "File.complex.1ch.float32"
     converted = convert_iq_data(data_file, sample_count)
@@ -170,7 +169,7 @@ def test_build_metadata_and_convert_iq_data(tmp_path):
     np.testing.assert_array_equal(converted, np.arange(8, dtype=np.float32))
 
 
-def _global_info(meta: SigMFFile):
+def _global_info(meta: sigmf):
     if hasattr(meta, "global_info"):
         return meta.global_info
     return meta.get_global_info()
@@ -181,7 +180,111 @@ def test_rohdeschwarz_to_sigmf_create_ncd_returns_metadata_object(tmp_path):
     meta = rohdeschwarz_to_sigmf(tar_path)
     global_info = _global_info(meta)
 
-    assert global_info[SigMFFile.DATASET_KEY] == "File.complex.1ch.float32"
-    assert global_info[SigMFFile.TRAILING_BYTES_KEY] == 0
-    assert global_info[SigMFFile.DATATYPE_KEY] == "cf32_le"
+    assert global_info[sigmf.DATASET_KEY] == "File.complex.1ch.float32"
+    assert global_info[sigmf.TRAILING_BYTES_KEY] == 0
+    assert global_info[sigmf.DATATYPE_KEY] == "cf32_le"
     assert global_info["rohdeschwarz:iq_datafilename"] == "File.complex.1ch.float32"
+
+
+# Property-based tests using Hypothesis
+
+@given(
+    sample_count=st.integers(min_value=1, max_value=10000),
+    sample_rate=st.floats(min_value=1e6, max_value=1e10, allow_nan=False, allow_infinity=False),
+)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_build_metadata_with_various_samples_and_rates(tmp_path, sample_count, sample_rate):
+    """Test metadata building with various sample counts and sample rates."""
+    # Create appropriate IQ data: 2 floats per sample (I and Q)
+    iq_values = np.arange(sample_count * 2, dtype=np.float32)
+    
+    xml_content = f"""<Root>
+  <Clock>{sample_rate}</Clock>
+  <Samples>{sample_count}.0</Samples>
+  <ScalingFactor>1.0</ScalingFactor>
+  <DataType>float32</DataType>
+  <Format>complex</Format>
+  <NumberOfChannels>1</NumberOfChannels>
+  <DataFilename>File.complex.1ch.float32</DataFilename>
+  <EpochNanos>1672531200000000000</EpochNanos>
+</Root>"""
+    
+    tar_path = _write_rohdeschwarz_tar(tmp_path, iq_values=iq_values, xml_content=xml_content)
+    extract_dir = tmp_path / "extracted"
+    xml_path = extract_iq_tar_to_directory(tar_path, extract_dir)
+    
+    global_info, capture_info, annotations, returned_sample_count = _build_metadata(xml_path)
+    
+    # Verify the metadata properties hold for all generated inputs
+    assert returned_sample_count == sample_count
+    assert global_info[sigmf.SAMPLE_RATE_KEY] == pytest.approx(sample_rate)
+    assert global_info[sigmf.DATATYPE_KEY] == "cf32_le"
+    assert capture_info[sigmf.FREQUENCY_KEY] == 0.0
+    assert len(annotations) > 0
+
+
+@given(num_floats=st.integers(min_value=1, max_value=100))
+def test_xml_to_dict_with_variable_repeated_elements(num_floats):
+    """Test xml_to_dict correctly handles variable numbers of repeated elements."""
+    float_elements = "\n".join(f"<value>{i}</value>" for i in range(num_floats))
+    xml_text = f"""
+    <Data>
+        <Values>
+            {float_elements}
+        </Values>
+    </Data>
+    """
+    root = ET.fromstring(xml_text)
+    result = xml_to_dict(root)
+    
+    # If more than one element, should be a list
+    values = result["Values"]["value"]
+    if num_floats == 1:
+        assert isinstance(values, str)
+    else:
+        assert isinstance(values, list)
+        assert len(values) == num_floats
+
+@given(
+    sample_count=st.integers(min_value=1, max_value=10000),
+)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_convert_iq_data_with_various_sample_counts(tmp_path, sample_count):
+    """Test IQ data conversion works with various sample counts."""
+    # Create IQ data: 2 floats per sample
+    iq_values = np.arange(sample_count * 2, dtype=np.float32)
+    data_file = tmp_path / "test.iq"
+    iq_values.tofile(data_file)
+    converted = convert_iq_data(data_file, sample_count)
+    # Verify properties hold
+    assert len(converted) == sample_count * 2  # I and Q interleaved
+    assert converted.dtype == np.float32
+    np.testing.assert_array_equal(converted, iq_values)
+
+@given(
+    num_channels=st.integers(min_value=1, max_value=32),
+    data_type=st.sampled_from(["float32"]),  # Only supported type
+    sample_rate=st.floats(min_value=1e6, max_value=1e10, allow_nan=False, allow_infinity=False),
+)
+
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_validate_rohdeschwarz_accepts_valid_metadata(tmp_path, num_channels, data_type, sample_rate):
+    """Test that validation accepts various valid metadata combinations."""
+    sample_count = 1000
+    iq_values = np.arange(sample_count * 2, dtype=np.float32)
+    xml_content = f"""<Root>
+  <Clock>{sample_rate}</Clock>
+  <Samples>{sample_count}.0</Samples>
+  <ScalingFactor>1.0</ScalingFactor>
+  <DataType>{data_type}</DataType>
+  <Format>complex</Format>
+  <NumberOfChannels>{num_channels}</NumberOfChannels>
+  <DataFilename>File.complex.1ch.float32</DataFilename>
+</Root>"""
+    
+    tar_path = _write_rohdeschwarz_tar(tmp_path, iq_values=iq_values, xml_content=xml_content)
+    extract_dir = tmp_path / "extracted"
+    xml_path = extract_iq_tar_to_directory(tar_path, extract_dir)
+    
+    # Should not raise
+    validate_rohdeschwarz(xml_path)
