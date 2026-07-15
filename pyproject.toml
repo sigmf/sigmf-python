@@ -8,9 +8,6 @@ classifiers = [
     "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -20,7 +17,7 @@ classifiers = [
     "Topic :: Communications :: Ham Radio",
 ]
 dynamic = ["version", "readme"]
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 dependencies = [
     "numpy",        # for vector math
     "jsonschema",   # for spec validation
@@ -106,7 +103,7 @@ line-length = 120
 legacy_tox_ini = '''
     [tox]
     skip_missing_interpreters = True
-    envlist = py{37,38,39,310,311,312,313,314}
+    envlist = py{310,311,312,313,314}
 
     [testenv]
     usedevelop = True

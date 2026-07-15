@@ -20,7 +20,6 @@ import tempfile
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Tuple
 
 import numpy as np
 from packaging.version import InvalidVersion, Version
@@ -474,7 +473,7 @@ def _build_common_metadata(
     is_ncd: bool = False,
     blue_file_name: str = None,
     trailing_bytes: int = 0,
-) -> Tuple[dict, dict]:
+) -> tuple[dict, dict]:
     """
     Build common global_info and capture_info metadata for both standard and NCD SigMF files.
 
@@ -791,7 +790,7 @@ def construct_sigmf_ncd(
 
 def blue_to_sigmf(
     blue_path: str,
-    out_path: Optional[str] = None,
+    out_path: str | None = None,
     create_archive: bool = False,
     create_ncd: bool = False,
     overwrite: bool = False,

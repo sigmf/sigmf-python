@@ -85,7 +85,7 @@ class _SigMFDeprecatingMeta(type):
 
 
 class SigMFMetafile(metaclass=_SigMFDeprecatingMeta):
-    VALID_KEYS = {}
+    VALID_KEYS: dict[str, list[str]] = {}
 
     def __init__(self):
         self.version = None

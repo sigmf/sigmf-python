@@ -7,7 +7,6 @@
 """Simple signal generator utilities for SigMF."""
 
 import io
-from typing import Optional
 
 import numpy as np
 
@@ -42,7 +41,7 @@ class SigMFGenerator:
     >>> signal = SigMFGenerator().sample_rate(100e3).tone(440).sweep(1000, 5000).duration(0.5).generate()
     """
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: int | None = None):
         # random state for reproducible generation across arch / platforms
         self._rng = np.random.RandomState(seed)
         self._seed = seed
@@ -63,7 +62,7 @@ class SigMFGenerator:
         self._description = None
         self._comment = None
 
-    def tone(self, frequency_hz: Optional[float] = None, amplitude: Optional[float] = None):
+    def tone(self, frequency_hz: float | None = None, amplitude: float | None = None):
         """
         Add a sinusoidal tone to the signal.
 
@@ -89,9 +88,9 @@ class SigMFGenerator:
 
     def sweep(
         self,
-        start_frequency_hz: Optional[float] = None,
-        end_frequency_hz: Optional[float] = None,
-        amplitude: Optional[float] = None,
+        start_frequency_hz: float | None = None,
+        end_frequency_hz: float | None = None,
+        amplitude: float | None = None,
     ):
         """
         Add a linear frequency sweep to the signal.
