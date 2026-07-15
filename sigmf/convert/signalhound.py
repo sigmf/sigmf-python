@@ -334,8 +334,8 @@ def _add_annotations(meta: SigMFFile, annotations: list) -> None:
 
 
 def signalhound_to_sigmf(
-    signalhound_path: Path,
-    out_path: Path | None = None,
+    signalhound_path: str | Path,
+    out_path: str | Path | None = None,
     create_archive: bool = False,
     create_ncd: bool = False,
     overwrite: bool = False,
@@ -345,9 +345,9 @@ def signalhound_to_sigmf(
 
     Parameters
     ----------
-    signalhound_path : Path
+    signalhound_path : str or Path
         Path to the signalhound file.
-    out_path : Path, optional
+    out_path : str or Path, optional
         Path to the output SigMF metadata file.
     create_archive : bool, optional
         When True, package output as a .sigmf archive.

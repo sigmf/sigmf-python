@@ -47,20 +47,20 @@ class SigMFGenerator:
         self._seed = seed
 
         # signal components (list of dicts)
-        self._signal_components = []
+        self._signal_components: list[dict] = []
 
         # signal configuration
-        self._sample_rate_hz = None
-        self._duration_s = None
-        self._amplitude = 1.0
-        self._snr_db = None
-        self._frequency_offset_hz = 0.0
-        self._phase_offset_rad = 0.0
+        self._sample_rate_hz: float | None = None
+        self._duration_s: float | None = None
+        self._amplitude: float = 1.0
+        self._snr_db: float | None = None
+        self._frequency_offset_hz: float = 0.0
+        self._phase_offset_rad: float = 0.0
 
         # metadata
-        self._author = None
-        self._description = None
-        self._comment = None
+        self._author: str | None = None
+        self._description: str | None = None
+        self._comment: str | None = None
 
     def tone(self, frequency_hz: float | None = None, amplitude: float | None = None):
         """
@@ -78,7 +78,7 @@ class SigMFGenerator:
         SigMFGenerator
             Self for method chaining.
         """
-        component = {"type": "tone"}
+        component: dict = {"type": "tone"}
         if frequency_hz is not None:
             component["frequency_hz"] = float(frequency_hz)
         if amplitude is not None:
@@ -109,7 +109,7 @@ class SigMFGenerator:
         SigMFGenerator
             Self for method chaining.
         """
-        component = {"type": "sweep"}
+        component: dict = {"type": "sweep"}
         if start_frequency_hz is not None:
             component["start_frequency_hz"] = float(start_frequency_hz)
         if end_frequency_hz is not None:
@@ -310,7 +310,7 @@ class SigMFGenerator:
     def _fill_random_parameters(self) -> None:
         """Fill unspecified parameters with random values."""
         # sample rates to choose from
-        common_sample_rates = []
+        common_sample_rates: list[float] = []
         # typical audio rates
         common_sample_rates += [8000, 22050, 44100, 48000, 96000, 192000]
         # typical SDR rates

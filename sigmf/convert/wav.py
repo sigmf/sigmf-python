@@ -72,8 +72,8 @@ def _get_wav_boundaries(wav_path: Path) -> tuple[int, int]:
 
 
 def wav_to_sigmf(
-    wav_path: str,
-    out_path: str | None = None,
+    wav_path: str | Path,
+    out_path: str | Path | None = None,
     create_archive: bool = False,
     create_ncd: bool = False,
     overwrite: bool = False,
@@ -83,9 +83,9 @@ def wav_to_sigmf(
 
     Parameters
     ----------
-    wav_path : str
+    wav_path : str or Path
         Path to the WAV file.
-    out_path : str, optional
+    out_path : str or Path, optional
         Path to the output SigMF metadata file.
     create_archive : bool, optional
         When True, package output as a .sigmf archive.
@@ -182,7 +182,7 @@ def wav_to_sigmf(
     if out_path is None:
         base_path = wav_path.with_suffix(".sigmf")
     else:
-        base_path = Path(out_path)
+        base_path = out_path
 
     filenames = get_sigmf_filenames(base_path)
 

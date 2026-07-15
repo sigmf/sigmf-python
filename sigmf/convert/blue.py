@@ -64,20 +64,20 @@ FIXED_LAYOUT = [
 
 BLOCK_SIZE_BYTES = 512
 
-TYPE_MAP = {
+TYPE_MAP: dict[str, np.dtype] = {
     # BLUE format code to numpy dtype
     # note: new non 1-1 mapping supported needs new handling in data_loopback
     # "P" : packed bits,
     "A": np.dtype("S1"),  # ASCII for unpacking text fields
     # "N" : 4-bit integer,
-    "B": np.int8,
-    "U": np.uint16,
-    "I": np.int16,
-    "V": np.uint32,
-    "L": np.int32,
-    "F": np.float32,
-    "X": np.int64,
-    "D": np.float64,
+    "B": np.dtype(np.int8),
+    "U": np.dtype(np.uint16),
+    "I": np.dtype(np.int16),
+    "V": np.dtype(np.uint32),
+    "L": np.dtype(np.int32),
+    "F": np.dtype(np.float32),
+    "X": np.dtype(np.int64),
+    "D": np.dtype(np.float64),
     # "O": excess-128,
 }
 
@@ -97,15 +97,14 @@ def blue_to_sigmf_type_str(h_fixed: dict) -> str:
         SigMF datatype string (e.g., 'ci16_le', 'rf32_be').
     """
     # extract format code and endianness from header
-    format_code = h_fixed.get("format")
-    endianness = h_fixed.get("data_rep")
+    format_code: str = h_fixed["format"]
+    endianness: str = h_fixed["data_rep"]
 
     # parse format code components
     is_complex = format_code[0] == "C"
-    numpy_dtype = TYPE_MAP[format_code[1]]
+    dtype_obj = TYPE_MAP[format_code[1]]
 
     # compute everything from numpy dtype
-    dtype_obj = np.dtype(numpy_dtype)
     bits = dtype_obj.itemsize * 8  # bytes to bits
 
     # infer sigmf type from numpy kind
@@ -155,7 +154,7 @@ def detect_endian(data: bytes) -> str:
     raise SigMFConversionError(f"Unsupported endianness: {endianness}")
 
 
-def read_hcb(file_path: Path) -> (dict, dict):
+def read_hcb(file_path: Path) -> tuple[dict, dict]:
     """
     Read Header Control Block (HCB) from BLUE file.
 
@@ -269,7 +268,7 @@ def read_extended_header(file_path: Path, h_fixed: dict) -> list:
     SigMFConversionError
         If the extended header cannot be parsed.
     """
-    entries = []
+    entries: list[dict] = []
     if h_fixed["ext_size"] <= 0:
         return entries
     endian = "<" if h_fixed.get("head_rep") == "EEEI" else ">"
@@ -285,7 +284,7 @@ def read_extended_header(file_path: Path, h_fixed: dict) -> list:
             # get dtype and compute bytes per element
             if type_char in TYPE_MAP:
                 dtype = TYPE_MAP[type_char]
-                bytes_per_element = np.dtype(dtype).itemsize
+                bytes_per_element = dtype.itemsize
             else:
                 # fallback for unknown types
                 dtype = np.dtype("S1")
@@ -300,9 +299,9 @@ def read_extended_header(file_path: Path, h_fixed: dict) -> list:
                     raise SigMFConversionError("Unexpected end of extended header")
                 value = raw.rstrip(b"\x00").decode("ascii", errors="replace")
             else:
-                value = np.frombuffer(handle.read(val_len), dtype=dtype, count=val_count)
-                if value.size == 1:
-                    val_item = value[0]
+                ray = np.frombuffer(handle.read(val_len), dtype=dtype, count=val_count)
+                if ray.size == 1:
+                    val_item = ray[0]
                     # handle bytes first (numpy.bytes_ is also np.generic)
                     if isinstance(val_item, bytes):
                         # handle bytes from S1 dtype - convert to base64 for JSON
@@ -313,7 +312,7 @@ def read_extended_header(file_path: Path, h_fixed: dict) -> list:
                     else:
                         value = val_item
                 else:
-                    value = value.tolist()
+                    value = ray.tolist()
 
             tag = handle.read(ltag).decode("ascii", errors="replace") if ltag > 0 else ""
 
@@ -434,13 +433,13 @@ def _crc32_broken(data: bytes) -> str:
     return f"{(~crc) & 0xFFFFFFFF:08x}"
 
 
-def _get_blue_boundaries(blue_path: Path, h_fixed: dict) -> (int, int):
+def _get_blue_boundaries(blue_path: Path, h_fixed: dict) -> tuple[int, int, int]:
     """
     Extract data boundaries from fixed header.
     """
     file_bytes = blue_path.stat().st_size
-    header_bytes = int(h_fixed.get("data_start"))
-    data_bytes = int(h_fixed.get("data_size"))
+    header_bytes = int(h_fixed["data_start"])
+    data_bytes = int(h_fixed["data_size"])
     trailing_bytes = file_bytes - (header_bytes + data_bytes)
     return header_bytes, data_bytes, trailing_bytes
 
@@ -451,7 +450,7 @@ def _description(h_fixed: dict) -> str:
     """
     try:
         spec_str = "Unknown"
-        version = Version(h_fixed.get("keywords").get("VER", "0.0"))
+        version = Version(h_fixed["keywords"].get("VER", "0.0"))
         if version.major == 1:
             spec_str = f"BLUE {version}"
         elif version.major == 2:
@@ -471,7 +470,7 @@ def _build_common_metadata(
     h_adjunct: dict,
     h_extended: list,
     is_ncd: bool = False,
-    blue_file_name: str = None,
+    blue_file_name: str | None = None,
     trailing_bytes: int = 0,
 ) -> tuple[dict, dict]:
     """
@@ -542,7 +541,7 @@ def _build_common_metadata(
     # merge extended header fields, handling duplicate keys
     if h_extended:
         extended = {}
-        tag_counts = {}
+        tag_counts: dict[str, int] = {}
         for entry in h_extended:
             tag = entry.get("tag")
             value = entry.get("value")
@@ -561,7 +560,7 @@ def _build_common_metadata(
     # calculate blue start time
     blue_start_time = float(h_fixed.get("timecode", 0))
     blue_start_time += h_adjunct.get("xstart", 0)
-    blue_start_time += float(h_fixed.get("keywords").get("TC_PREC", 0))
+    blue_start_time += float(h_fixed["keywords"].get("TC_PREC", 0))
 
     capture_info = {}
 
@@ -789,8 +788,8 @@ def construct_sigmf_ncd(
 
 
 def blue_to_sigmf(
-    blue_path: str,
-    out_path: str | None = None,
+    blue_path: str | Path,
+    out_path: str | Path | None = None,
     create_archive: bool = False,
     create_ncd: bool = False,
     overwrite: bool = False,
@@ -800,9 +799,9 @@ def blue_to_sigmf(
 
     Parameters
     ----------
-    blue_path : str
+    blue_path : str or Path
         Path to the Blue file.
-    out_path : str, optional
+    out_path : str or Path, optional
         Path to the output SigMF metadata file.
     create_archive : bool, optional
         When True, package output as a .sigmf archive.
