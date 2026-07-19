@@ -143,7 +143,7 @@ def validate_rohdeschwarz(xml_path: Path) -> None:
     try:
         num_samples = float(num_samples_raw)
     except (TypeError, ValueError) as err:
-        raise SigMFConversionError(f"Invalid or missing Number Of Samples: {num_samples_raw}") from err
+        raise SigMFConversionError(f"Invalid or missing Number Of Samples: {num_samples_raw} Float conversion: {num_samples}") from err
 
     # Validate sample rate - "Clock"
     sample_rate_raw = _text_of(root, "Clock")
@@ -332,9 +332,13 @@ def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
     if epoch_nanos is not None:
         secs = epoch_nanos // 1_000_000_000
         rem_ns = epoch_nanos % 1_000_000_000
+        # TODO: Remove after testing
+# +++++++++++++++++++++++++++++++++++++++++++++++
         dt = datetime.fromtimestamp(secs, tz=timezone.utc) + timedelta(microseconds=rem_ns / 1000)
         iso_8601_string = dt.strftime(SIGMF_DATETIME_ISO8601_FMT)
-
+# +++++++++++++++++++++++++++++++++++++++++++++++
+        dt = datetime.fromtimestamp(secs, tz=timezone.utc)
+        iso_8601_string = f"{dt:%Y-%m-%dT%H:%M:%S}.{rem_ns:09d}Z"
     # base global metadata
     global_md = {
         sigmf.AUTHOR_KEY: getpass.getuser(),
@@ -412,6 +416,7 @@ def convert_iq_data(data_file_path: Path, sample_count: int) -> np.ndarray:
     # read raw interleaved float32 IQ
     samples = np.fromfile(data_file_path, dtype=np.float32, offset=0, count=elem_count)
 
+    # TODO: Investigate for R&S and see if samples.nbytes is always divisible by elem_size. If so this code will never run
     # trim trailing partial bytes
     if samples.nbytes % elem_size != 0:
         trim = samples.nbytes % elem_size
