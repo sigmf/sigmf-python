@@ -12,12 +12,10 @@ import tempfile
 import wave
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Tuple
 
 import numpy as np
 
-from .. import SigMFFile
-from .. import fromfile, keys
+from .. import SigMFFile, fromfile, keys
 from ..error import SigMFFileExistsError
 from ..sigmffile import get_sigmf_filenames
 from ..utils import SIGMF_DATETIME_ISO8601_FMT, get_data_type_str
@@ -25,7 +23,7 @@ from ..utils import SIGMF_DATETIME_ISO8601_FMT, get_data_type_str
 log = logging.getLogger()
 
 
-def _get_wav_boundaries(wav_path: Path) -> Tuple[int, int]:
+def _get_wav_boundaries(wav_path: Path) -> tuple[int, int]:
     """
     Calculate header_bytes and trailing_bytes for WAV NCD.
 
@@ -74,8 +72,8 @@ def _get_wav_boundaries(wav_path: Path) -> Tuple[int, int]:
 
 
 def wav_to_sigmf(
-    wav_path: str,
-    out_path: Optional[str] = None,
+    wav_path: str | Path,
+    out_path: str | Path | None = None,
     create_archive: bool = False,
     create_ncd: bool = False,
     overwrite: bool = False,
@@ -85,9 +83,9 @@ def wav_to_sigmf(
 
     Parameters
     ----------
-    wav_path : str
+    wav_path : str or Path
         Path to the WAV file.
-    out_path : str, optional
+    out_path : str or Path, optional
         Path to the output SigMF metadata file.
     create_archive : bool, optional
         When True, package output as a .sigmf archive.
@@ -184,7 +182,7 @@ def wav_to_sigmf(
     if out_path is None:
         base_path = wav_path.with_suffix(".sigmf")
     else:
-        base_path = Path(out_path)
+        base_path = out_path
 
     filenames = get_sigmf_filenames(base_path)
 

@@ -18,9 +18,6 @@ import warnings
 # cost for small SigMF files. Swap to ProcessPool if files are large.
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# required for Python 3.7
-from typing import Optional, Tuple
-
 import jsonschema
 
 from . import __version__ as toolversion
@@ -131,7 +128,7 @@ def _validate_single_file(filename, skip_checksum: bool, logger: logging.Logger)
         return 0
 
 
-def main(arg_tuple: Optional[Tuple[str, ...]] = None) -> None:
+def main(arg_tuple: tuple[str, ...] | None = None) -> None:
     """entry-point for command-line validator"""
     parser = argparse.ArgumentParser(
         description="Validate SigMF Archive or file pair against JSON schema.", prog="sigmf_validate"

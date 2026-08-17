@@ -85,7 +85,7 @@ class _SigMFDeprecatingMeta(type):
 
 
 class SigMFMetafile(metaclass=_SigMFDeprecatingMeta):
-    VALID_KEYS = {}
+    VALID_KEYS: dict[str, list[str]] = {}
 
     def __init__(self):
         self.version = None
@@ -1043,7 +1043,7 @@ class SigMFCollection(SigMFMetafile):
     VALID_KEYS = {COLLECTION_KEY: VALID_COLLECTION_KEYS}
 
     def __init__(
-        self, metafiles: list = None, metadata: dict = None, base_path=None, skip_checksums: bool = False
+        self, metafiles: list | None = None, metadata: dict | None = None, base_path=None, skip_checksums: bool = False
     ) -> None:
         """
         Create a SigMF Collection object.
@@ -1118,7 +1118,7 @@ class SigMFCollection(SigMFMetafile):
                         f"Calculated file hash for {metafile_path} does not match collection metadata."
                     )
 
-    def set_streams(self, metafiles) -> None:
+    def set_streams(self, metafiles: list) -> None:
         """
         Configures the collection `core:streams` field from the specified list of metafiles.
         """
@@ -1502,18 +1502,22 @@ def fromfile(filename, skip_checksum=False, autoscale=True):
     raise SigMFFileError(f"Cannot read {filename} as SigMF or supported non-SigMF format.")
 
 
-def get_sigmf_filenames(filename):
+def get_sigmf_filenames(filename: str | Path) -> dict[str, Path]:
     """
-    Safely returns a set of SigMF file paths given an input filename.
+    Safely returns a set of SigMF file paths given a file path.
 
     Parameters
     ----------
-    filename : str | bytes | PathLike
+    filename : str | Path
         The SigMF filename with any extension.
 
     Returns
     -------
-    dict with filename keys.
+    dict[str, Path]
+        Dictionary with keys 'base_fn', 'data_fn', 'meta_fn', 'archive_fn',
+        'collection_fn' and Path values. The directory component of the input
+        is preserved; only the extension is normalized. Paths are returned in
+        the same form (absolute or relative) as the input.
     """
     stem_path = Path(filename)
     # If the path has a sigmf suffix, remove it. Otherwise do not remove the

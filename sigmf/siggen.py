@@ -7,7 +7,6 @@
 """Simple signal generator utilities for SigMF."""
 
 import io
-from typing import Optional
 
 import numpy as np
 
@@ -42,28 +41,28 @@ class SigMFGenerator:
     >>> signal = SigMFGenerator().sample_rate(100e3).tone(440).sweep(1000, 5000).duration(0.5).generate()
     """
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: int | None = None):
         # random state for reproducible generation across arch / platforms
         self._rng = np.random.RandomState(seed)
         self._seed = seed
 
         # signal components (list of dicts)
-        self._signal_components = []
+        self._signal_components: list[dict] = []
 
         # signal configuration
-        self._sample_rate_hz = None
-        self._duration_s = None
-        self._amplitude = 1.0
-        self._snr_db = None
-        self._frequency_offset_hz = 0.0
-        self._phase_offset_rad = 0.0
+        self._sample_rate_hz: float | None = None
+        self._duration_s: float | None = None
+        self._amplitude: float = 1.0
+        self._snr_db: float | None = None
+        self._frequency_offset_hz: float = 0.0
+        self._phase_offset_rad: float = 0.0
 
         # metadata
-        self._author = None
-        self._description = None
-        self._comment = None
+        self._author: str | None = None
+        self._description: str | None = None
+        self._comment: str | None = None
 
-    def tone(self, frequency_hz: Optional[float] = None, amplitude: Optional[float] = None):
+    def tone(self, frequency_hz: float | None = None, amplitude: float | None = None):
         """
         Add a sinusoidal tone to the signal.
 
@@ -79,7 +78,7 @@ class SigMFGenerator:
         SigMFGenerator
             Self for method chaining.
         """
-        component = {"type": "tone"}
+        component: dict = {"type": "tone"}
         if frequency_hz is not None:
             component["frequency_hz"] = float(frequency_hz)
         if amplitude is not None:
@@ -89,9 +88,9 @@ class SigMFGenerator:
 
     def sweep(
         self,
-        start_frequency_hz: Optional[float] = None,
-        end_frequency_hz: Optional[float] = None,
-        amplitude: Optional[float] = None,
+        start_frequency_hz: float | None = None,
+        end_frequency_hz: float | None = None,
+        amplitude: float | None = None,
     ):
         """
         Add a linear frequency sweep to the signal.
@@ -110,7 +109,7 @@ class SigMFGenerator:
         SigMFGenerator
             Self for method chaining.
         """
-        component = {"type": "sweep"}
+        component: dict = {"type": "sweep"}
         if start_frequency_hz is not None:
             component["start_frequency_hz"] = float(start_frequency_hz)
         if end_frequency_hz is not None:
@@ -311,7 +310,7 @@ class SigMFGenerator:
     def _fill_random_parameters(self) -> None:
         """Fill unspecified parameters with random values."""
         # sample rates to choose from
-        common_sample_rates = []
+        common_sample_rates: list[float] = []
         # typical audio rates
         common_sample_rates += [8000, 22050, 44100, 48000, 96000, 192000]
         # typical SDR rates

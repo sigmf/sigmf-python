@@ -13,7 +13,7 @@ It offers a *simple* and *intuitive* API for Python developers.
 This documentation is for version |toolversion| of the library, which is
 compatible with version |specversion| of the SigMF specification.
 
-To get started, see `quickstart`.
+To get started, see :doc:`quickstart`.
 
 -----
 

@@ -5,6 +5,105 @@ Advanced
 Here we discuss more advanced techniques for working with **collections** and
 **archives**.
 
+-----------------------------------------------
+Load a SigMF Archive and slice without untaring
+-----------------------------------------------
+
+Since an *archive* is a tarball (uncompressed by default), you can access the
+*data* part of a SigMF archive without un-taring it. This is a compelling
+feature because **1** archives make it harder for the ``-data`` and the
+``-meta`` to get separated, and **2** some datasets are so large that it can be
+impractical (due to available disk space, or slow network speeds if the archive
+file resides on a network file share) or simply obnoxious to untar it first.
+
+::
+
+    >>> import sigmf
+    >>> signal = sigmf.fromfile('/src/LTE.sigmf')
+    >>> signal.shape
+    (15379532,)
+    >>> signal.ndim
+    1
+    >>> signal[:10]
+    array([-0.023+0.012j, -0.021-0.006j, -0.017-0.020j, -0.013-0.052j,
+            0.000-0.075j,  0.022-0.058j,  0.048-0.044j,  0.049-0.060j,
+            0.031-0.056j,  0.023-0.047j], dtype=complex64)
+
+Archives can contain fixed-point data types like ``complex-int16`` (``ci16``),
+which have no direct ``numpy`` equivalent. By default, this data is automatically
+scaled to floating-point values in the range ``[-1.0, 1.0]`` and returned as
+``numpy.complex64``:
+
+::
+
+    >>> signal.get_global_field(sigmf.DATATYPE_KEY)
+    'ci16_le'
+
+------------------------------
+Compressed SigMF Archives
+------------------------------
+
+SigMF archives can be compressed using gzip, xz, or zip.
+The file extension determines the archive format:
+
++---------------------+-------------+
+| Extension           | Format      |
++=====================+=============+
+| ``.sigmf``          | uncompressed|
++---------------------+-------------+
+| ``.sigmf.gz``       | gzip tar    |
++---------------------+-------------+
+| ``.sigmf.xz``       | xz tar      |
++---------------------+-------------+
+| ``.sigmf.zip``      | zip archive |
++---------------------+-------------+
+
+**Writing compressed archives:**
+
+::
+
+    >>> import sigmf
+    >>> signal = sigmf.sigmffile.fromfile('recording.sigmf-meta')
+
+    # extension determines format
+    >>> signal.tofile('recording.sigmf.xz')
+    >>> signal.archive('recording.sigmf.gz')
+
+    # compression parameter creates archive with correct extension
+    >>> signal.tofile('recording', compression='xz')  # → recording.sigmf.xz
+    >>> signal.archive('recording', compression='gz') # → recording.sigmf.gz
+
+**Reading compressed archives:**
+
+::
+
+    >>> signal = sigmf.fromfile('recording.sigmf.xz')
+    >>> signal[:10]
+    array([-0.023+0.012j, -0.021-0.006j, ...], dtype=complex64)
+
+**Memory behavior:**
+
+Uncompressed ``.sigmf`` archives use ``numpy.memmap`` for zero-copy access.
+Compressed archives must decompress into RAM before access.
+
+--------------------------------
+Control Fixed-Point Data Scaling
+--------------------------------
+
+You can control whether fixed-point samples are automatically scaled:
+
+.. code-block:: python
+
+    import sigmf
+
+    # Default: autoscale fixed-point data to [-1.0, 1.0] range
+    handle = sigmf.fromfile("fixed_point_data.sigmf")
+    samples = handle.read_samples()  # Returns float32/complex64
+
+    # Disable autoscaling to access raw integer values
+    handle_raw = sigmf.fromfile("fixed_point_data.sigmf", autoscale=False)
+    raw_samples = handle_raw.read_samples()  # Returns original integer types
+
 ------------------------------
 Iterate over SigMF Annotations
 ------------------------------
@@ -150,84 +249,3 @@ The SigMF Collection and its associated Recordings can now be loaded like this:
     collection = sigmf.fromfile("example_zeros")
     ci16_sigmffile = collection.get_SigMFFile(stream_name="example_ci16")
     cf32_sigmffile = collection.get_SigMFFile(stream_name="example_cf32")
-
------------------------------------------------
-Load a SigMF Archive and slice without untaring
------------------------------------------------
-
-Since an *archive* is a tarball (uncompressed by default), you can access the
-*data* part of a SigMF archive without un-taring it. This is a compelling
-feature because **1** archives make it harder for the ``-data`` and the
-``-meta`` to get separated, and **2** some datasets are so large that it can be
-impractical (due to available disk space, or slow network speeds if the archive
-file resides on a network file share) or simply obnoxious to untar it first.
-
-::
-
-    >>> import sigmf
-    >>> signal = sigmf.fromarchive('/src/LTE.sigmf')
-    >>> signal.shape
-    (15379532,)
-    >>> signal.ndim
-    1
-    >>> signal[:10]
-    array([-0.023+0.012j, -0.021-0.006j, -0.017-0.020j, -0.013-0.052j,
-            0.000-0.075j,  0.022-0.058j,  0.048-0.044j,  0.049-0.060j,
-            0.031-0.056j,  0.023-0.047j], dtype=complex64)
-
-Archives can contain fixed-point data types like ``complex-int16`` (``ci16``),
-which have no direct ``numpy`` equivalent. By default, this data is automatically
-scaled to floating-point values in the range ``[-1.0, 1.0]`` and returned as
-``numpy.complex64``:
-
-::
-
-    >>> signal.get_global_field(sigmf.DATATYPE_KEY)
-    'ci16_le'
-
-------------------------------
-Compressed SigMF Archives
-------------------------------
-
-SigMF archives can be compressed using gzip, xz, or zip.
-The file extension determines the archive format:
-
-+---------------------+-------------+
-| Extension           | Format      |
-+=====================+=============+
-| ``.sigmf``          | uncompressed|
-+---------------------+-------------+
-| ``.sigmf.gz``       | gzip tar    |
-+---------------------+-------------+
-| ``.sigmf.xz``       | xz tar      |
-+---------------------+-------------+
-| ``.sigmf.zip``      | zip archive |
-+---------------------+-------------+
-
-**Writing compressed archives:**
-
-::
-
-    >>> import sigmf
-    >>> signal = sigmf.sigmffile.fromfile('recording.sigmf-meta')
-
-    # extension determines format
-    >>> signal.tofile('recording.sigmf.xz')
-    >>> signal.archive('recording.sigmf.gz')
-
-    # compression parameter creates archive with correct extension
-    >>> signal.tofile('recording', compression='xz')  # → recording.sigmf.xz
-    >>> signal.archive('recording', compression='gz') # → recording.sigmf.gz
-
-**Reading compressed archives:**
-
-::
-
-    >>> signal = sigmf.fromfile('recording.sigmf.xz')
-    >>> signal[:10]
-    array([-0.023+0.012j, -0.021-0.006j, ...], dtype=complex64)
-
-**Memory behavior:**
-
-Uncompressed ``.sigmf`` archives use ``numpy.memmap`` for zero-copy access.
-Compressed archives must decompress into RAM before access.

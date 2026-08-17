@@ -12,7 +12,6 @@ import logging
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -26,13 +25,13 @@ from ..utils import SIGMF_DATETIME_ISO8601_FMT
 log = logging.getLogger()
 
 
-def _text_of(root: Element, tag: str) -> Optional[str]:
+def _text_of(root: Element, tag: str) -> str | None:
     """Extract and strip text from XML element."""
     elem = root.find(tag)
     return elem.text.strip() if (elem is not None and elem.text is not None) else None
 
 
-def _parse_preview_trace(text: Optional[str]) -> List[float]:
+def _parse_preview_trace(text: str | None) -> list[float]:
     """
     Preview trace is a max-hold trace of the signal power across the capture, represented as a comma-separated string of values.
 
@@ -112,7 +111,7 @@ def validate_spike(xml_path: Path) -> None:
         raise SigMFConversionError(f"IQ file size {filesize} not divisible by {frame_bytes}; partial sample present")
 
 
-def _build_metadata(xml_path: Path) -> Tuple[dict, dict, list, int]:
+def _build_metadata(xml_path: Path) -> tuple[dict, dict, list, int]:
     """
     Build SigMF metadata components from the Spike XML file.
 
@@ -335,8 +334,8 @@ def _add_annotations(meta: SigMFFile, annotations: list) -> None:
 
 
 def signalhound_to_sigmf(
-    signalhound_path: Path,
-    out_path: Optional[Path] = None,
+    signalhound_path: str | Path,
+    out_path: str | Path | None = None,
     create_archive: bool = False,
     create_ncd: bool = False,
     overwrite: bool = False,
@@ -346,9 +345,9 @@ def signalhound_to_sigmf(
 
     Parameters
     ----------
-    signalhound_path : Path
+    signalhound_path : str or Path
         Path to the signalhound file.
-    out_path : Path, optional
+    out_path : str or Path, optional
         Path to the output SigMF metadata file.
     create_archive : bool, optional
         When True, package output as a .sigmf archive.

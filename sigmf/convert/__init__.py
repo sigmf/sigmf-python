@@ -80,12 +80,12 @@ def detect_converter(file_path: Path):
             return "signalhound"
         else:
             raise SigMFConversionError(
-                f"Unsupported XML file format. Root element: {expanded_magic_bytes}. "
+                f"Unsupported XML file format. Root element: {expanded_magic_bytes.decode('utf-8', errors='replace')}. "
                 f"Expected SignalHoundIQFile for Signal Hound Spike files."
             )
 
     else:
         raise SigMFConversionError(
-            f"Unsupported file format. Magic bytes: {magic_bytes}. "
+            f"Unsupported file format. Magic bytes: {magic_bytes.decode('utf-8', errors='replace')}. "
             f"Supported formats for conversion are WAV, BLUE/Platinum, and Signal Hound Spike."
         )

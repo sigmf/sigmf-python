@@ -10,6 +10,32 @@ Frequently Asked Questions
     Formulate them as a question and an answer.
     Consider that the answer is best as a reference to another place in the documentation.
 
+----------------------------------------
+Can I use my own custom metadata fields?
+----------------------------------------
+
+*Yes*, you can add arbitrary fields to the ``global``, ``captures``, and
+``annotations`` objects. However, we recommend defining custom fields in a
+SigMF extension and listing that extension in ``core:extensions`` so that other
+tools can understand your metadata:
+
+.. code-block:: json
+
+    "global": {
+        "core:extensions": [
+            {
+                "name": "my-extension",
+                "version": "0.0.1",
+                "optional": true
+            }
+        ],
+        "my-extension:my_field": "some value"
+    }
+
+If you think your extension will be useful to others, consider publishing it or
+submitting it to the `SigMF Community Extensions repository
+<https://github.com/sigmf/community-extensions>`_.
+
 ---------------------------
 Is this a GNU Radio effort?
 ---------------------------
