@@ -87,7 +87,7 @@ class TestClassMethods(unittest.TestCase):
 
     def test_equality(self):
         """Ensure __eq__ working as expected"""
-        other = SigMFFile(copy.deepcopy(TEST_METADATA))
+        other = SigMFFile(TEST_METADATA)
         self.assertEqual(self.sigmf_object, other)
         # different after changing any part of metadata
         other.add_annotation(start_index=0, metadata={"a": 0})
@@ -97,7 +97,7 @@ class TestClassMethods(unittest.TestCase):
 class TestAnnotationHandling(unittest.TestCase):
     def test_get_annotations_with_index(self):
         """Test that only annotations containing index are returned from get_annotations()"""
-        meta = SigMFFile(copy.deepcopy(TEST_METADATA))
+        meta = SigMFFile(TEST_METADATA)
         meta.add_annotation(start_index=1)
         meta.add_annotation(start_index=4, length=4)
         annotations_idx10 = meta.get_annotations(index=10)
@@ -111,7 +111,7 @@ class TestAnnotationHandling(unittest.TestCase):
 
     def test_sample_count_from_annotations(self):
         """Make sure sample count from annotations use correct end index"""
-        meta = SigMFFile(copy.deepcopy(TEST_METADATA))
+        meta = SigMFFile(TEST_METADATA)
         meta.add_annotation(start_index=0, length=32)
         meta.add_annotation(start_index=4, length=4)
         sample_count = meta._count_samples()
@@ -122,7 +122,7 @@ class TestAnnotationHandling(unittest.TestCase):
         Make sure setting data_file with no annotations registered does not
         raise any errors
         """
-        meta = SigMFFile(copy.deepcopy(TEST_METADATA))
+        meta = SigMFFile(TEST_METADATA)
         meta._metadata[SigMFFile.ANNOTATION_KEY].clear()
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_path_data = Path(tmpdir) / "datafile"
@@ -137,7 +137,7 @@ class TestAnnotationHandling(unittest.TestCase):
         count from data_file and issue a warning if annotations have end
         indices bigger than file end index
         """
-        meta = SigMFFile(copy.deepcopy(TEST_METADATA))
+        meta = SigMFFile(TEST_METADATA)
         meta.add_annotation(start_index=0, length=32)
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_path_data = Path(tmpdir) / "datafile"

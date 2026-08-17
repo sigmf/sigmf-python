@@ -6,7 +6,6 @@
 
 """Tests for collections"""
 
-import copy
 import os
 import shutil
 import tempfile
@@ -53,7 +52,7 @@ class TestCollection(unittest.TestCase):
         TEST_FLOAT32_DATA.tofile(data_path2)
 
         # create metadata files
-        metadata = copy.deepcopy(TEST_METADATA)
+        metadata = TEST_METADATA
         meta1 = SigMFFile(metadata=metadata, data_file=data_path1)
         meta2 = SigMFFile(metadata=metadata, data_file=data_path2)
         meta1.tofile(meta_path1, overwrite=True)
