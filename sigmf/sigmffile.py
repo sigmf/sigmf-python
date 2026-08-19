@@ -7,6 +7,7 @@
 """SigMFFile Object"""
 
 import codecs
+import copy
 import io
 import json
 import warnings
@@ -88,10 +89,10 @@ class SigMFMetafile(metaclass=_SigMFDeprecatingMeta):
     VALID_KEYS: dict[str, list[str]] = {}
 
     def __init__(self):
-        self.version = None
         self.schema = None
-        self._metadata = None
         self.shape = None
+        self._metadata = None
+        self._declared_version = None
 
     def __str__(self):
         return self.dumps()
@@ -459,25 +460,28 @@ class SigMFFile(SigMFMetafile):
         """
         Return a schema object valid for the current metadata
         """
-        current_metadata_version = self.get_global_info().get(keys.VERSION_KEY)
-        if self.version != current_metadata_version or self.schema is None:
-            self.version = current_metadata_version
-            self.schema = schema.get_schema(self.version)
-        if not isinstance(self.schema, dict):
-            raise SigMFError("SigMF schema expects a dict (key, value pairs)")
+        if self.schema is None:
+            version = self.get_global_field(keys.VERSION_KEY)
+            self.schema = schema.get_schema(version)
         return self.schema
 
     def set_metadata(self, metadata):
         """
         Read provided metadata as either None (empty), string, bytes, or dictionary.
+
+        If an existing core:version is present, it is preserved in the declared_version
+        property, but the metadata will always report the current library version.
         """
         if metadata is None:
             # Create empty
             self._metadata = {self.GLOBAL_KEY: {}, self.CAPTURE_KEY: [], self.ANNOTATION_KEY: []}
+            self._declared_version = None
         elif isinstance(metadata, dict):
-            self._metadata = metadata
+            self._metadata = copy.deepcopy(metadata)
+            self._declared_version = self._metadata.get(self.GLOBAL_KEY, {}).get(keys.VERSION_KEY)
         elif isinstance(metadata, (str, bytes)):
             self._metadata = json.loads(metadata)
+            self._declared_version = self._metadata.get(self.GLOBAL_KEY, {}).get(keys.VERSION_KEY)
         else:
             raise SigMFError("Unable to interpret provided metadata.")
 
@@ -487,7 +491,7 @@ class SigMFFile(SigMFMetafile):
         if self.get_global_field(keys.OFFSET_KEY) is None:
             self.set_global_field(keys.OFFSET_KEY, 0)
 
-        # set version to current implementation
+        # set version to current (object operates per current spec and always writes current version)
         self.set_global_field(keys.VERSION_KEY, __specification__)
 
     def set_global_info(self, new_global):
@@ -516,6 +520,14 @@ class SigMFFile(SigMFMetafile):
         Return a field from the global info, or default if the field is not set.
         """
         return self._metadata[self.GLOBAL_KEY].get(key, default)
+
+    @property
+    def declared_version(self) -> str | None:
+        """
+        Return the core:version that may have been present in the metadata when this
+        SigMFFile was loaded, before normalization to the current spec.
+        """
+        return self._declared_version
 
     def add_capture(self, start_index, metadata=None):
         """

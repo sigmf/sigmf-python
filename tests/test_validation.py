@@ -24,7 +24,7 @@ class NominalCases(unittest.TestCase):
 
     def test_nominal(self):
         """nominal case should pass"""
-        SigMFFile(copy.deepcopy(TEST_METADATA)).validate()
+        SigMFFile(TEST_METADATA).validate()
 
 
 class CommandLineValidator(unittest.TestCase):
@@ -36,7 +36,7 @@ class CommandLineValidator(unittest.TestCase):
         self.tmp_path = tmp_path = Path(self.tmp_dir.name)
         junk_path = tmp_path / "junk"
         TEST_FLOAT32_DATA.tofile(junk_path)
-        some_meta = SigMFFile(copy.deepcopy(TEST_METADATA), data_file=junk_path)
+        some_meta = SigMFFile(TEST_METADATA, data_file=junk_path)
         some_meta.tofile(tmp_path / "a")
         some_meta.tofile(tmp_path / "b")
         some_meta.tofile(tmp_path / "c.sigmf")
@@ -83,7 +83,7 @@ class FailingCases(unittest.TestCase):
 
     def test_no_version(self):
         """version key must be present"""
-        meta = SigMFFile(copy.deepcopy(self.metadata))
+        meta = SigMFFile(self.metadata)
         del meta._metadata[SigMFFile.GLOBAL_KEY][sigmf.VERSION_KEY]
         with self.assertRaises(ValidationError):
             meta.validate()

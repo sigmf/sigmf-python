@@ -17,10 +17,10 @@ Basic Usage
 
 .. code-block:: python
 
-    from sigmf.siggen import SigMFGenerator
+    import sigmf
 
     # generate a 1 kHz tone at 48 kHz sample rate for 1 second
-    signal = SigMFGenerator().tone(1000).sample_rate(48000).duration(1.0).generate()
+    signal = sigmf.SigMFGenerator().tone(1000).sample_rate(48000).duration(1.0).generate()
     signal.read_samples()  # complex64 numpy array
 
 The returned object is a standard :class:`~sigmf.sigmffile.SigMFFile` backed by
@@ -36,8 +36,10 @@ label.
 
 .. code-block:: python
 
+    import sigmf
+
     signal = (
-        SigMFGenerator()
+        sigmf.SigMFGenerator()
         .tone(1000)
         .tone(-2500)
         .sweep(500, 4000)
@@ -60,8 +62,10 @@ A seed ensures reproducibility across runs.
 
 .. code-block:: python
 
+    import sigmf
+
     # deterministic random signal
-    signal = SigMFGenerator(seed=0xDEADBEEF).generate()
+    signal = sigmf.SigMFGenerator(seed=0xDEADBEEF).generate()
 
     # the number and type of components are randomly chosen
     print(signal.description)  # e.g. "synthetic signal with 3 tones and 2 sweeps"
@@ -79,8 +83,10 @@ author, and comment can be set via the builder.
 
 .. code-block:: python
 
+    import sigmf
+
     signal = (
-        SigMFGenerator()
+        sigmf.SigMFGenerator()
         .tone(440)
         .sample_rate(44100)
         .duration(1.0)

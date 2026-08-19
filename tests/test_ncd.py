@@ -45,7 +45,7 @@ class TestNonConformingDataset(unittest.TestCase):
         TEST_FLOAT32_DATA.tofile(data_path)
 
         # create metadata file
-        ncd_metadata = copy.deepcopy(TEST_METADATA)
+        ncd_metadata = TEST_METADATA
         meta = SigMFFile(metadata=ncd_metadata, data_file=data_path)
         meta.tofile(meta_path, overwrite=True)
 

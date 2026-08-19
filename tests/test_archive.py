@@ -7,7 +7,6 @@
 """Tests for SigMFArchive"""
 
 import codecs
-import copy
 import json
 import shutil
 import tarfile
@@ -34,7 +33,7 @@ class TestSigMFArchive(unittest.TestCase):
         self.temp_path_meta = self.temp_dir / "trash.sigmf-meta"
         self.temp_path_archive = self.temp_dir / "test.sigmf"
         TEST_FLOAT32_DATA.tofile(self.temp_path_data)
-        self.sigmf_object = SigMFFile(copy.deepcopy(TEST_METADATA), data_file=self.temp_path_data)
+        self.sigmf_object = SigMFFile(TEST_METADATA, data_file=self.temp_path_data)
         self.sigmf_object.tofile(self.temp_path_meta)
         self.sigmf_object.tofile(self.temp_path_archive)
         self.sigmf_tarfile = tarfile.open(self.temp_path_archive, mode="r", format=tarfile.PAX_FORMAT)
@@ -188,7 +187,7 @@ class TestCompressedArchive(unittest.TestCase):
         self.temp_dir = Path(tempfile.mkdtemp())
         self.temp_path_data = self.temp_dir / "test.sigmf-data"
         TEST_FLOAT32_DATA.tofile(self.temp_path_data)
-        self.sigmf_object = SigMFFile(copy.deepcopy(TEST_METADATA), data_file=self.temp_path_data)
+        self.sigmf_object = SigMFFile(TEST_METADATA, data_file=self.temp_path_data)
         self.original_samples = self.sigmf_object.read_samples()
 
     def tearDown(self):
@@ -318,7 +317,7 @@ class TestCompressedArchive(unittest.TestCase):
         data_buffer.write(TEST_FLOAT32_DATA.tobytes())
         data_buffer.seek(0)
 
-        meta = SigMFFile(copy.deepcopy(TEST_METADATA))
+        meta = SigMFFile(TEST_METADATA)
         meta.set_data_file(data_buffer=data_buffer)
 
         # tofile without archive extension should create separate files
