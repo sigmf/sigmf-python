@@ -91,11 +91,11 @@ class TestDynamicAttributeAccess(unittest.TestCase):
         self.assertIsNone(self.meta.data_file)
 
 
-class TestOriginalVersion(unittest.TestCase):
-    """Test original_version property behavior"""
+class TestDeclaredVersion(unittest.TestCase):
+    """Test declared_version property behavior"""
 
-    def test_original_version_preserved(self):
-        """original_version preserves the declared version from loaded metadata"""
+    def test_declared_version_preserved(self):
+        """declared_version preserves the declared version from loaded metadata"""
         # create metadata with old version
         meta_with_old_version = dict(TEST_METADATA)
         meta_with_old_version[SigMFFile.GLOBAL_KEY] = dict(TEST_METADATA[SigMFFile.GLOBAL_KEY])
@@ -103,27 +103,26 @@ class TestOriginalVersion(unittest.TestCase):
 
         meta = SigMFFile(metadata=meta_with_old_version)
 
-        # original version is preserved
-        self.assertEqual(meta.original_version, "0.1.0")
+        # declared version is preserved
+        self.assertEqual(meta.declared_version, "0.1.0")
         # object reports current version (from library)
         self.assertEqual(meta.version, sigmf.__specification__)
-        # original is older than current (using proper version comparison)
-        self.assertLess(parse(meta.original_version), parse(meta.version))
+        # declared is older than current (using proper version comparison)
+        self.assertLess(parse(meta.declared_version), parse(meta.version))
 
-    def test_original_version_none_for_new_files(self):
-        """original_version is None for newly created files"""
+    def test_declared_version_none_for_new_files(self):
+        """declared_version is None for newly created files"""
         meta = SigMFFile()
-        self.assertIsNone(meta.original_version)
+        self.assertIsNone(meta.declared_version)
         # object reports current library version
         self.assertEqual(meta.version, sigmf.__specification__)
 
-    def test_original_version_matches_current_when_loaded_from_current(self):
-        """original_version matches current version when loading file with current version"""
+    def test_declared_version_matches_current_when_loaded_from_current(self):
+        """declared_version matches current version when loading file with current version"""
         # TEST_METADATA gets current version injected
         meta = SigMFFile(TEST_METADATA)
         # both should be current library version
-        print("dbug", meta.original_version, sigmf.__specification__)
-        self.assertEqual(meta.original_version, sigmf.__specification__)
+        self.assertEqual(meta.declared_version, sigmf.__specification__)
         self.assertEqual(meta.version, sigmf.__specification__)
 
     def test_dict_not_mutated(self):
@@ -131,9 +130,9 @@ class TestOriginalVersion(unittest.TestCase):
         meta_copy = dict(TEST_METADATA)
         meta_copy[SigMFFile.GLOBAL_KEY] = dict(TEST_METADATA[SigMFFile.GLOBAL_KEY])
         meta_copy[SigMFFile.GLOBAL_KEY][sigmf.VERSION_KEY] = "0.1.0"
-        original_version = meta_copy[SigMFFile.GLOBAL_KEY][sigmf.VERSION_KEY]
+        declared_version = meta_copy[SigMFFile.GLOBAL_KEY][sigmf.VERSION_KEY]
 
         SigMFFile(metadata=meta_copy)
 
         # caller's dict should be unchanged
-        self.assertEqual(meta_copy[SigMFFile.GLOBAL_KEY][sigmf.VERSION_KEY], original_version)
+        self.assertEqual(meta_copy[SigMFFile.GLOBAL_KEY][sigmf.VERSION_KEY], declared_version)

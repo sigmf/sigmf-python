@@ -92,7 +92,7 @@ class SigMFMetafile(metaclass=_SigMFDeprecatingMeta):
         self.schema = None
         self.shape = None
         self._metadata = None
-        self._original_version = None
+        self._declared_version = None
 
     def __str__(self):
         return self.dumps()
@@ -469,19 +469,19 @@ class SigMFFile(SigMFMetafile):
         """
         Read provided metadata as either None (empty), string, bytes, or dictionary.
 
-        If an existing core:version is present, it is preserved in the original_version
+        If an existing core:version is present, it is preserved in the declared_version
         property, but the metadata will always report the current library version.
         """
         if metadata is None:
             # Create empty
             self._metadata = {self.GLOBAL_KEY: {}, self.CAPTURE_KEY: [], self.ANNOTATION_KEY: []}
-            self._original_version = None
+            self._declared_version = None
         elif isinstance(metadata, dict):
             self._metadata = copy.deepcopy(metadata)
-            self._original_version = self._metadata.get(self.GLOBAL_KEY, {}).get(keys.VERSION_KEY)
+            self._declared_version = self._metadata.get(self.GLOBAL_KEY, {}).get(keys.VERSION_KEY)
         elif isinstance(metadata, (str, bytes)):
             self._metadata = json.loads(metadata)
-            self._original_version = self._metadata.get(self.GLOBAL_KEY, {}).get(keys.VERSION_KEY)
+            self._declared_version = self._metadata.get(self.GLOBAL_KEY, {}).get(keys.VERSION_KEY)
         else:
             raise SigMFError("Unable to interpret provided metadata.")
 
@@ -522,12 +522,12 @@ class SigMFFile(SigMFMetafile):
         return self._metadata[self.GLOBAL_KEY].get(key, default)
 
     @property
-    def original_version(self) -> str | None:
+    def declared_version(self) -> str | None:
         """
         Return the core:version that may have been present in the metadata when this
         SigMFFile was loaded, before normalization to the current spec.
         """
-        return self._original_version
+        return self._declared_version
 
     def add_capture(self, start_index, metadata=None):
         """

@@ -90,7 +90,7 @@ For full control over global fields, captures, and annotations:
 .. code-block:: python
 
     import numpy as np
-    from sigmf import SigMFFile
+    import sigmf
     from sigmf.utils import get_data_type_str, get_sigmf_iso8601_datetime_now
 
     # suppose we have a complex timeseries signal
@@ -100,7 +100,7 @@ For full control over global fields, captures, and annotations:
     data.tofile("example.sigmf-data")
 
     # create the metadata
-    meta = SigMFFile(
+    meta = sigmf.SigMFFile(
         data_file="example.sigmf-data",  # extension is optional
         global_info={
             sigmf.DATATYPE_KEY: get_data_type_str(data),  # in this case, "cf32_le"
@@ -146,7 +146,7 @@ method-based approach.
     import sigmf
 
     # read some recording
-    meta = sigmf.SigMFFile("sigmf_logo")
+    meta = sigmf.fromfile("sigmf_logo.sigmf")
 
     # read global metadata
     print(f"Sample rate: {meta.sample_rate}")

@@ -104,6 +104,26 @@ You can control whether fixed-point samples are automatically scaled:
     handle_raw = sigmf.fromfile("fixed_point_data.sigmf", autoscale=False)
     raw_samples = handle_raw.read_samples()  # Returns original integer types
 
+---------------------------------------------
+Access the Declared Specification Version
+---------------------------------------------
+
+When loading a SigMF file, the library automatically normalizes the metadata to
+the current specification version. You can access the originally declared spec
+version using the ``declared_version`` property:
+
+.. code-block:: python
+
+    import sigmf
+
+    # Load a recording (possibly created with an older SigMF spec version)
+    meta = sigmf.fromfile("legacy_recording.sigmf")
+
+    # meta.version always reports the current library spec version
+    print(f"Current spec version: {meta.version}")
+    # meta.declared_version preserves the spec version declared in the loaded file
+    print(f"Declared spec version: {meta.declared_version}")
+
 ------------------------------
 Iterate over SigMF Annotations
 ------------------------------
@@ -114,14 +134,13 @@ the recording of the SigMF logo used in this example `from the specification
 
 .. code-block:: python
 
-    from sigmf import SigMFFile, sigmffile
+    import sigmf
 
     # Load a dataset
-    path = "logo/sigmf_logo"  # extension is optional
-    signal = sigmffile.fromfile(path)
+    signal = sigmf.fromfile("logo/sigmf_logo.sigmf")
 
     # Get some metadata and all annotations
-    sample_rate = signal.get_global_field(sigmf.SAMPLE_RATE_KEY)
+    sample_rate = signal.sample_rate
     sample_count = signal.sample_count
     signal_duration = sample_count / sample_rate
     annotations = signal.get_annotations()
@@ -131,7 +150,7 @@ the recording of the SigMF logo used in this example `from the specification
         annotation_start_idx = annotation[sigmf.SAMPLE_START_KEY]
         annotation_length = annotation[sigmf.SAMPLE_COUNT_KEY]
         annotation_comment = annotation.get(
-            sigmf.COMMENT_KEY, "[annotation {}]".format(adx)
+            sigmf.COMMENT_KEY, f"[annotation {adx}]"
         )
 
         # Get capture info associated with the start of annotation
@@ -157,10 +176,8 @@ First, create a single SigMF Recording and save it to disk:
 
 .. code-block:: python
 
-    import datetime as dt
     import numpy as np
     import sigmf
-    from sigmf import SigMFFile
     from sigmf.utils import get_data_type_str, get_sigmf_iso8601_datetime_now
 
     # suppose we have a complex timeseries signal
@@ -170,7 +187,7 @@ First, create a single SigMF Recording and save it to disk:
     data.tofile("example_cf32.sigmf-data")
 
     # create the metadata
-    meta = SigMFFile(
+    meta = sigmf.SigMFFile(
         data_file="example_cf32.sigmf-data",  # extension is optional
         global_info={
             sigmf.DATATYPE_KEY: get_data_type_str(data),  # in this case, 'cf32_le'
@@ -207,7 +224,8 @@ Now lets add another SigMF Recording and associate them with a SigMF Collection:
 
 .. code-block:: python
 
-    from sigmf import SigMFFile, SigMFCollection
+    import numpy as np
+    import sigmf
 
     data_ci16 = np.zeros(1024, dtype=np.complex64)
 
@@ -216,7 +234,7 @@ Now lets add another SigMF Recording and associate them with a SigMF Collection:
     data_ci16.view(np.float32).astype(np.int16).tofile("example_ci16.sigmf-data")
 
     # create the metadata for the second file
-    meta_ci16 = SigMFFile(
+    meta_ci16 = sigmf.SigMFFile(
         data_file="example_ci16.sigmf-data",  # extension is optional
         global_info={
             sigmf.DATATYPE_KEY: "ci16_le",  # get_data_type_str() is only valid for numpy types
@@ -227,12 +245,12 @@ Now lets add another SigMF Recording and associate them with a SigMF Collection:
     meta_ci16.add_capture(0, metadata=meta.get_capture_info(0))
     meta_ci16.tofile("example_ci16.sigmf-meta")
 
-    collection = SigMFCollection(
+    collection = sigmf.SigMFCollection(
         ["example_cf32.sigmf-meta", "example_ci16.sigmf-meta"],
         metadata={
             "collection": {
-                SigMFCollection.AUTHOR_KEY: "sigmf@sigmf.org",
-                SigMFCollection.DESCRIPTION_KEY: "Collection of two all zero files.",
+                sigmf.AUTHOR_KEY: "sigmf@sigmf.org",
+                sigmf.DESCRIPTION_KEY: "Collection of two all zero files.",
             }
         },
     )

@@ -14,7 +14,7 @@ To install from source:
 
    $ git clone https://github.com/sigmf/sigmf-python.git
    $ cd sigmf-python
-   $ pip install .[test]
+   $ pip install --editable .[test]
 
 -------
 Testing
