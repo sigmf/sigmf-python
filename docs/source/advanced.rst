@@ -149,9 +149,7 @@ the recording of the SigMF logo used in this example `from the specification
     for adx, annotation in enumerate(annotations):
         annotation_start_idx = annotation[sigmf.SAMPLE_START_KEY]
         annotation_length = annotation[sigmf.SAMPLE_COUNT_KEY]
-        annotation_comment = annotation.get(
-            sigmf.COMMENT_KEY, f"[annotation {adx}]"
-        )
+        annotation_comment = annotation.get(sigmf.COMMENT_KEY, f"[annotation {adx}]")
 
         # Get capture info associated with the start of annotation
         capture = signal.get_capture_info(annotation_start_idx)
@@ -254,8 +252,6 @@ Now lets add another SigMF Recording and associate them with a SigMF Collection:
             }
         },
     )
-    streams = collection.get_stream_names()
-    sigmf = [collection.get_SigMFFile(stream) for stream in streams]
     collection.tofile("example_zeros.sigmf-collection")
 
 The SigMF Collection and its associated Recordings can now be loaded like this:
@@ -265,5 +261,13 @@ The SigMF Collection and its associated Recordings can now be loaded like this:
     import sigmf
 
     collection = sigmf.fromfile("example_zeros")
+
+    # list the file names in the collection
+    stream_names = collection.get_stream_names()
+
+    # load every recording in the collection as a SigMFFile
+    all_sigmffiles = [collection.get_SigMFFile(stream_name=stream_name) for stream_name in stream_names]
+
+    # or load individual recordings by name
     ci16_sigmffile = collection.get_SigMFFile(stream_name="example_ci16")
     cf32_sigmffile = collection.get_SigMFFile(stream_name="example_cf32")
