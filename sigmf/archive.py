@@ -13,6 +13,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+from . import keys
 from .error import SigMFFileError, SigMFFileExistsError
 from .keys import (
     SIGMF_ARCHIVE_EXT,
@@ -139,7 +140,11 @@ class SigMFArchive:
         # prepare temp files with metadata and data
         tmpdir = Path(tempfile.mkdtemp())
         meta_path = tmpdir / (arcname + SIGMF_METADATA_EXT)
-        data_path = tmpdir / (arcname + SIGMF_DATASET_EXT)
+        # for non-conforming datasets, keep the original file name so the
+        # archive contents match the `core:dataset` reference in the metadata
+        dataset_fn = self.sigmffile.get_global_field(keys.DATASET_KEY)
+        is_ncd = dataset_fn is not None
+        data_path = tmpdir / (dataset_fn if is_ncd else arcname + SIGMF_DATASET_EXT)
 
         with open(meta_path, "w") as handle:
             self.sigmffile.dump(handle)
@@ -170,7 +175,7 @@ class SigMFArchive:
         """Write archive as zip."""
         with zipfile.ZipFile(fileobj, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
             # add data file first (matches tar convention for faster metadata updates)
-            zf.write(data_path, arcname=f"{arcname}/{arcname}{SIGMF_DATASET_EXT}")
+            zf.write(data_path, arcname=f"{arcname}/{data_path.name}")
             zf.write(meta_path, arcname=f"{arcname}/{arcname}{SIGMF_METADATA_EXT}")
 
     @staticmethod
@@ -183,8 +188,15 @@ class SigMFArchive:
         return tarinfo
 
     def _ensure_data_file_set(self):
-        if not self.sigmffile.data_file and not isinstance(self.sigmffile.data_buffer, io.BytesIO):
-            raise SigMFFileError("No data file in SigMFFile; use `set_data_file` before archiving.")
+        """Raise if the SigMFFile has no dataset to archive."""
+        if self.sigmffile.data_file or isinstance(self.sigmffile.data_buffer, io.BytesIO):
+            return
+        if self.sigmffile.get_global_field(keys.METADATA_ONLY_KEY, False):
+            raise SigMFFileError(
+                "Cannot archive a metadata-only SigMF file because it has no dataset; "
+                "write a `.sigmf-meta` file instead."
+            )
+        raise SigMFFileError("No data file in SigMFFile; use `set_data_file` before archiving.")
 
     def _validate(self):
         self.sigmffile.validate()

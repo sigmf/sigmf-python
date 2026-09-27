@@ -230,11 +230,13 @@ class TestBlueWithNonSigMFRepo(unittest.TestCase):
         """test blue to sigmf conversion with archive output"""
         for blue_path in self.blue_paths:
             sigmf_path = self.tmp_path / f"{blue_path.stem}_archive"
-            meta = blue_to_sigmf(blue_path=blue_path, out_path=sigmf_path, create_archive=True)
-            self.assertIsInstance(meta, sigmf.SigMFFile)
-            if len(meta):
-                # check sample read consistency
+            try:
+                meta = blue_to_sigmf(blue_path=blue_path, out_path=sigmf_path, create_archive=True)
+                self.assertIsInstance(meta, sigmf.SigMFFile)
                 np.testing.assert_allclose(meta.read_samples(count=10), meta[0:10], atol=1e-6)
+            except sigmf.error.SigMFFileError as err:
+                # zero-sample files are metadata-only and cannot be packaged into an archive
+                self.assertIn("metadata-only", str(err))
 
     def test_create_ncd(self):
         """test direct NCD conversion"""

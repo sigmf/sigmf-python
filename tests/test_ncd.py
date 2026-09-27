@@ -8,6 +8,7 @@
 
 import copy
 import shutil
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,7 +21,7 @@ import sigmf
 from sigmf.error import SigMFFileError
 from sigmf.sigmffile import SigMFFile, fromfile
 
-from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
+from .conftest import TEST_FLOAT32_DATA, TEST_METADATA
 
 
 class TestNonConformingDataset(unittest.TestCase):
@@ -97,3 +98,103 @@ class TestNonConformingDataset(unittest.TestCase):
         # verify that the ncd data is loaded, not the conforming data
         loaded_data = loaded_meta.read_samples()
         self.assertTrue(np.array_equal(ncd_data, loaded_data), "NCD file should be prioritized over .sigmf-data")
+
+
+class TestHeaderFooter(unittest.TestCase):
+    """Look for quirks in NCD related to header and trailing bytes"""
+
+    # header/trailing byte counts to exercise
+    byte_strategy = st.integers(min_value=1, max_value=4096)
+
+    def setUp(self):
+        """create temporary path"""
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.samples = TEST_FLOAT32_DATA
+
+    def tearDown(self):
+        """remove temporary path"""
+        shutil.rmtree(self.temp_dir)
+
+    def _make_ncd(self, header_bytes: int, trailing_bytes: int, data_file_first: bool = True) -> SigMFFile:
+        """
+        Write an NCD with the given header/trailing bytes, returning its SigMFFile.
+
+        `data_file_first` selects whether `set_data_file` is called before
+        `add_capture` (the order used by the converters) or after.
+        """
+        ncd_path = Path(tempfile.mkdtemp(dir=self.temp_dir)) / "dat.bin"
+        with open(ncd_path, "wb") as handle:
+            handle.write(b"\x00" * header_bytes)
+            handle.write(self.samples.tobytes())
+            handle.write(b"\xff" * trailing_bytes)
+        global_info = {
+            sigmf.DATATYPE_KEY: "rf32_le",
+            sigmf.NUM_CHANNELS_KEY: 1,
+            sigmf.TRAILING_BYTES_KEY: trailing_bytes,
+            sigmf.DATASET_KEY: ncd_path.name,
+        }
+        capture = {sigmf.HEADER_BYTES_KEY: header_bytes}
+        meta = SigMFFile(global_info=global_info)
+        if data_file_first:
+            meta.set_data_file(data_file=ncd_path, offset=header_bytes)
+            meta.add_capture(0, metadata=capture)
+        else:
+            meta.add_capture(0, metadata=capture)
+            meta.set_data_file(data_file=ncd_path, offset=header_bytes)
+        return meta
+
+    @given(header_bytes=byte_strategy, trailing_bytes=byte_strategy)
+    def test_read(self, header_bytes: int, trailing_bytes: int) -> None:
+        """header/trailing bytes must not be exposed as samples"""
+        for data_file_first in (True, False):
+            meta = self._make_ncd(header_bytes, trailing_bytes, data_file_first=data_file_first)
+            self.assertEqual(len(self.samples), meta.sample_count)
+            self.assertEqual(len(self.samples), len(meta))
+            np.testing.assert_array_equal(self.samples, meta.read_samples())
+
+    @given(header_bytes=byte_strategy, trailing_bytes=byte_strategy)
+    def test_archive_roundtrip(self, header_bytes: int, trailing_bytes: int) -> None:
+        """archiving an NCD stores the original file and round-trips"""
+        meta = self._make_ncd(header_bytes, trailing_bytes)
+        archive_path = Path(meta.data_file).parent / "ncd.sigmf"
+        meta.tofile(archive_path)
+
+        # the archive must carry the NCD under its original name, not .sigmf-data
+        with tarfile.open(archive_path) as tar:
+            names = tar.getnames()
+        self.assertIn("ncd/dat.bin", names)
+        self.assertNotIn("ncd/ncd.sigmf-data", names)
+
+        # round-trip must recover exactly the original samples
+        loopback = fromfile(archive_path)
+        np.testing.assert_array_equal(self.samples, loopback.read_samples())
+
+    def test_oversized_trailing_bytes(self) -> None:
+        """metadata that skips more bytes than the dataset holds must raise"""
+        ncd_path = self.temp_dir / "dat.bin"
+        self.samples.tofile(ncd_path)
+        meta = SigMFFile(
+            global_info={
+                sigmf.DATATYPE_KEY: "rf32_le",
+                sigmf.NUM_CHANNELS_KEY: 1,
+                sigmf.TRAILING_BYTES_KEY: self.samples.nbytes + 1,
+                sigmf.DATASET_KEY: ncd_path.name,
+            }
+        )
+        with self.assertRaises(SigMFFileError):
+            meta.set_data_file(data_file=ncd_path, offset=0)
+
+    def test_oversized_header_bytes(self) -> None:
+        """adding a capture whose header_bytes exceeds the dataset must raise"""
+        ncd_path = self.temp_dir / "dat.bin"
+        self.samples.tofile(ncd_path)
+        meta = SigMFFile(
+            global_info={
+                sigmf.DATATYPE_KEY: "rf32_le",
+                sigmf.NUM_CHANNELS_KEY: 1,
+                sigmf.DATASET_KEY: ncd_path.name,
+            }
+        )
+        meta.set_data_file(data_file=ncd_path, offset=0)
+        with self.assertRaises(SigMFFileError):
+            meta.add_capture(0, metadata={sigmf.HEADER_BYTES_KEY: self.samples.nbytes + 1})

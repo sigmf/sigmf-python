@@ -16,7 +16,7 @@ from jsonschema.exceptions import ValidationError
 import sigmf
 from sigmf import SigMFFile
 
-from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
+from .conftest import TEST_FLOAT32_DATA, TEST_METADATA
 
 
 class NominalCases(unittest.TestCase):

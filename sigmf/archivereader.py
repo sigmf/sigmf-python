@@ -7,6 +7,7 @@
 """Access SigMF archives without extracting them."""
 
 import io
+import json
 import tarfile
 import zipfile
 from pathlib import Path
@@ -97,29 +98,55 @@ class SigMFArchiveReader:
         else:
             raise ValueError("Either `name` or `archive_buffer` must be not None.")
 
+    @staticmethod
+    def _get_ncd_dataset_name(json_contents):
+        """Return the Non-Conforming Dataset filename referenced by core:dataset, or None."""
+        if json_contents is None:
+            return None
+        try:
+            return json.loads(json_contents)[SigMFFile.GLOBAL_KEY].get(keys.DATASET_KEY)
+        except (ValueError, KeyError, TypeError):
+            return None
+
+    @classmethod
+    def _resolve_data_member(cls, member_names, json_contents):
+        """
+        Return the name of the dataset member within an archive.
+
+        Prefers a conforming `.sigmf-data` member; otherwise falls back to the
+        Non-Conforming Dataset file named by `core:dataset`, which is stored in
+        the archive under its original filename.
+        """
+        for name in member_names:
+            if name.endswith(SIGMF_DATASET_EXT):
+                return name
+        dataset_fn = cls._get_ncd_dataset_name(json_contents)
+        if dataset_fn:
+            for name in member_names:
+                if name.endswith(dataset_fn):
+                    return name
+        return None
+
     def _read_tar_obj(self, tar_obj):
         """Extract metadata and data from an open tar object."""
+        members = [memb for memb in tar_obj.getmembers() if memb.isfile()]
+
         json_contents = None
-        data_buffer = None
-        data_size_bytes = None
-
-        for memb in tar_obj.getmembers():
-            if memb.isdir():
-                continue
-            elif memb.isfile():
-                if memb.name.endswith(SIGMF_METADATA_EXT):
-                    with tar_obj.extractfile(memb) as fid:
-                        json_contents = fid.read()
-                elif memb.name.endswith(SIGMF_DATASET_EXT):
-                    data_size_bytes = memb.size
-                    with tar_obj.extractfile(memb) as fid:
-                        data_buffer = io.BytesIO(fid.read())
-
+        for memb in members:
+            if memb.name.endswith(SIGMF_METADATA_EXT):
+                with tar_obj.extractfile(memb) as fid:
+                    json_contents = fid.read()
         if json_contents is None:
             raise SigMFFileError("No .sigmf-meta file found in archive!")
-        if data_buffer is None:
+
+        data_name = self._resolve_data_member([m.name for m in members], json_contents)
+        if data_name is None:
             raise SigMFFileError("No .sigmf-data file found in archive!")
-        return json_contents, data_buffer, data_size_bytes
+
+        data_member = next(m for m in members if m.name == data_name)
+        with tar_obj.extractfile(data_member) as fid:
+            data_buffer = io.BytesIO(fid.read())
+        return json_contents, data_buffer, data_member.size
 
     def _read_tar(self, path):
         """Read a tar archive (possibly compressed) from disk."""
@@ -140,32 +167,44 @@ class SigMFArchiveReader:
 
     def _read_zip_obj(self, zf):
         """Extract metadata and data from an open ZipFile object."""
+        names = zf.namelist()
+
         json_contents = None
-        data_buffer = None
-        data_size_bytes = None
-
-        for member_name in zf.namelist():
-            if member_name.endswith(SIGMF_METADATA_EXT):
-                json_contents = zf.read(member_name)
-            elif member_name.endswith(SIGMF_DATASET_EXT):
-                raw = zf.read(member_name)
-                data_size_bytes = len(raw)
-                data_buffer = io.BytesIO(raw)
-
+        for name in names:
+            if name.endswith(SIGMF_METADATA_EXT):
+                json_contents = zf.read(name)
         if json_contents is None:
             raise SigMFFileError("No .sigmf-meta file found in archive!")
-        if data_buffer is None:
+
+        data_name = self._resolve_data_member(names, json_contents)
+        if data_name is None:
             raise SigMFFileError("No .sigmf-data file found in archive!")
-        return json_contents, data_buffer, data_size_bytes
+
+        raw = zf.read(data_name)
+        return json_contents, io.BytesIO(raw), len(raw)
+
+    def _ncd_byte_bounds(self, data_size_bytes):
+        """
+        Return the (offset, size) of the sample bytes within a stored dataset member.
+
+        For Non-Conforming Datasets the stored file includes its own container
+        header and trailer, described by `core:header_bytes` and
+        `core:trailing_bytes`. For conforming datasets both are zero.
+        """
+        offset = self.sigmffile._get_ncd_offset()
+        trailing = self.sigmffile.get_global_field(keys.TRAILING_BYTES_KEY, 0)
+        return offset, data_size_bytes - offset - trailing
 
     def _init_from_buffer(self, json_contents, data_buffer, data_size_bytes, skip_checksum, map_readonly, autoscale):
         """Initialize sigmffile from in-memory data."""
         self.sigmffile = SigMFFile(metadata=json_contents, autoscale=autoscale)
         self.sigmffile.validate()
+        offset, size_bytes = self._ncd_byte_bounds(data_size_bytes)
         self.sigmffile.set_data_file(
             data_buffer=data_buffer,
             skip_checksum=skip_checksum,
-            size_bytes=data_size_bytes,
+            offset=offset,
+            size_bytes=size_bytes,
             map_readonly=map_readonly,
         )
         self.ndim = self.sigmffile.ndim
@@ -174,27 +213,26 @@ class SigMFArchiveReader:
     def _init_from_tar_memmap(self, path, skip_checksum, map_readonly, autoscale):
         """Initialize sigmffile with memmap into uncompressed tar."""
         tar_obj = tarfile.open(path)
-        json_contents = None
-        data_offset = None
-        data_size_bytes = None
+        try:
+            members = [memb for memb in tar_obj.getmembers() if memb.isfile()]
 
-        for memb in tar_obj.getmembers():
-            if memb.isdir():
-                continue
-            elif memb.isfile():
+            json_contents = None
+            for memb in members:
                 if memb.name.endswith(SIGMF_METADATA_EXT):
                     with tar_obj.extractfile(memb) as fid:
                         json_contents = fid.read()
-                elif memb.name.endswith(SIGMF_DATASET_EXT):
-                    data_offset = memb.offset_data
-                    data_size_bytes = memb.size
+            if json_contents is None:
+                raise SigMFFileError("No .sigmf-meta file found in archive!")
 
-        tar_obj.close()
+            data_name = self._resolve_data_member([m.name for m in members], json_contents)
+            if data_name is None:
+                raise SigMFFileError("No .sigmf-data file found in archive!")
 
-        if json_contents is None:
-            raise SigMFFileError("No .sigmf-meta file found in archive!")
-        if data_offset is None:
-            raise SigMFFileError("No .sigmf-data file found in archive!")
+            data_member = next(m for m in members if m.name == data_name)
+            data_offset = data_member.offset_data
+            data_size_bytes = data_member.size
+        finally:
+            tar_obj.close()
 
         self.sigmffile = SigMFFile(metadata=json_contents, autoscale=autoscale)
         self.sigmffile.validate()
@@ -208,11 +246,12 @@ class SigMFArchiveReader:
             self.sigmffile.set_global_field(keys.SHA512_KEY, data_hash)
 
         # memmap directly into the tar file at the data offset
+        offset, size_bytes = self._ncd_byte_bounds(data_size_bytes)
         self.sigmffile.set_data_file(
             data_file=path,
             skip_checksum=True,
-            offset=data_offset,
-            size_bytes=data_size_bytes,
+            offset=data_offset + offset,
+            size_bytes=size_bytes,
             map_readonly=map_readonly,
         )
         # set_data_file sets DATASET_KEY for non-.sigmf-data files (NCD),

@@ -6,7 +6,6 @@
 
 """converter for wav containers"""
 
-import io
 import logging
 import tempfile
 import wave
@@ -165,7 +164,6 @@ def wav_to_sigmf(
         # create metadata-only SigMF for NCD pointing to original file
         meta = SigMFFile(global_info=global_info)
         meta.set_data_file(data_file=wav_path, offset=header_bytes)
-        meta.data_buffer = io.BytesIO()
         meta.add_capture(0, metadata=capture_info)
 
         # write metadata file if output path specified
