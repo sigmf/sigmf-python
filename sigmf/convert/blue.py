@@ -13,7 +13,6 @@ Converts the extracted metadata into SigMF format.
 
 import base64
 import getpass
-import io
 import logging
 import struct
 import tempfile
@@ -716,7 +715,6 @@ def construct_sigmf(
             global_info=global_info,
             skip_checksum=True,
         )
-        meta.data_buffer = io.BytesIO()
     else:
         meta = SigMFFile(
             data_file=filenames["data_fn"],
@@ -780,7 +778,6 @@ def construct_sigmf_ncd(
     # create NCD metadata-only SigMF pointing to original file
     meta = SigMFFile(global_info=global_info, skip_checksum=True)
     meta.set_data_file(data_file=blue_path, offset=header_bytes, skip_checksum=True, size_bytes=data_bytes)
-    meta.data_buffer = io.BytesIO()
     meta.add_capture(0, metadata=capture_info)
     log.debug("created NCD SigMF: %r", meta)
 

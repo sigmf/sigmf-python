@@ -7,7 +7,6 @@
 """Signal Hound Converter"""
 
 import getpass
-import io
 import logging
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -398,7 +397,6 @@ def signalhound_to_sigmf(
         # create metadata-only SigMF for NCD pointing to original file
         meta = SigMFFile(global_info=global_info)
         meta.set_data_file(data_file=data_file_path, offset=0)
-        meta.data_buffer = io.BytesIO()
         meta.add_capture(0, metadata=capture_info)
         _add_annotations(meta, annotations)
 

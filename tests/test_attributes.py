@@ -8,7 +8,7 @@ import sigmf
 from sigmf import SigMFFile
 from sigmf.error import SigMFAccessError
 
-from .testdata import TEST_METADATA
+from .conftest import TEST_METADATA
 
 SOME_LICENSE = "CC0-1.0"
 SOME_RECORDER = "HackRF Pro"
