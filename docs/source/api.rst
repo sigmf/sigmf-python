@@ -13,7 +13,6 @@ SigMF API
    sigmf.convert.wav
    sigmf.error
    sigmf.schema
-   sigmf.siggen
    sigmf.hashing
    sigmf.sigmffile
    sigmf.utils

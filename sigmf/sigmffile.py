@@ -908,10 +908,11 @@ class SigMFFile(SigMFMetafile):
 
         Examples
         --------
-        >>> from sigmf.siggen import SigMFGenerator
+        >>> import numpy as np
         >>> import tempfile
         >>> from pathlib import Path
-        >>> meta = SigMFGenerator().generate()
+        >>> import sigmf
+        >>> meta = sigmf.fromarray(np.arange(16, dtype=np.float32))
         >>> tmpdir = Path(tempfile.mkdtemp())
         >>> meta.tofile(tmpdir / 'recording')                # creates recording.sigmf-meta and recording.sigmf-data pair
         >>> meta.tofile(tmpdir / 'recording.sigmf')          # creates recording.sigmf (archive)

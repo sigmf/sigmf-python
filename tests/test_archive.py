@@ -320,7 +320,7 @@ class TestCompressedArchive(unittest.TestCase):
 
     def test_data_buffer_writes_data_file(self):
         """tofile() with data_buffer writes both metadata and data files"""
-        # create sigmffile with data_buffer (like SigMFGenerator does)
+        # create sigmffile with data_buffer (like sigmf.fromarray does)
         import io
 
         data_buffer = io.BytesIO()
