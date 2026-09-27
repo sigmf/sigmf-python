@@ -35,7 +35,3 @@ class SigMFFileExistsError(SigMFFileError):
 
 class SigMFConversionError(SigMFError):
     """Exceptions related to converting to SigMF format."""
-
-
-class SigMFGeneratorError(SigMFError):
-    """Exceptions related to synthetic signal generation."""
