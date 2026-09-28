@@ -26,3 +26,4 @@ docs/source/_autosummary/
 
 # dev related
 .vscode/
+.venv/
