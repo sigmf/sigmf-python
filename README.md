@@ -61,6 +61,33 @@ meta.tofile("recording")
 meta.tofile("recording.sigmf.gz")
 ```
 
+### HDF5 metadata sidecar (optional)
+
+For recordings with very large `captures`/`annotations`, the optional
+`hdf5-meta` extension can write a columnar HDF5 sidecar next to the
+`.sigmf-meta` file. The JSON metadata stays complete and authoritative; the
+sidecar is a smaller, faster cache for column-oriented access. Requires the
+optional `h5py` dependency: `pip install sigmf[hdf5]`.
+
+```python
+import sigmf
+from sigmf import hdf5
+
+# write the sidecar alongside the JSON (declares the hdf5-meta extension)
+meta.tofile("recording", write_hdf5=True)  # also writes recording.sigmf-meta.h5
+
+# fast columnar read: open ONLY the sidecar, no JSON parsing, no per-row dicts
+with hdf5.open("recording.sigmf-meta.h5") as fast:
+    starts = fast.annotations_column("core:sample_start")  # numpy column
+    table = fast.annotations_array()                       # structured array
+
+# or discover via the JSON once, then prefer the sidecar when present & fresh
+fast = hdf5.fromfile("recording.sigmf-meta")  # SigMFFileHDF5 if usable, else SigMFFile
+
+# the standard reader is unchanged and always reads pure JSON
+meta = sigmf.fromfile("recording.sigmf-meta")
+```
+
 ### Docs
 
 **[Please visit our documentation for full API reference and more info.](https://sigmf.readthedocs.io/en/latest/)**

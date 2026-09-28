@@ -13,6 +13,7 @@ from . import (
     archive,
     archivereader,
     error,
+    hdf5,
     keys,
     schema,
     siggen,
