@@ -18,7 +18,7 @@ from hypothesis import strategies as st
 
 from sigmf.sigmffile import SigMFCollection, SigMFFile, fromfile
 
-from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
+from .conftest import TEST_FLOAT32_DATA, TEST_METADATA
 
 
 class TestCollection(unittest.TestCase):

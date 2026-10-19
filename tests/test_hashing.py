@@ -19,7 +19,7 @@ import numpy as np
 import sigmf
 from sigmf import TRAILING_BYTES_KEY, SigMFFile, hashing
 
-from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
+from .conftest import TEST_FLOAT32_DATA, TEST_METADATA
 
 
 class TestHashCalculation(unittest.TestCase):

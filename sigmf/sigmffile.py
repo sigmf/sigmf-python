@@ -553,6 +553,11 @@ class SigMFFile(SigMFMetafile):
             capture_list,
             key=lambda item: item[keys.SAMPLE_START_KEY],
         )
+        # capture `header_bytes` changes how many bytes of the dataset are sample
+        # data, so a cached sample count must be recomputed when a dataset is set
+        if self.data_file is not None or self.data_buffer is not None:
+            self._check_byte_budget(sum([c.get(keys.HEADER_BYTES_KEY, 0) for c in self.get_captures()]))
+            self._count_samples()
 
     def get_captures(self):
         """
@@ -695,6 +700,26 @@ class SigMFFile(SigMFMetafile):
         """
         return dtype_info(self.datatype)["sample_size"]
 
+    def _get_total_byte_count(self) -> int:
+        """Return the total size in bytes of the dataset source (file or buffer)."""
+        if self.data_file is not None:
+            return self.data_file.stat().st_size
+        if self.data_buffer is not None:
+            return len(self.data_buffer.getbuffer())
+        return 0
+
+    def _check_byte_budget(self, skipped_bytes: int) -> None:
+        """Raise if the dataset is smaller than the header/trailing bytes its metadata says to skip."""
+        if self.data_file is None and self.data_buffer is None:
+            return
+        trailing_bytes = self.get_global_field(keys.TRAILING_BYTES_KEY, 0)
+        total_bytes = self._get_total_byte_count()
+        if skipped_bytes + trailing_bytes > total_bytes:
+            raise SigMFFileError(
+                f"Dataset is {total_bytes} bytes but its metadata skips {skipped_bytes} header "
+                f"and {trailing_bytes} trailing bytes."
+            )
+
     def _count_samples(self):
         """
         Count, set, and return the total number of samples in the data file.
@@ -713,13 +738,8 @@ class SigMFFile(SigMFMetafile):
             else:
                 # calculate from file size, subtracting header and trailing bytes
                 header_bytes = sum([c.get(keys.HEADER_BYTES_KEY, 0) for c in self.get_captures()])
-                if self.data_file is not None:
-                    file_bytes = self.data_file.stat().st_size
-                elif self.data_buffer is not None:
-                    file_bytes = len(self.data_buffer.getbuffer())
-                else:
-                    file_bytes = 0
-                sample_bytes = file_bytes - self.get_global_field(keys.TRAILING_BYTES_KEY, 0) - header_bytes
+                trailing_bytes = self.get_global_field(keys.TRAILING_BYTES_KEY, 0)
+                sample_bytes = self._get_total_byte_count() - trailing_bytes - header_bytes
 
             total_sample_size = self.get_sample_size() * self.num_channels
             sample_count, remainder = divmod(sample_bytes, total_sample_size)
@@ -783,6 +803,7 @@ class SigMFFile(SigMFMetafile):
         self.data_buffer = data_buffer
         self.data_offset = offset
         self.data_size_bytes = size_bytes
+        self._check_byte_budget(offset)
         self._count_samples()
 
         dtype = dtype_info(self.get_global_field(keys.DATATYPE_KEY))
@@ -792,7 +813,12 @@ class SigMFFile(SigMFMetafile):
 
         complex_int_separates = dtype["is_complex"] and dtype["is_fixedpoint"]
         mapped_dtype_size = dtype["component_size"] if complex_int_separates else dtype["sample_size"]
-        mapped_length = None if size_bytes is None else size_bytes // mapped_dtype_size
+        # bound the map to the sample data so that Non-Conforming Dataset header/trailing bytes are not exposed as samples
+        mapped_bytes = size_bytes
+        if mapped_bytes is None and (self.data_file is not None or self.data_buffer is not None):
+            trailing_bytes = self.get_global_field(keys.TRAILING_BYTES_KEY, 0)
+            mapped_bytes = self._get_total_byte_count() - offset - trailing_bytes
+        mapped_length = None if mapped_bytes is None else mapped_bytes // mapped_dtype_size
         mapped_reshape = (-1,)  # we can't use -1 in mapped_length ...
         if num_channels > 1:
             mapped_reshape = mapped_reshape + (num_channels,)
@@ -1010,11 +1036,10 @@ class SigMFFile(SigMFMetafile):
             # account for data_offset when seeking (important for NCDs)
             seek_position = first_byte + getattr(self, "data_offset", 0)
             fp.seek(seek_position, 0)
-
             data = np.fromfile(fp, dtype=data_type_in, count=nitems)
         elif self.data_buffer is not None:
             # handle offset for data_buffer like we do for data_file
-            buffer_data = self.data_buffer.getbuffer()[first_byte:]
+            buffer_data = self.data_buffer.getbuffer()[first_byte + getattr(self, "data_offset", 0) :]
             data = np.frombuffer(buffer_data, dtype=data_type_in, count=nitems)
         else:
             data = self._memmap

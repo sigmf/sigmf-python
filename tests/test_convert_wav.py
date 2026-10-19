@@ -6,6 +6,7 @@
 
 """Tests for WAV Converter"""
 
+import tarfile
 import tempfile
 import unittest
 import wave
@@ -106,6 +107,36 @@ class TestWAVConverter(unittest.TestCase):
         # test overwrite works
         meta2 = wav_to_sigmf(wav_path=self.wav_path, out_path=sigmf_path, create_ncd=True, overwrite=True)
         self.assertIsInstance(meta2, sigmf.SigMFFile)
+
+    def test_ncd_archive_keeps_original_filename(self) -> None:
+        """archiving an NCD stores the original file, and a .sigmf-meta write emits no data file"""
+        meta = wav_to_sigmf(wav_path=self.wav_path, create_ncd=True)
+        archive_path = self.tmp_path / "ncd_archive.sigmf"
+        meta.tofile(archive_path)
+
+        with tarfile.open(archive_path) as tar:
+            names = tar.getnames()
+        self.assertIn(f"ncd_archive/{self.wav_path.name}", names)
+        self.assertNotIn("ncd_archive/ncd_archive.sigmf-data", names)
+
+        # round-trip must return the same samples as the original NCD
+        loopback = sigmf.fromfile(archive_path)
+        np.testing.assert_array_equal(meta.read_samples(), loopback.read_samples())
+
+        # writing a .sigmf-meta must not emit a data file
+        meta_path = self.tmp_path / "ncd_meta.sigmf-meta"
+        meta.tofile(meta_path)
+        self.assertTrue(meta_path.exists())
+        self.assertFalse((self.tmp_path / "ncd_meta.sigmf-data").exists())
+
+    def test_ncd_archive_compressed_roundtrip(self) -> None:
+        """compressed NCD archives (gz/zip) must round-trip losslessly"""
+        meta = wav_to_sigmf(wav_path=self.wav_path, create_ncd=True)
+        for ext in (".sigmf.gz", ".sigmf.zip"):
+            archive_path = self.tmp_path / f"ncd_archive{ext}"
+            meta.tofile(archive_path)
+            loopback = sigmf.fromfile(archive_path)
+            np.testing.assert_array_equal(meta.read_samples(), loopback.read_samples())
 
 
 class TestWAVWithNonSigMFRepo(unittest.TestCase):

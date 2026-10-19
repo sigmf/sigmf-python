@@ -20,7 +20,7 @@ import numpy as np
 from sigmf import DATATYPE_KEY, SigMFFile, error, fromfile
 from sigmf.archivereader import SigMFArchiveReader
 
-from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
+from .conftest import TEST_FLOAT32_DATA, TEST_METADATA
 
 
 class TestSigMFArchive(unittest.TestCase):
@@ -47,6 +47,16 @@ class TestSigMFArchive(unittest.TestCase):
         self.sigmf_object.data_file = None
         with self.assertRaises(error.SigMFFileError):
             self.sigmf_object.archive(name=self.temp_path_archive, overwrite=True)
+
+    def test_archive_metadata_only_raises(self):
+        """Test that archiving a metadata-only file raises a descriptive error"""
+        meta = SigMFFile()
+        meta.set_global_field(DATATYPE_KEY, "rf32_le")
+        meta.set_global_field("core:metadata_only", True)
+        meta.add_capture(0)
+        with self.assertRaises(error.SigMFFileError) as context:
+            meta.tofile(self.temp_dir / "meta_only.sigmf")
+        self.assertIn("metadata-only", str(context.exception))
 
     def test_archive_creation_validates_metadata(self):
         """Test that invalid metadata raises error"""

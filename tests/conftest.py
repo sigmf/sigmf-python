@@ -10,12 +10,25 @@ import os
 import tempfile
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+import sigmf
 from sigmf import DATATYPE_KEY, VERSION_KEY, __specification__
 from sigmf.sigmffile import SigMFFile
 
-from .testdata import TEST_FLOAT32_DATA, TEST_METADATA
+TEST_FLOAT32_DATA = np.arange(16, dtype=np.float32)
+TEST_METADATA = {
+    SigMFFile.ANNOTATION_KEY: [{sigmf.SAMPLE_COUNT_KEY: 16, sigmf.SAMPLE_START_KEY: 0}],
+    SigMFFile.CAPTURE_KEY: [{sigmf.SAMPLE_START_KEY: 0}],
+    SigMFFile.GLOBAL_KEY: {
+        sigmf.DATATYPE_KEY: "rf32_le",
+        sigmf.SHA512_KEY: "f4984219b318894fa7144519185d1ae81ea721c6113243a52b51e444512a39d74cf41a4cec3c5d000bd7277cc71232c04d7a946717497e18619bdbe94bfeadd6",
+        sigmf.NUM_CHANNELS_KEY: 1,
+        sigmf.OFFSET_KEY: 0,
+        sigmf.VERSION_KEY: __specification__,
+    },
+}
 
 
 def get_nonsigmf_path() -> Path:
